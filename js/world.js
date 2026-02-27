@@ -4,16 +4,24 @@ import { toast, updateNodeList } from "./ui.js";
 const cam = { x: 0, y: 0, zoom: 1 };
 const nodes = [];
 
+// --- PERFORMANCE: Dirty render + cached grid pattern ---
+let worldDirty = true;
+let gridPattern = null;
+let gridStepPx = 120; // Basisgröße Pattern (unabhängig vom Zoom)
+
 let dragging = false;
 let last = { x: 0, y: 0 };
 let dist = 0;
 let pointerId = null;
 let focusZoom = false;
 
+export function markWorldDirty() {
+  worldDirty = true;
+}
+
 export function initWorld() {
   nodes.length = 0;
 
-  // WICHTIG: keine echten Zeilenumbrüche in Strings -> benutze \n wenn nötig
   const base = [
     { id: "A1", type: "npc", name: "Neon Gate", npc: "NYX", tag: "Clean start. Too clean.", district: 1 },
     { id: "M1", type: "mission", name: "Relay Tap", npc: "NYX", tag: "Trace the signal.", district: 1 },
@@ -21,7 +29,6 @@ export function initWorld() {
     { id: "M2", type: "mission", name: "Cache Run", npc: "GHOST", tag: "Grab the data. Run.", district: 1 },
   ];
 
-  // simple layout
   base.forEach((n, i) => {
     nodes.push({
       ...n,
@@ -31,12 +38,14 @@ export function initWorld() {
   });
 
   updateNodeList(nodes, game.selectedNodeId, (id) => selectNodeById(id));
+  markWorldDirty();
 }
 
 export function worldSetFocusToggle() {
   focusZoom = !focusZoom;
   cam.zoom = focusZoom ? 1.6 : 1.0;
   toast(focusZoom ? "FOCUS ON." : "FOCUS OFF.");
+  markWorldDirty();
 }
 
 function worldToScreen(wx, wy) {
@@ -52,28 +61,64 @@ function screenToWorld(sx, sy) {
   };
 }
 
+// --- Grid pattern cache (sehr schnell) ---
+function ensureGridPattern(ctx) {
+  if (gridPattern) return;
+
+  const c = document.createElement("canvas");
+  c.width = gridStepPx;
+  c.height = gridStepPx;
+
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+
+  // dünne Linien (wie vorher)
+  g.strokeStyle = "rgba(0,243,255,.10)";
+  g.lineWidth = 1;
+
+  // vertical
+  g.beginPath();
+  g.moveTo(0.5, 0);
+  g.lineTo(0.5, c.height);
+  g.stroke();
+
+  // horizontal
+  g.beginPath();
+  g.moveTo(0, 0.5);
+  g.lineTo(c.width, 0.5);
+  g.stroke();
+
+  gridPattern = ctx.createPattern(c, "repeat");
+}
+
 export function worldTick() {
+  // Nur rendern, wenn sichtbar UND dirty
+  if (game.mode !== "WORLD" && game.mode !== "TITLE") return;
+  if (!worldDirty) return;
+
   const c = game.canvases.world;
   const ctx = game.ctx.world;
   if (!c || !ctx) return;
 
+  ensureGridPattern(ctx);
+
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
-  // grid
-  ctx.strokeStyle = "rgba(0,243,255,.10)";
-  ctx.lineWidth = 1;
-  const step = 60 * cam.zoom;
-  const offX = (-cam.x * cam.zoom) % step;
-  const offY = (-cam.y * cam.zoom) % step;
+  // --- GRID (Pattern statt 200+ Lines) ---
+  ctx.save();
+  ctx.fillStyle = gridPattern;
 
-  for (let x = offX; x < window.innerWidth; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, window.innerHeight); ctx.stroke();
-  }
-  for (let y = offY; y < window.innerHeight; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(window.innerWidth, y); ctx.stroke();
-  }
+  // Verschiebung: so wirkt es wie “bewegtes” Grid
+  // Wir nehmen cam.x/y und mappen auf Pattern-Offset
+  const px = (-cam.x * cam.zoom) % gridStepPx;
+  const py = (-cam.y * cam.zoom) % gridStepPx;
+  ctx.translate(px, py);
 
-  // nodes
+  // Pattern füllen: etwas größer, weil wir translate nutzen
+  ctx.fillRect(-gridStepPx, -gridStepPx, window.innerWidth + gridStepPx * 2, window.innerHeight + gridStepPx * 2);
+  ctx.restore();
+
+  // --- NODES ---
   nodes.forEach(n => {
     const p = worldToScreen(n.x, n.y);
     const active = game.selectedNodeId === n.id;
@@ -87,10 +132,12 @@ export function worldTick() {
     ctx.font = "12px ui-monospace, monospace";
     ctx.fillText(n.name, p.x + 22, p.y + 5);
   });
+
+  // jetzt clean
+  worldDirty = false;
 }
 
 export function handleWorldPointer(type, e) {
-  // wichtig für mobile: keine page-scroll/zoom
   e.preventDefault();
 
   if (type === "down") {
@@ -111,6 +158,8 @@ export function handleWorldPointer(type, e) {
     cam.x -= dx / cam.zoom;
     cam.y -= dy / cam.zoom;
     last = { x: e.clientX, y: e.clientY };
+
+    markWorldDirty();
     return;
   }
 
@@ -119,7 +168,6 @@ export function handleWorldPointer(type, e) {
     dragging = false;
     try { e.target.releasePointerCapture(pointerId); } catch {}
 
-    // tap?
     if (dist < 10) {
       const w = screenToWorld(e.clientX, e.clientY);
       const hit = nodes.find(n => Math.hypot(w.x - n.x, w.y - n.y) < 28);
@@ -136,7 +184,6 @@ function selectNodeById(id) {
   game.money += (n.type === "mission" ? 0 : 10);
   game.heat = Math.min(100, game.heat + (n.type === "mission" ? 8 : 3));
 
-  // right panel text
   const npcName = document.getElementById("npcName");
   const npcRole = document.getElementById("npcRole");
   const dialog = document.getElementById("dialogText");
@@ -147,4 +194,6 @@ function selectNodeById(id) {
 
   updateNodeList(nodes, game.selectedNodeId, (pickId) => selectNodeById(pickId));
   toast("NODE LOCKED.");
+
+  markWorldDirty();
 }

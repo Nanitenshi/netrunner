@@ -1,33 +1,36 @@
-// js/save.js
-const SAVE_KEY = "neon_alley_v1";
+import { game } from "./core.js";
+
+const KEY = "neon_alley_save_v1";
 
 export function loadSave() {
   try {
-    const data = localStorage.getItem(SAVE_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch (e) {
-    console.error("Save corrupted", e);
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
     return null;
   }
 }
 
 export function saveNow() {
-  // Wir importieren den State dynamisch, um kreisförmige Abhängigkeiten zu vermeiden
-  import("./core.js").then((module) => {
-    const game = module.game;
+  try {
     const data = {
       money: game.money,
       heat: game.heat,
       frags: game.frags,
-      missionsDone: game.missionsDone,
-      upgrades: game.upgrades,
       district: game.district,
-      storyIndex: game.storyIndex
+      globalProgress: game.globalProgress,
+      storyIndex: game.storyIndex,
+      missionsDone: game.missionsDone,
+      upgrades: { ...game.upgrades },
+      selectedNodeId: game.selectedNodeId
     };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-  });
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
 }
 
 export function resetSave() {
-  localStorage.removeItem(SAVE_KEY);
+  try { localStorage.removeItem(KEY); } catch {}
 }

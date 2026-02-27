@@ -1,6 +1,5 @@
 import { game } from "./core.js";
 import { toast, updateNodeList } from "./ui.js";
-import { openNpcDialog } from "./npc.js";
 
 const cam = { x: 0, y: 0, zoom: 1 };
 const nodes = [];
@@ -9,122 +8,95 @@ let dragging = false;
 let last = { x: 0, y: 0 };
 let dist = 0;
 let pointerId = null;
-
-function $(id) { return document.getElementById(id); }
+let focusZoom = false;
 
 export function initWorld() {
   nodes.length = 0;
-  
+
+  // WICHTIG: keine echten Zeilenumbrüche in Strings -> benutze \n wenn nötig
   const base = [
-    { id: "A1", type: "npc",     name: "Neon Gate",       npc: "NYX",     tag: "Clean start. Too clean.", district: 1 },
-    { id: "M1", type: "mission", name: "Relay Tap",       npc: "NYX",     tag: "Trace the signal.",       district: 1 },
-    { id: "B1", type: "npc",     name: "Alley Market",    npc: "GHOST",   tag: "Dirty deals. Fast.",      district: 1 },
-    { id: "M2", type: "mission", name: "Courier Run",     npc: "MARA",    tag: "Deliver under heat.",     district: 2 },
-    { id: "C1", type: "npc",     name: "Ripperdoc Den",   npc: "DOC K",   tag: "Upgrade or die.",         district: 2 },
-    { id: "M3", type: "mission", name: "ICE Sweep",       npc: "NYX",     tag: "Avoid scanners.",         district: 3 },
-    { id: "D1", type: "boss",    name: "ARASAKA PERIMETER",npc: "ARASAKA",tag: "First wall.",             district: 4 },
+    { id: "A1", type: "npc", name: "Neon Gate", npc: "NYX", tag: "Clean start. Too clean.", district: 1 },
+    { id: "M1", type: "mission", name: "Relay Tap", npc: "NYX", tag: "Trace the signal.", district: 1 },
+    { id: "B1", type: "npc", name: "Alley Market", npc: "GHOST", tag: "Dirty deals. Quick money.", district: 1 },
+    { id: "M2", type: "mission", name: "Cache Run", npc: "GHOST", tag: "Grab the data. Run.", district: 1 },
   ];
 
-  let startX = -220, startY = -120;
+  // simple layout
   base.forEach((n, i) => {
     nodes.push({
       ...n,
-      x: startX + i * 140 + (Math.random() * 40 - 20),
-      y: startY + Math.sin(i * 0.6) * 90 + (Math.random() * 30 - 15),
-      r: (n.type === "boss") ? 28 : 20
+      x: (i % 2 ? 180 : -180) + (i * 20),
+      y: -120 + i * 120
     });
   });
 
-  updateNodeList(nodes);
-  
-  // Nutze selectNode für die Initiale Auswahl, um saubere State-Updates zu garantieren
-  if (!game.selectedNodeId) selectNode(nodes[0].id);
-
-  // Keyboard Support für Desktop
-  window.addEventListener("keydown", handleKeyboardPan);
+  updateNodeList(nodes, game.selectedNodeId, (id) => selectNodeById(id));
 }
 
-function handleKeyboardPan(e) {
-  if (game.mode !== "WORLD" && game.mode !== "TITLE") return;
-  const speed = 25 / cam.zoom;
-  switch (e.key) {
-    case "w": case "ArrowUp":    cam.y -= speed; break;
-    case "s": case "ArrowDown":  cam.y += speed; break;
-    case "a": case "ArrowLeft":  cam.x -= speed; break;
-    case "d": case "ArrowRight": cam.x += speed; break;
-  }
+export function worldSetFocusToggle() {
+  focusZoom = !focusZoom;
+  cam.zoom = focusZoom ? 1.6 : 1.0;
+  toast(focusZoom ? "FOCUS ON." : "FOCUS OFF.");
 }
 
-export function worldTick(dt) {
+function worldToScreen(wx, wy) {
+  return {
+    x: (window.innerWidth / 2) + (wx - cam.x) * cam.zoom,
+    y: (window.innerHeight / 2) + (wy - cam.y) * cam.zoom
+  };
+}
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - window.innerWidth / 2) / cam.zoom + cam.x,
+    y: (sy - window.innerHeight / 2) / cam.zoom + cam.y
+  };
+}
+
+export function worldTick() {
+  const c = game.canvases.world;
   const ctx = game.ctx.world;
-  if (!ctx) return;
-  const w = window.innerWidth, h = window.innerHeight;
+  if (!c || !ctx) return;
 
-  ctx.clearRect(0, 0, w, h);
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
-  // --- Grid (1 Draw Call Optimization) ---
-  ctx.strokeStyle = "rgba(0,243,255,0.08)";
+  // grid
+  ctx.strokeStyle = "rgba(0,243,255,.10)";
   ctx.lineWidth = 1;
-  const step = 70 * cam.zoom;
+  const step = 60 * cam.zoom;
   const offX = (-cam.x * cam.zoom) % step;
   const offY = (-cam.y * cam.zoom) % step;
 
-  ctx.beginPath();
-  for (let gx = offX; gx < w; gx += step) { ctx.moveTo(gx, 0); ctx.lineTo(gx, h); }
-  for (let gy = offY; gy < h; gy += step) { ctx.moveTo(0, gy); ctx.lineTo(w, gy); }
-  ctx.stroke();
-
-  // --- Route Lines (1 Draw Call Optimization) ---
-  if (nodes.length > 1) {
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    
-    const startPos = worldToScreen(nodes[0].x, nodes[0].y);
-    ctx.moveTo(startPos.x, startPos.y);
-    
-    for (let i = 1; i < nodes.length; i++) {
-      const p = worldToScreen(nodes[i].x, nodes[i].y);
-      ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
+  for (let x = offX; x < window.innerWidth; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, window.innerHeight); ctx.stroke();
+  }
+  for (let y = offY; y < window.innerHeight; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(window.innerWidth, y); ctx.stroke();
   }
 
-  // --- Nodes Rendering ---
+  // nodes
   nodes.forEach(n => {
     const p = worldToScreen(n.x, n.y);
     const active = game.selectedNodeId === n.id;
-    const scaledRadius = n.r * cam.zoom;
 
-    let col = "rgba(0,243,255,0.55)";
-    if (n.type === "npc") col = "rgba(255,0,124,0.50)";
-    if (n.type === "boss") col = "rgba(255,80,90,0.60)";
-    if (active) col = "#ffffff";
-
-    ctx.fillStyle = col;
+    ctx.fillStyle = active ? "#ffffff" : (n.type === "mission" ? "rgba(0,243,255,.55)" : "rgba(255,0,124,.55)");
     ctx.beginPath();
-    ctx.arc(p.x, p.y, scaledRadius, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 16 * cam.zoom, 0, Math.PI * 2);
     ctx.fill();
 
-    // Dynamischer Label-Offset basierend auf Zoom
-    ctx.fillStyle = "rgba(255,255,255,0.95)";
-    ctx.font = "12px monospace";
-    ctx.fillText(n.name, p.x + scaledRadius + 6, p.y + 4);
-
-    ctx.fillStyle = "rgba(180,200,215,0.75)";
-    ctx.font = "10px monospace";
-    ctx.fillText(n.tag, p.x + scaledRadius + 6, p.y + 18);
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.font = "12px ui-monospace, monospace";
+    ctx.fillText(n.name, p.x + 22, p.y + 5);
   });
 }
 
 export function handleWorldPointer(type, e) {
-  const canvas = game.canvases.world;
+  // wichtig für mobile: keine page-scroll/zoom
+  e.preventDefault();
 
   if (type === "down") {
-    e.preventDefault();
-    pointerId = e.pointerId;
-    canvas.setPointerCapture(pointerId);
     dragging = true;
+    pointerId = e.pointerId;
+    try { e.target.setPointerCapture(pointerId); } catch {}
     last = { x: e.clientX, y: e.clientY };
     dist = 0;
     return;
@@ -134,82 +106,45 @@ export function handleWorldPointer(type, e) {
     if (!dragging) return;
     const dx = e.clientX - last.x;
     const dy = e.clientY - last.y;
-    
-    // Mathematisch korrekte Distanz
-    dist += Math.hypot(dx, dy);
+    dist += Math.abs(dx) + Math.abs(dy);
 
     cam.x -= dx / cam.zoom;
     cam.y -= dy / cam.zoom;
-
     last = { x: e.clientX, y: e.clientY };
     return;
   }
 
-  if (type === "up") {
+  if (type === "up" || type === "cancel") {
     if (!dragging) return;
     dragging = false;
-    try { canvas.releasePointerCapture(pointerId); } catch {}
+    try { e.target.releasePointerCapture(pointerId); } catch {}
 
-    // Tap Detection (verzeihender für Wurstfinger auf Tablets)
-    if (dist < 15) {
-      const rect = canvas.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      const wpos = screenToWorld(sx, sy);
-
-      // Hit-Test mit leicht vergrößerter Touch-Hitbox
-      let hit = nodes.find(n => Math.hypot(wpos.x - n.x, wpos.y - n.y) < (n.r + 20));
-      
-      if (hit) selectNode(hit.id);
+    // tap?
+    if (dist < 10) {
+      const w = screenToWorld(e.clientX, e.clientY);
+      const hit = nodes.find(n => Math.hypot(w.x - n.x, w.y - n.y) < 28);
+      if (hit) selectNodeById(hit.id);
     }
-    return;
-  }
-
-  if (type === "cancel") {
-    dragging = false;
-    return;
   }
 }
 
-export function getSelected() {
-  return nodes.find(n => n.id === game.selectedNodeId) || null;
-}
+function selectNodeById(id) {
+  const n = nodes.find(x => x.id === id);
+  if (!n) return;
 
-export function selectNode(id) {
-  game.selectedNodeId = id;
-  const n = getSelected();
-  
-  if (n) {
-    // Distrikt-Progression nur bei Klick updaten
-    game.district = Math.max(game.district, n.district);
-    
-    openNpcDialog(n);
-    toast(`Selected: ${n.name}`);
-  }
-  
-  updateNodeList(nodes);
-}
+  game.selectedNodeId = n.id;
+  game.money += (n.type === "mission" ? 0 : 10);
+  game.heat = Math.min(100, game.heat + (n.type === "mission" ? 8 : 3));
 
-export function getNodes() {
-  return nodes;
-}
+  // right panel text
+  const npcName = document.getElementById("npcName");
+  const npcRole = document.getElementById("npcRole");
+  const dialog = document.getElementById("dialogText");
 
-function worldToScreen(wx, wy) {
-  return {
-    x: (window.innerWidth / 2) + (wx - cam.x) * cam.zoom,
-    y: (window.innerHeight / 2) + (wy - cam.y) * cam.zoom
-  };
-}
+  if (npcName) npcName.textContent = `${n.npc} // ${n.name}`;
+  if (npcRole) npcRole.textContent = n.type === "mission" ? "MISSION OFFER" : "NPC SIGNAL";
+  if (dialog) dialog.textContent = n.tag;
 
-function screenToWorld(sx, sy) {
-  return {
-    x: (sx - window.innerWidth / 2) / cam.zoom + cam.x,
-    y: (sy - window.innerHeight / 2) / cam.zoom + cam.y
-  };
+  updateNodeList(nodes, game.selectedNodeId, (pickId) => selectNodeById(pickId));
+  toast("NODE LOCKED.");
 }
-
-export function toggleZoom() {
-  cam.zoom = (cam.zoom < 1.4) ? 1.8 : 1.0;
-  toast(`Zoom: ${cam.zoom.toFixed(1)}x`);
-      }
-    

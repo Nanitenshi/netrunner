@@ -1,28 +1,24 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#05070a">
-  <title>NEON ALLEY — Overworld Prototype</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+  <meta name="theme-color" content="#05070a"/>
+  <title>NEON ALLEY — Hybrid</title>
 
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <script type="module" src="./js/core.js"></script>
 </head>
-
 <body>
   <main id="app" class="scanlines">
 
-    <!-- CANVAS LAYER -->
     <div id="canvas-container">
       <canvas id="threeCanvas"></canvas>
       <canvas id="worldCanvas"></canvas>
       <canvas id="missionCanvas"></canvas>
     </div>
 
-    <!-- UI LAYER -->
     <div id="ui">
-
-      <!-- TOP HUD -->
       <header id="hudTop" class="hud hidden">
         <div class="chip panel">DISTRICT <b id="hudDistrict">Sector-07</b></div>
         <div class="chip panel">TIME <b id="hudTime">DAY</b></div>
@@ -31,42 +27,75 @@
         <div class="chip panel pink">FRAGS <b id="hudFrags">0</b></div>
       </header>
 
-      <!-- TITLE SCREEN -->
       <section id="title" class="centerWrap">
         <div class="panel card">
           <h1 class="logo">NEON ALLEY</h1>
           <h2 class="sub">TABLET OVERWORLD PROTOTYPE</h2>
-
           <p class="muted">
-            Tablet: Ziehen zum Bewegen · Tippen auf Nodes<br>
-            Desktop: WASD / Pfeiltasten
+            Tablet: Ziehen zum Bewegen · Tippen auf Nodes.<br>
+            Desktop: WASD / Pfeiltasten.
           </p>
-
           <div class="row">
             <button type="button" id="btnStart" class="btn yellow">Enter Night City</button>
+            <button type="button" id="btnContinue" class="btn">Continue</button>
             <button type="button" id="btnReset" class="btn pink">Reset Save</button>
           </div>
         </div>
       </section>
 
-      <!-- NPC PANEL -->
+      <aside id="leftPanel" class="panel side hidden">
+        <header class="sideHead">
+          <div>
+            <h3 class="sideTitle" style="margin:0;">OVERWORLD</h3>
+            <div class="muted small">Tippe einen Node (NPC/Mission)</div>
+          </div>
+          <div class="row leftRow" style="margin:0;">
+            <button id="btnFocus" class="btn small">Focus</button>
+            <button id="btnSave" class="btn small">Save</button>
+          </div>
+        </header>
+
+        <div id="nodeList" class="list"></div>
+
+        <div class="archive">
+          <div class="muted small">STORY ARCHIVE</div>
+          <div id="storyArchive"></div>
+        </div>
+      </aside>
+
       <aside id="rightPanel" class="panel side pink hidden">
         <header class="sideHead">
           <div>
-            <h3 id="npcName" class="sideTitle pinkText">SIGNAL</h3>
-            <div id="npcRole" class="muted small">Wähle einen Sektor auf der Karte</div>
+            <h3 class="sideTitle pinkText" id="npcName" style="margin:0;">SIGNAL</h3>
+            <div class="muted small" id="npcRole">Wähle einen Sektor auf der Karte...</div>
+          </div>
+          <div class="row leftRow" style="margin:0;">
+            <button id="btnTalk" class="btn small pink">Talk</button>
           </div>
         </header>
-        <div id="dialogText" class="dialog">Keine Daten empfangen</div>
+
+        <div id="dialogText" class="dialog">Keine Daten empfangen.</div>
+        <div id="choices" class="choices"></div>
       </aside>
 
-      <!-- TOAST -->
-      <div id="toast" class="toast hidden"></div>
+      <header id="missionHud" class="hud missionHud hidden">
+        <div class="chip panel">MISSION <b id="missionName">—</b></div>
+        <div class="chip panel pink">INTRUSION <b id="missionTimer">—</b></div>
+        <div class="chip panel">SCORE <b id="missionScore">0</b></div>
+      </header>
 
+      <section id="result" class="centerWrap hidden">
+        <div class="panel card">
+          <h2 class="sub">RESULT</h2>
+          <div id="resultText" class="muted">—</div>
+          <div class="row">
+            <button id="btnBackToWorld" class="btn yellow" type="button">Back to Overworld</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
     </div>
   </main>
-
-  <!-- IMPORTANT: SCRIPT AT END -->
-  <script type="module" src="js/core.js"></script>
 </body>
 </html>

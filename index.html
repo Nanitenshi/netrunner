@@ -11,6 +11,7 @@
 </head>
 <body>
   <main id="app" class="scanlines">
+
     <div id="canvas-container">
       <canvas id="threeCanvas"></canvas>
       <canvas id="worldCanvas"></canvas>
@@ -35,14 +36,14 @@
           <h2 class="sub">TABLET-FIRST // OVERWORLD + MISSIONS</h2>
           <p class="muted">
             Tablet: Ziehen zum Navigieren · Tippen auf Nodes.<br>
-            Danach: Links Node auswählen → <b>Start Mission</b>.
+            Danach: Links Node auswählen → Start Mission.
           </p>
           <div class="row">
             <button type="button" id="btnStart" class="btn yellow">Enter Night City</button>
             <button type="button" id="btnReset" class="btn pink">Reset Save</button>
           </div>
-          <p class="muted small" style="margin-top:12px">
-            Tipp: Wenn’s ruckelt → Quality-Schalter unten auf <b>Perf</b>.
+          <p class="muted small" style="margin-top:10px">
+            Tipp: Wenn’s ruckelt → Quality-Schalter unten auf <b>PERF</b>.
           </p>
         </div>
       </section>
@@ -54,20 +55,19 @@
             <h3 class="sideTitle">ROUTE / NODES</h3>
             <div class="muted small">Tippe Node oder wähle aus Liste</div>
           </div>
-          <div class="row leftRow" style="margin:0">
-            <button id="btnFocus" class="btn small">Focus</button>
-          </div>
         </header>
 
-        <div id="nodeList" class="list"></div>
-
         <div class="row leftRow">
-          <button id="btnTalk" class="btn pink">Talk</button>
-          <button id="btnMission" class="btn yellow">Start Mission</button>
+          <button type="button" id="btnFocus" class="btn small">Focus</button>
+          <button type="button" id="btnTalk" class="btn small pink">Talk</button>
+          <button type="button" id="btnMission" class="btn small yellow">Start Mission</button>
         </div>
 
-        <div class="muted small" id="leftHint">
-          Wähle einen Mission-Node (Badge: MISSION).
+        <div id="nodeList" class="list" aria-label="Nodes"></div>
+
+        <div class="archive">
+          <div class="muted small" style="margin-bottom:6px">STORY LOG</div>
+          <div id="storyArchive"></div>
         </div>
       </aside>
 
@@ -80,41 +80,36 @@
           </div>
         </header>
         <div id="dialogText" class="dialog">Keine Daten empfangen.</div>
-
-        <div class="archive">
-          <div class="muted small">STORY LOG</div>
-          <div id="storyArchive"></div>
-        </div>
       </aside>
 
       <!-- MISSION HUD -->
       <header id="missionHud" class="hud missionHud hidden">
-        <div class="chip panel">MISSION <b id="hudMissionName">—</b></div>
-        <div class="chip panel">OBJECTIVE <b id="hudObjective">—</b></div>
-        <div class="chip panel pink">TIMER <b id="hudTimer">—</b></div>
-        <div class="chip panel">SCORE <b id="hudScore">0</b></div>
-        <div class="chip panel">ABILITY <b id="hudAbility">—</b></div>
+        <div class="chip panel">MISSION <b id="mHudType">—</b></div>
+        <div class="chip panel">OBJECTIVE <b id="mHudObjective">—</b></div>
+        <div class="chip panel pink" id="mHudTimerBox">TIMER <b id="mHudTimer">—</b></div>
+        <div class="chip panel">SCORE <b id="mHudScore">0</b></div>
+        <div class="chip panel">ABILITY <b id="mHudAbility">—</b></div>
       </header>
 
       <!-- RESULT -->
       <section id="result" class="centerWrap hidden">
         <div class="panel card pink">
-          <h2 class="sub">MISSION REPORT</h2>
-          <div id="resultText" style="text-align:left; font-size:13px; line-height:1.45"></div>
+          <h2 class="sub" style="margin-top:0">MISSION REPORT</h2>
+          <div class="dialog" id="resText">—</div>
           <div class="row">
-            <button id="btnBackToWorld" class="btn yellow">Back to City</button>
+            <button type="button" id="btnBackToCity" class="btn yellow">Back to City</button>
           </div>
         </div>
       </section>
 
       <!-- BOTTOM BAR -->
-      <div id="bottomBar">
-        <div class="panel pink toastBar">
-          <b>COMMS:</b> <span id="ticker">Nyx: “Wir starten sauber. Aber die Stadt bleibt nie sauber.”</span>
+      <div id="bottomBar" class="bottomBar">
+        <div id="commsTicker" class="panel pink comms">
+          <b>COMMS:</b> Nyx: “Wir starten sauber. Aber die Stadt bleibt nie sauber.”
         </div>
-
-        <button class="btn small" id="qualityBtn" data-mode="auto">AUTO</button>
-        <button class="btn small" id="btnPause">Pause</button>
+        <button type="button" id="btnQuality" class="btn small" data-mode="perf">PERF</button>
+        <button type="button" id="btnPause" class="btn small">PAUSE</button>
+        <button type="button" id="btnSave" class="btn small">AUTO</button>
       </div>
 
       <div id="toast" class="toast hidden"></div>

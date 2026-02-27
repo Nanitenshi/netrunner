@@ -1,155 +1,200 @@
 import { game } from "./core.js";
 import { toast } from "./ui.js";
 
+let paused = false;
+
 let mission = {
   active: false,
-  type: "cache",
-  nodeId: null,
+  name: "CACHE POP",
   timer: 0,
-  timeLimit: 12,
+  timeLimit: 10.0,
   score: 0,
-  targets: [],
-  lastSpawn: 0
+  objective: 20,
+  popped: 0
 };
 
-export function startMission(type = "cache", nodeId = null) {
-  mission.active = true;
-  mission.type = type;
-  mission.nodeId = nodeId;
-  mission.timer = 0;
-  mission.score = 0;
-  mission.targets = [];
-  mission.lastSpawn = 0;
+// Circles (Caches)
+const caches = [];
+let pointerDown = false;
 
-  // HUD init
-  setHud(`CACHE POP`, `0 / 20`, `${mission.timeLimit.toFixed(1)}s`, `0`, `—`);
-
-  // Sofort 2 targets
-  spawnTarget(); spawnTarget();
-  toast("MISSION STARTED.");
+export function missionSetPaused(p) {
+  paused = !!p;
 }
 
-export function handleMissionPointer(kind, e) {
-  if (!mission.active) return;
-  if (kind !== "down") return;
+export function missionCancelPointer() {
+  pointerDown = false;
+}
 
-  const ctx = game.ctx.mission;
-  const c = game.canvases.mission;
-  if (!ctx || !c) return;
+// spawn caches in screen-space but stored as world coords (canvas space)
+function spawnCaches() {
+  caches.length = 0;
+  const W = window.innerWidth;
+  const H = window.innerHeight;
 
-  const rect = c.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  // safe area: oben HUD, unten bottomBar
+  const top = 120;
+  const bottom = H - 120;
 
-  // hit test
-  for (let i = mission.targets.length - 1; i >= 0; i--) {
-    const t = mission.targets[i];
-    const d = Math.hypot(x - t.x, y - t.y);
-    if (d <= t.r) {
-      mission.score += 1;
-      mission.targets.splice(i, 1);
-      toast("+1");
-      break;
+  for (let i = 0; i < 6; i++) {
+    caches.push({
+      x: 120 + Math.random() * (W - 240),
+      y: top + Math.random() * (bottom - top),
+      rOuter: 56 + Math.random() * 18,
+      rInner: 22 + Math.random() * 10,
+      alive: true,
+      pulse: 0
+    });
+  }
+}
+
+export function startMission(type = "cache") {
+  mission.active = true;
+  mission.timer = 0;
+  mission.score = 0;
+  mission.popped = 0;
+  mission.name = "CACHE POP";
+  mission.timeLimit = 10.0;
+  mission.objective = 20;
+
+  spawnCaches();
+
+  toast("MISSION START: CACHE POP");
+}
+
+// Hit test: tap must land near outer ring
+function hitCache(x, y) {
+  // pick nearest alive
+  let best = null;
+  let bestD = 1e9;
+
+  for (const c of caches) {
+    if (!c.alive) continue;
+    const d = Math.hypot(x - c.x, y - c.y);
+    // accept if within outer ring thickness region
+    const ringMin = c.rInner - 10;
+    const ringMax = c.rOuter + 10;
+    if (d >= ringMin && d <= ringMax) {
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
     }
+  }
+  return best;
+}
+
+export function handleMissionPointer(type, e) {
+  if (!mission.active || paused) return;
+
+  if (type === "down") {
+    pointerDown = true;
+
+    const x = e.clientX;
+    const y = e.clientY;
+
+    const c = hitCache(x, y);
+    if (c) {
+      c.alive = false;
+      c.pulse = 1;
+
+      mission.score += 1;
+      mission.popped += 1;
+
+      // respawn one new cache somewhere else (keeps action going)
+      setTimeout(() => {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        const top = 120;
+        const bottom = H - 120;
+        caches.push({
+          x: 120 + Math.random() * (W - 240),
+          y: top + Math.random() * (bottom - top),
+          rOuter: 56 + Math.random() * 18,
+          rInner: 22 + Math.random() * 10,
+          alive: true,
+          pulse: 0
+        });
+      }, 120);
+
+      toast("CACHE POP!");
+    }
+  }
+
+  if (type === "up" || type === "cancel") {
+    pointerDown = false;
+  }
+}
+
+function drawMission() {
+  const c = game.canvases.mission;
+  const ctx = game.ctx.mission;
+  if (!c || !ctx) return;
+
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+  // subtle vignette
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+  // draw caches
+  for (const k of caches) {
+    if (!k.alive) continue;
+
+    // outer cyan ring
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "rgba(0,243,255,0.85)";
+    ctx.beginPath();
+    ctx.arc(k.x, k.y, k.rOuter, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // inner pink ring
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(255,0,124,0.75)";
+    ctx.beginPath();
+    ctx.arc(k.x, k.y, k.rInner, 0, Math.PI * 2);
+    ctx.stroke();
   }
 }
 
 export function missionTick(dt, onFinish) {
   if (!mission.active) return;
 
-  mission.timer += dt;
-  mission.lastSpawn += dt;
-
-  // spawn cadence (etwas schneller, aber capped)
-  const spawnEvery = Math.max(0.28, 0.55 - game.globalProgress * 0.22);
-  if (mission.lastSpawn >= spawnEvery) {
-    mission.lastSpawn = 0;
-    if (mission.targets.length < 6) spawnTarget();
-  }
-
+  // Render immer (auch wenn paused), aber Timer nur wenn nicht paused
   drawMission();
 
-  const remain = Math.max(0, mission.timeLimit - mission.timer);
-  setHud(`CACHE POP`, `${mission.score} / 20`, `${remain.toFixed(1)}s`, `${mission.score}`, `—`);
+  // HUD
+  const elMission = document.getElementById("hudMission");
+  if (elMission) elMission.textContent = mission.name;
 
-  // finish conditions
-  if (mission.score >= 20 || mission.timer >= mission.timeLimit) {
+  const elObj = document.getElementById("hudObjective");
+  if (elObj) elObj.textContent = `${mission.popped} / ${mission.objective}`;
+
+  const elScore = document.getElementById("hudScore") || document.getElementById("hudFrags");
+  if (elScore) elScore.textContent = String(mission.score);
+
+  const elTimer = document.getElementById("hudTimer");
+  if (elTimer) {
+    const left = Math.max(0, mission.timeLimit - mission.timer);
+    elTimer.textContent = `${left.toFixed(1)}s`;
+  }
+
+  if (paused) return;
+
+  mission.timer += dt;
+
+  const done = (mission.popped >= mission.objective) || (mission.timer >= mission.timeLimit);
+  if (done) {
     mission.active = false;
 
-    const gainedMoney = mission.score * 6;
-    const gainedFrags = Math.max(1, Math.floor(mission.score / 2));
-
-    const storyLine = (mission.score >= 20)
-      ? `> Fragment secured. Nyx: "Sauber. Das war ein echter Slice."`
-      : `> Partial dump. Ghost: "Nicht perfekt, aber brauchbar."`;
-
-    const report = `Result: ${mission.score} caches\nPayout: E$ ${gainedMoney}\nFrags: +${gainedFrags}`;
-
     const resultData = {
-      storyLine,
-      report,
       apply: (g) => ({
-        money: g.money + gainedMoney,
-        frags: g.frags + gainedFrags,
+        money: g.money + mission.score * 3,
+        frags: g.frags + mission.score,
         heat: Math.min(100, g.heat + 6)
       })
     };
 
-    toast("MISSION COMPLETE.");
+    toast(`MISSION COMPLETE: +${mission.score} FRAGS`);
     onFinish(resultData);
   }
-}
-
-function spawnTarget() {
-  const c = game.canvases.mission;
-  if (!c) return;
-
-  const pad = 60;
-  const x = pad + Math.random() * (window.innerWidth - pad * 2);
-  const y = pad + Math.random() * (window.innerHeight - pad * 2);
-  const r = 26 + Math.random() * 10;
-
-  mission.targets.push({ x, y, r, life: 1.0 });
-}
-
-function drawMission() {
-  const ctx = game.ctx.mission;
-  if (!ctx) return;
-
-  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-  // subtle vignette
-  ctx.fillStyle = "rgba(0,0,0,0.15)";
-  ctx.fillRect(0,0,window.innerWidth, window.innerHeight);
-
-  // targets
-  for (const t of mission.targets) {
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(0,243,255,0.9)";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r * 0.55, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255,0,124,0.65)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-
-  // center hint
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.font = "12px ui-monospace, monospace";
-  ctx.fillText("TIP: TAP THE CACHES", 16, window.innerHeight - 18);
-}
-
-function setHud(type, obj, timer, score, ability) {
-  const a = document.getElementById("mHudType"); if (a) a.textContent = type;
-  const b = document.getElementById("mHudObjective"); if (b) b.textContent = obj;
-  const c = document.getElementById("mHudTimer"); if (c) c.textContent = timer;
-  const d = document.getElementById("mHudScore"); if (d) d.textContent = score;
-  const e = document.getElementById("mHudAbility"); if (e) e.textContent = ability;
-
-  const box = document.getElementById("mHudTimerBox");
-  if (box) box.classList.toggle("warnPulse", parseFloat(timer) <= 3.5);
 }

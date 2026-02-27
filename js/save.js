@@ -1,6 +1,6 @@
 import { game } from "./core.js";
 
-const KEY = "neon_alley_save_v1";
+const KEY = "neon_alley_save_v2";
 
 export function loadSave() {
   try {
@@ -22,13 +22,11 @@ export function saveNow() {
       globalProgress: game.globalProgress,
       storyIndex: game.storyIndex,
       missionsDone: game.missionsDone,
-      upgrades: { ...game.upgrades },
+      upgrades: game.upgrades,
       selectedNodeId: game.selectedNodeId
     };
     localStorage.setItem(KEY, JSON.stringify(data));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 export function resetSave() {

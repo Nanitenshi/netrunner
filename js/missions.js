@@ -2,20 +2,19 @@ import { game } from "./core.js";
 import { toast } from "./ui.js";
 
 let paused = false;
+let pointerDown = false;
 
-let mission = {
+const mission = {
   active: false,
-  name: "CACHE POP",
+  type: "CACHE POP",
   timer: 0,
   timeLimit: 10.0,
   score: 0,
-  objective: 20,
-  popped: 0
+  popped: 0,
+  objective: 20
 };
 
-// Circles (Caches)
 const caches = [];
-let pointerDown = false;
 
 export function missionSetPaused(p) {
   paused = !!p;
@@ -25,26 +24,44 @@ export function missionCancelPointer() {
   pointerDown = false;
 }
 
-// spawn caches in screen-space but stored as world coords (canvas space)
+function setHud() {
+  const t = document.getElementById("mHudType");
+  if (t) t.textContent = mission.type;
+
+  const o = document.getElementById("mHudObjective");
+  if (o) o.textContent = `${mission.popped} / ${mission.objective}`;
+
+  const s = document.getElementById("mHudScore");
+  if (s) s.textContent = String(mission.score);
+
+  const timer = document.getElementById("mHudTimer");
+  if (timer) timer.textContent = `${Math.max(0, mission.timeLimit - mission.timer).toFixed(1)}s`;
+}
+
 function spawnCaches() {
   caches.length = 0;
   const W = window.innerWidth;
   const H = window.innerHeight;
 
-  // safe area: oben HUD, unten bottomBar
-  const top = 120;
+  // spielbereich (HUD oben, bottom bar unten)
+  const top = 140;
   const bottom = H - 120;
 
   for (let i = 0; i < 6; i++) {
-    caches.push({
-      x: 120 + Math.random() * (W - 240),
-      y: top + Math.random() * (bottom - top),
-      rOuter: 56 + Math.random() * 18,
-      rInner: 22 + Math.random() * 10,
-      alive: true,
-      pulse: 0
-    });
+    caches.push(makeCache(
+      120 + Math.random() * (W - 240),
+      top + Math.random() * (bottom - top)
+    ));
   }
+}
+
+function makeCache(x, y) {
+  return {
+    x, y,
+    rOuter: 56 + Math.random() * 20,
+    rInner: 22 + Math.random() * 10,
+    alive: true
+  };
 }
 
 export function startMission(type = "cache") {
@@ -52,27 +69,26 @@ export function startMission(type = "cache") {
   mission.timer = 0;
   mission.score = 0;
   mission.popped = 0;
-  mission.name = "CACHE POP";
+  mission.type = "CACHE POP";
   mission.timeLimit = 10.0;
   mission.objective = 20;
 
   spawnCaches();
-
+  setHud();
   toast("MISSION START: CACHE POP");
 }
 
-// Hit test: tap must land near outer ring
 function hitCache(x, y) {
-  // pick nearest alive
   let best = null;
   let bestD = 1e9;
 
   for (const c of caches) {
     if (!c.alive) continue;
     const d = Math.hypot(x - c.x, y - c.y);
-    // accept if within outer ring thickness region
-    const ringMin = c.rInner - 10;
-    const ringMax = c.rOuter + 10;
+
+    const ringMin = c.rInner - 12;
+    const ringMax = c.rOuter + 12;
+
     if (d >= ringMin && d <= ringMax) {
       if (d < bestD) {
         bestD = d;
@@ -95,28 +111,21 @@ export function handleMissionPointer(type, e) {
     const c = hitCache(x, y);
     if (c) {
       c.alive = false;
-      c.pulse = 1;
-
       mission.score += 1;
       mission.popped += 1;
-
-      // respawn one new cache somewhere else (keeps action going)
-      setTimeout(() => {
-        const W = window.innerWidth;
-        const H = window.innerHeight;
-        const top = 120;
-        const bottom = H - 120;
-        caches.push({
-          x: 120 + Math.random() * (W - 240),
-          y: top + Math.random() * (bottom - top),
-          rOuter: 56 + Math.random() * 18,
-          rInner: 22 + Math.random() * 10,
-          alive: true,
-          pulse: 0
-        });
-      }, 120);
-
+      setHud();
       toast("CACHE POP!");
+
+      // respawn direkt (aber nicht genau am selben Ort)
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const top = 140;
+      const bottom = H - 120;
+
+      caches.push(makeCache(
+        120 + Math.random() * (W - 240),
+        top + Math.random() * (bottom - top)
+      ));
     }
   }
 
@@ -125,33 +134,30 @@ export function handleMissionPointer(type, e) {
   }
 }
 
-function drawMission() {
-  const c = game.canvases.mission;
+function draw() {
   const ctx = game.ctx.mission;
-  if (!c || !ctx) return;
+  if (!ctx) return;
 
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
-  // subtle vignette
+  // dunkel overlay
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
-  // draw caches
-  for (const k of caches) {
-    if (!k.alive) continue;
+  // caches
+  for (const c of caches) {
+    if (!c.alive) continue;
 
-    // outer cyan ring
     ctx.lineWidth = 6;
     ctx.strokeStyle = "rgba(0,243,255,0.85)";
     ctx.beginPath();
-    ctx.arc(k.x, k.y, k.rOuter, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, c.rOuter, 0, Math.PI * 2);
     ctx.stroke();
 
-    // inner pink ring
     ctx.lineWidth = 4;
     ctx.strokeStyle = "rgba(255,0,124,0.75)";
     ctx.beginPath();
-    ctx.arc(k.x, k.y, k.rInner, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, c.rInner, 0, Math.PI * 2);
     ctx.stroke();
   }
 }
@@ -159,30 +165,18 @@ function drawMission() {
 export function missionTick(dt, onFinish) {
   if (!mission.active) return;
 
-  // Render immer (auch wenn paused), aber Timer nur wenn nicht paused
-  drawMission();
+  // Render immer
+  draw();
 
-  // HUD
-  const elMission = document.getElementById("hudMission");
-  if (elMission) elMission.textContent = mission.name;
-
-  const elObj = document.getElementById("hudObjective");
-  if (elObj) elObj.textContent = `${mission.popped} / ${mission.objective}`;
-
-  const elScore = document.getElementById("hudScore") || document.getElementById("hudFrags");
-  if (elScore) elScore.textContent = String(mission.score);
-
-  const elTimer = document.getElementById("hudTimer");
-  if (elTimer) {
-    const left = Math.max(0, mission.timeLimit - mission.timer);
-    elTimer.textContent = `${left.toFixed(1)}s`;
-  }
+  // HUD immer
+  setHud();
 
   if (paused) return;
 
   mission.timer += dt;
 
   const done = (mission.popped >= mission.objective) || (mission.timer >= mission.timeLimit);
+
   if (done) {
     mission.active = false;
 

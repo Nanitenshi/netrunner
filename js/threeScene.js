@@ -1,268 +1,126 @@
-import { initThree, setMoodProgress } from "./threeScene.js";
-import { initWorld, worldTick, handleWorldPointer, worldCancelPointer, worldSetFocusToggle } from "./world.js";
-import { initUI, uiTick, toast } from "./ui.js";
-import { loadSave, saveNow, resetSave } from "./save.js";
-import { openNpcDialog, npcTick } from "./npc.js";
-import { startMission, missionTick, handleMissionPointer, missionCancelPointer, missionSetPaused } from "./missions.js";
+// js/threeScene.js
+import { game } from "./core.js";
 
-export const game = {
-  mode: "TITLE",
-  paused: false,
+let canvas, ctx;
+let t = 0;
+let mood = 0;
 
-  money: 0,
-  heat: 0,
-  frags: 0,
-  district: 7,
-  globalProgress: 0,
-  missionsDone: 0,
+let paused = false;
+let dpr = 1;
+let perf = true;
 
-  settings: {
-    quality: "perf",   // "perf" | "sharp"
-    autosave: true
-  },
+export function initThree(c, opts = { dpr: 1, perf: true }) {
+  canvas = c;
 
-  selectedNodeId: null,
+  // desynchronized hilft auf manchen Android Tablets spürbar (weniger Jank)
+  ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
 
-  canvases: { three: null, world: null, mission: null },
-  ctx: { world: null, mission: null }
-};
-
-const $ = (id) => document.getElementById(id);
-
-/* ================= MODE ================= */
-
-export function setMode(next) {
-  if (game.mode === next) return;
-
-  worldCancelPointer?.();
-  missionCancelPointer?.();
-
-  game.mode = next;
-
-  if (game.canvases.world) {
-    const on = next === "TITLE" || next === "WORLD";
-    game.canvases.world.style.display = on ? "block" : "none";
-    game.canvases.world.style.pointerEvents = on ? "auto" : "none";
-  }
-
-  if (game.canvases.mission) {
-    const on = next === "MISSION";
-    game.canvases.mission.style.display = on ? "block" : "none";
-    game.canvases.mission.style.pointerEvents = on ? "auto" : "none";
-  }
-
-  const toggle = (id, show) => {
-    const el = $(id);
-    if (el) el.classList.toggle("hidden", !show);
-  };
-
-  toggle("title", next === "TITLE");
-  toggle("hudTop", next !== "TITLE");
-  toggle("leftPanel", next === "WORLD");
-  toggle("rightPanel", next === "WORLD");
-  toggle("missionHud", next === "MISSION");
-  toggle("result", next === "RESULT");
-
-  setPaused(false);
+  setQuality(opts);
+  requestAnimationFrame(loop);
 }
-
-/* ================= PAUSE ================= */
 
 export function setPaused(p) {
-  game.paused = !!p;
-  missionSetPaused?.(game.paused);
-
-  const btnPause = $("btnPause");
-  if (btnPause) btnPause.textContent = game.paused ? "RESUME" : "PAUSE";
-
-  toast(game.paused ? "PAUSED." : "RESUMED.");
+  paused = !!p;
 }
 
-export function togglePause() {
-  setPaused(!game.paused);
+export function setQuality(opts = {}) {
+  if (!canvas || !ctx) return;
+
+  if (typeof opts.dpr === "number") dpr = Math.max(1, Math.min(2, opts.dpr));
+  if (typeof opts.perf === "boolean") perf = opts.perf;
+
+  // Canvas in DevicePixelRatio rendern, aber in CSS-Pixel zeichnen
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+
+  // Wichtig: danach in CSS Pixel zeichnen
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-/* ================= DPR ================= */
-
-function getDpr() {
-  const raw = window.devicePixelRatio || 1;
-  const cap = (game.settings.quality === "perf") ? 1.15 : 1.6;
-  return Math.max(1, Math.min(cap, raw));
+export function setMoodProgress(p) {
+  mood = Math.max(0, Math.min(1, p));
 }
 
-function resizeAll() {
-  const dpr = getDpr();
+function loop() {
+  if (!ctx) return;
 
-  for (const key of ["world", "mission"]) {
-    const canvas = game.canvases[key];
-    if (!canvas) continue;
-
-    canvas.width = Math.floor(window.innerWidth * dpr);
-    canvas.height = Math.floor(window.innerHeight * dpr);
-
-    const ctx = game.ctx[key];
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Pause = Hintergrund weiterhin minimal redrawen? -> hier komplett stoppen
+  if (!paused) {
+    // dt ist nicht nötig, wir laufen stabil mit rAF
+    t += 0.016;
+    drawCity2D();
   }
+
+  requestAnimationFrame(loop);
 }
 
-/* ================= POINTER ================= */
+function drawCity2D() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-function bindCanvasPointers(canvas, handler, onlyWhen) {
-  if (!canvas) return;
+  // Clear in CSS Pixel (ctx ist auf dpr transformiert)
+  ctx.clearRect(0, 0, w, h);
 
-  const opts = { passive: false };
+  const layers = perf ? 3 : 5; // etwas aggressiver fürs Tablet
+  const count = perf ? 14 : 22;
 
-  const fire = (type, e) => {
-    if (!onlyWhen()) return;
-    if (game.paused) return;
-    e.preventDefault();
-    handler(type, e);
-  };
+  // mood colors
+  const day = { r: 10, g: 18, b: 32 };
+  const dusk = { r: 30, g: 12, b: 42 };
+  const night = { r: 5, g: 7, b: 10 };
 
-  canvas.addEventListener("pointerdown", (e) => {
-    if (!onlyWhen()) return;
-    e.preventDefault();
-    try { canvas.setPointerCapture(e.pointerId); } catch {}
-    handler("down", e);
-  }, opts);
+  const c1 = lerpRGB(day, dusk, Math.min(1, mood * 2));
+  const c2 = lerpRGB(dusk, night, Math.max(0, (mood - 0.5) * 2));
+  const sky = mixRGB(c1, c2, Math.max(0, (mood - 0.5) * 2));
 
-  canvas.addEventListener("pointermove", (e) => fire("move", e), opts);
+  // sky gradient
+  const grd = ctx.createLinearGradient(0, 0, 0, h);
+  grd.addColorStop(0, `rgb(${sky.r},${sky.g},${sky.b})`);
+  grd.addColorStop(1, `rgb(0,0,0)`);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, w, h);
 
-  canvas.addEventListener("pointerup", (e) => {
-    if (!onlyWhen()) return;
-    e.preventDefault();
-    try { canvas.releasePointerCapture(e.pointerId); } catch {}
-    handler("up", e);
-  }, opts);
+  // parallax buildings
+  for (let i = 0; i < layers; i++) {
+    const depth = layers === 1 ? 0 : i / (layers - 1);
+    const baseY = h * (0.38 + depth * 0.34);
+    const scroll = (t * (10 + depth * 26)) % 160;
 
-  canvas.addEventListener("pointercancel", (e) => {
-    if (!onlyWhen()) return;
-    e.preventDefault();
-    try { canvas.releasePointerCapture(e.pointerId); } catch {}
-    handler("cancel", e);
-  }, opts);
-}
+    for (let b = 0; b < count; b++) {
+      const bw = 22 + ((b * 13) % 36) + depth * 34;
+      const bh = 50 + ((b * 37) % 150) + depth * 240;
 
-/* ================= BOOT ================= */
+      const x = ((b * 95) - scroll) % (w + 240) - 120;
+      const y = baseY - bh;
 
-function boot() {
-  game.canvases.three = $("threeCanvas");
-  game.canvases.world = $("worldCanvas");
-  game.canvases.mission = $("missionCanvas");
+      ctx.fillStyle = `rgba(10,16,24,${0.26 + depth * 0.22})`;
+      ctx.fillRect(x, y, bw, bh);
 
-  if (game.canvases.world)
-    game.ctx.world = game.canvases.world.getContext("2d", { alpha: true });
+      // Neon windows (super billig)
+      // Perf: nur jede 3. Säule, Quality: mehr
+      if (!perf || (b % 3 === 0)) {
+        const neon = (b % 2 === 0) ? "rgba(0,243,255,0.16)" : "rgba(255,0,124,0.12)";
+        ctx.fillStyle = neon;
 
-  if (game.canvases.mission)
-    game.ctx.mission = game.canvases.mission.getContext("2d", { alpha: true });
-
-  const saved = loadSave();
-  if (saved) Object.assign(game, saved);
-
-  initUI({
-    setMode,
-    startMission: () => {
-      if (!game.selectedNodeId) {
-        toast("SELECT A NODE FIRST.");
-        return;
+        const step = perf ? 22 : 18;
+        for (let wy = 0; wy < bh; wy += step) {
+          if (((wy + b * 7) % (step * 2)) === 0) ctx.fillRect(x + 5, y + wy + 10, Math.max(2, bw - 10), 2);
+        }
       }
-      startMission("cache");
-      setMode("MISSION");
-    },
-    openNpcDialog,
-    saveNow,
-    resetSave,
-    togglePause,
-    toggleQuality: () => {
-      game.settings.quality =
-        game.settings.quality === "perf" ? "sharp" : "perf";
-      saveNow();
-      resizeAll();
-      toast(game.settings.quality.toUpperCase());
-    },
-    toggleAutosave: () => {
-      game.settings.autosave = !game.settings.autosave;
-      saveNow();
-      toast(game.settings.autosave ? "AUTO ON" : "AUTO OFF");
-    },
-    focusToggle: () => worldSetFocusToggle?.()
-  });
-
-  // 🔥 WICHTIG: PerfGetter gibt STRING zurück
-  if (game.canvases.three) {
-    initThree(game.canvases.three, () => game.settings.quality);
-  }
-
-  initWorld();
-
-  bindCanvasPointers(
-    game.canvases.world,
-    handleWorldPointer,
-    () => game.mode === "TITLE" || game.mode === "WORLD"
-  );
-
-  bindCanvasPointers(
-    game.canvases.mission,
-    handleMissionPointer,
-    () => game.mode === "MISSION"
-  );
-
-  $("btnStart")?.addEventListener("click", () => {
-    setMode("WORLD");
-    toast("NIGHT CITY ONLINE.");
-  });
-
-  $("btnReset")?.addEventListener("click", () => {
-    if (confirm("PURGE ALL DATA?")) {
-      resetSave();
-      location.reload();
-    }
-  });
-
-  $("btnBackToCity")?.addEventListener("click", () => setMode("WORLD"));
-
-  resizeAll();
-  window.addEventListener("resize", resizeAll);
-
-  setMode("TITLE");
-  toast("SYSTEM READY.");
-
-  requestAnimationFrame(loop);
-}
-
-/* ================= LOOP ================= */
-
-let lastTime = 0;
-
-function loop(now) {
-  const dt = Math.min(0.033, ((now - lastTime) / 1000) || 0);
-  lastTime = now;
-
-  game.globalProgress = Math.min(1, game.missionsDone / 12);
-  setMoodProgress(game.globalProgress);
-
-  if (!game.paused) {
-    if (game.mode === "WORLD" || game.mode === "TITLE") {
-      worldTick(dt);
-      npcTick(dt);
-    }
-
-    if (game.mode === "MISSION") {
-      missionTick(dt, (resultData) => {
-        Object.assign(game, resultData.apply(game));
-        game.missionsDone += 1;
-        if (game.settings.autosave) saveNow();
-        setMode("RESULT");
-      });
     }
   }
 
-  uiTick(dt);
-  requestAnimationFrame(loop);
+  // haze
+  ctx.fillStyle = perf ? "rgba(0,243,255,0.02)" : "rgba(0,243,255,0.03)";
+  ctx.fillRect(0, 0, w, h);
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", boot);
-} else {
-  boot();
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpRGB(a, b, t) {
+  return {
+    r: Math.round(lerp(a.r, b.r, t)),
+    g: Math.round(lerp(a.g, b.g, t)),
+    b: Math.round(lerp(a.b, b.b, t)),
+  };
 }
+function mixRGB(a, b, t) { return lerpRGB(a, b, t); }

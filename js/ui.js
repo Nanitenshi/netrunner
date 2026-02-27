@@ -1,41 +1,44 @@
 import { game } from "./core.js";
 import { saveNow } from "./save.js";
+import { getSelectedNode } from "./world.js";
 
 const $ = (id) => document.getElementById(id);
-
 let api = null;
 let toastTimer = null;
-let storyLines = [];
 
 export function initUI(_api) {
   api = _api;
 
-  const btnTalk = $("btnTalk");
-  const btnMission = $("btnMission");
-  const btnFocus = $("btnFocus");
-  const btnReset = $("btnReset");
-  const btnBack = $("btnBackToWorld");
-  const qualityBtn = $("qualityBtn");
-  const pauseBtn = $("btnPause");
+  $("btnTalk")?.addEventListener("click", () => api.openNpcDialog(game.selectedNodeId));
 
-  if (btnTalk) btnTalk.onclick = () => api.onTalk();
-  if (btnMission) btnMission.onclick = () => api.onStartMission();
-  if (btnFocus) btnFocus.onclick = () => api.onFocus();
-  if (btnReset) btnReset.onclick = () => api.onReset();
-  if (btnBack) btnBack.onclick = () => api.onBackToWorld();
-  if (pauseBtn) pauseBtn.onclick = () => api.onPause();
+  // FIX: Mission Button -> nutzt api.startMission (macht setMode("MISSION") in core.js)
+  $("btnMission")?.addEventListener("click", () => {
+    const n = getSelectedNode();
+    if (!n) return toast("NO NODE SELECTED.");
+    if (n.type !== "mission") return toast("SELECT A MISSION NODE.");
 
-  if (qualityBtn) {
-    qualityBtn.onclick = () => {
-      const next = (qualityBtn.dataset.mode === "auto")
-        ? "perf"
-        : (qualityBtn.dataset.mode === "perf" ? "quality" : "auto");
-      qualityBtn.dataset.mode = next;
-      qualityBtn.textContent = next.toUpperCase();
-      api.onQuality(next);
-      toast(`QUALITY: ${next.toUpperCase()}`);
-    };
-  }
+    api.startMission("cache", n.id);
+  });
+
+  $("btnFocus")?.addEventListener("click", () => api.focusToggle());
+
+  $("btnQuality")?.addEventListener("click", () => {
+    const btn = $("btnQuality");
+    const next = (game.perfMode === "perf") ? "quality" : "perf";
+    btn.dataset.mode = next;
+    btn.textContent = next.toUpperCase();
+    api.setPerf(next);
+  });
+
+  $("btnPause")?.addEventListener("click", () => {
+    toast("Autosave.");
+    saveNow();
+  });
+
+  $("btnSave")?.addEventListener("click", () => {
+    toast("Saved.");
+    saveNow();
+  });
 
   window.addEventListener("visibilitychange", () => {
     if (document.hidden) saveNow();
@@ -50,21 +53,7 @@ export function toast(msg) {
   el.classList.remove("hidden");
 
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), 1600);
-}
-
-export function setTicker(text) {
-  const el = $("ticker");
-  if (el) el.textContent = text;
-}
-
-export function pushStoryLog(line) {
-  storyLines.unshift(`[${new Date().toLocaleTimeString().slice(0,5)}] ${line}`);
-  if (storyLines.length > 24) storyLines.length = 24;
-
-  const wrap = $("storyArchive");
-  if (!wrap) return;
-  wrap.innerHTML = storyLines.map(s => `<div class="archRow">${escapeHtml(s)}</div>`).join("");
+  toastTimer = setTimeout(() => el.classList.add("hidden"), 1200);
 }
 
 export function updateNodeList(nodes, selectedId, onPick) {
@@ -95,22 +84,29 @@ export function updateNodeList(nodes, selectedId, onPick) {
     card.appendChild(left);
     card.appendChild(badge);
 
-    card.onclick = () => onPick(n.id);
+    card.addEventListener("click", () => onPick(n.id));
     wrap.appendChild(card);
   });
 }
 
 export function uiTick() {
-  const d = $("hudDistrict"); if (d) d.textContent = `Sector-${String(game.district).padStart(2,"0")}`;
-  const m = $("hudMoney"); if (m) m.textContent = `E$ ${game.money}`;
-  const h = $("hudHeat"); if (h) h.textContent = `${game.heat}%`;
-  const f = $("hudFrags"); if (f) f.textContent = `${game.frags}`;
-  const fps = $("hudFps"); if (fps) fps.textContent = `${game.fps}`;
+  $("hudDistrict") && ($("hudDistrict").textContent = `Sector-${String(game.district).padStart(2,"0")}`);
+  $("hudMoney") && ($("hudMoney").textContent = `E$ ${game.money}`);
+  $("hudHeat") && ($("hudHeat").textContent = `${game.heat}%`);
+  $("hudFrags") && ($("hudFrags").textContent = `${game.frags}`);
 
   const t = $("hudTime");
   if (t) t.textContent = game.globalProgress < 0.35 ? "DAY" : (game.globalProgress < 0.7 ? "DUSK" : "NIGHT");
+
+  // story archive
+  const arch = $("storyArchive");
+  if (arch) {
+    arch.innerHTML = game.storyLog.slice(0, 10).map(s => `<div class="archRow">${escapeHtml(s)}</div>`).join("");
+  }
 }
 
 function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
 }

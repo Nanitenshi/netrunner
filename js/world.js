@@ -1,13 +1,8 @@
 import { game } from "./core.js";
-import { toast, updateNodeList } from "./ui.js";
+import { toast, updateNodeList, setTicker } from "./ui.js";
 
 const cam = { x: 0, y: 0, zoom: 1 };
 const nodes = [];
-
-// --- PERFORMANCE: Dirty render + cached grid pattern ---
-let worldDirty = true;
-let gridPattern = null;
-let gridStepPx = 120; // Basisgröße Pattern (unabhängig vom Zoom)
 
 let dragging = false;
 let last = { x: 0, y: 0 };
@@ -15,37 +10,35 @@ let dist = 0;
 let pointerId = null;
 let focusZoom = false;
 
-export function markWorldDirty() {
-  worldDirty = true;
-}
-
 export function initWorld() {
   nodes.length = 0;
 
   const base = [
-    { id: "A1", type: "npc", name: "Neon Gate", npc: "NYX", tag: "Clean start. Too clean.", district: 1 },
-    { id: "M1", type: "mission", name: "Relay Tap", npc: "NYX", tag: "Trace the signal.", district: 1 },
-    { id: "B1", type: "npc", name: "Alley Market", npc: "GHOST", tag: "Dirty deals. Quick money.", district: 1 },
-    { id: "M2", type: "mission", name: "Cache Run", npc: "GHOST", tag: "Grab the data. Run.", district: 1 },
+    { id:"A1", type:"npc", name:"Neon Gate", npc:"NYX", tag:"Clean start. Too clean.", district:7 },
+    { id:"M1", type:"mission", missionType:"quick", name:"Relay Tap", npc:"NYX", tag:"Hack the uplink relay.", district:7 },
+    { id:"B1", type:"npc", name:"Alley Market", npc:"GHOST", tag:"Dirty deals. Quick money.", district:7 },
+    { id:"M2", type:"mission", missionType:"trace", name:"Backdoor Trace", npc:"GHOST", tag:"Stay on the signal. Don’t slip.", district:7 },
+    { id:"C1", type:"npc", name:"Ripper Doc", npc:"DOC", tag:"Hardware check. Upgrade rumors.", district:7 },
+    { id:"M3", type:"mission", missionType:"burst", name:"Burst Upload", npc:"NYX", tag:"Charge → release at the right time.", district:7 },
   ];
 
   base.forEach((n, i) => {
     nodes.push({
       ...n,
-      x: (i % 2 ? 180 : -180) + (i * 20),
-      y: -120 + i * 120
+      x: (i % 2 ? 190 : -190) + (i * 18),
+      y: -180 + i * 140
     });
   });
 
+  game.selectedNodeId = nodes[0]?.id || null;
   updateNodeList(nodes, game.selectedNodeId, (id) => selectNodeById(id));
-  markWorldDirty();
+  if (nodes[0]) selectNodeById(nodes[0].id);
 }
 
 export function worldSetFocusToggle() {
   focusZoom = !focusZoom;
   cam.zoom = focusZoom ? 1.6 : 1.0;
-  toast(focusZoom ? "FOCUS ON." : "FOCUS OFF.");
-  markWorldDirty();
+  toast(focusZoom ? "FOCUS ON" : "FOCUS OFF");
 }
 
 function worldToScreen(wx, wy) {
@@ -61,80 +54,66 @@ function screenToWorld(sx, sy) {
   };
 }
 
-// --- Grid pattern cache (sehr schnell) ---
-function ensureGridPattern(ctx) {
-  if (gridPattern) return;
-
-  const c = document.createElement("canvas");
-  c.width = gridStepPx;
-  c.height = gridStepPx;
-
-  const g = c.getContext("2d");
-  g.clearRect(0, 0, c.width, c.height);
-
-  // dünne Linien (wie vorher)
-  g.strokeStyle = "rgba(0,243,255,.10)";
-  g.lineWidth = 1;
-
-  // vertical
-  g.beginPath();
-  g.moveTo(0.5, 0);
-  g.lineTo(0.5, c.height);
-  g.stroke();
-
-  // horizontal
-  g.beginPath();
-  g.moveTo(0, 0.5);
-  g.lineTo(c.width, 0.5);
-  g.stroke();
-
-  gridPattern = ctx.createPattern(c, "repeat");
-}
-
 export function worldTick() {
-  // Nur rendern, wenn sichtbar UND dirty
-  if (game.mode !== "WORLD" && game.mode !== "TITLE") return;
-  if (!worldDirty) return;
-
-  const c = game.canvases.world;
   const ctx = game.ctx.world;
-  if (!c || !ctx) return;
-
-  ensureGridPattern(ctx);
+  if (!ctx) return;
 
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
-  // --- GRID (Pattern statt 200+ Lines) ---
-  ctx.save();
-  ctx.fillStyle = gridPattern;
+  // grid (cheap)
+  ctx.strokeStyle = "rgba(0,243,255,.09)";
+  ctx.lineWidth = 1;
 
-  // Verschiebung: so wirkt es wie “bewegtes” Grid
-  // Wir nehmen cam.x/y und mappen auf Pattern-Offset
-  const px = (-cam.x * cam.zoom) % gridStepPx;
-  const py = (-cam.y * cam.zoom) % gridStepPx;
-  ctx.translate(px, py);
+  const step = 70 * cam.zoom;
+  const offX = (-cam.x * cam.zoom) % step;
+  const offY = (-cam.y * cam.zoom) % step;
 
-  // Pattern füllen: etwas größer, weil wir translate nutzen
-  ctx.fillRect(-gridStepPx, -gridStepPx, window.innerWidth + gridStepPx * 2, window.innerHeight + gridStepPx * 2);
-  ctx.restore();
+  for (let x = offX; x < window.innerWidth; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, window.innerHeight); ctx.stroke();
+  }
+  for (let y = offY; y < window.innerHeight; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(window.innerWidth, y); ctx.stroke();
+  }
 
-  // --- NODES ---
+  // links between nodes (adds “route” feel)
+  ctx.strokeStyle = "rgba(255,0,124,.12)";
+  ctx.lineWidth = 3;
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const a = worldToScreen(nodes[i].x, nodes[i].y);
+    const b = worldToScreen(nodes[i+1].x, nodes[i+1].y);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+
+  // nodes
   nodes.forEach(n => {
     const p = worldToScreen(n.x, n.y);
     const active = game.selectedNodeId === n.id;
 
-    ctx.fillStyle = active ? "#ffffff" : (n.type === "mission" ? "rgba(0,243,255,.55)" : "rgba(255,0,124,.55)");
+    // glow ring
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 16 * cam.zoom, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, (active ? 22 : 18) * cam.zoom, 0, Math.PI * 2);
+    ctx.strokeStyle = active ? "rgba(255,255,255,.75)" : "rgba(0,243,255,.25)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // core
+    ctx.fillStyle = active ? "#ffffff" : (n.type === "mission" ? "rgba(0,243,255,.62)" : "rgba(255,0,124,.62)");
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 12 * cam.zoom, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "rgba(255,255,255,.9)";
+    // label
+    ctx.fillStyle = "rgba(255,255,255,.92)";
     ctx.font = "12px ui-monospace, monospace";
     ctx.fillText(n.name, p.x + 22, p.y + 5);
-  });
 
-  // jetzt clean
-  worldDirty = false;
+    // mission marker
+    if (n.type === "mission") {
+      ctx.fillStyle = "rgba(252,238,10,.95)";
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.fillText("MISSION", p.x + 22, p.y + 18);
+    }
+  });
 }
 
 export function handleWorldPointer(type, e) {
@@ -143,7 +122,6 @@ export function handleWorldPointer(type, e) {
   if (type === "down") {
     dragging = true;
     pointerId = e.pointerId;
-    try { e.target.setPointerCapture(pointerId); } catch {}
     last = { x: e.clientX, y: e.clientY };
     dist = 0;
     return;
@@ -158,19 +136,17 @@ export function handleWorldPointer(type, e) {
     cam.x -= dx / cam.zoom;
     cam.y -= dy / cam.zoom;
     last = { x: e.clientX, y: e.clientY };
-
-    markWorldDirty();
     return;
   }
 
   if (type === "up" || type === "cancel") {
     if (!dragging) return;
     dragging = false;
-    try { e.target.releasePointerCapture(pointerId); } catch {}
 
+    // tap detection
     if (dist < 10) {
       const w = screenToWorld(e.clientX, e.clientY);
-      const hit = nodes.find(n => Math.hypot(w.x - n.x, w.y - n.y) < 28);
+      const hit = nodes.find(n => Math.hypot(w.x - n.x, w.y - n.y) < 30);
       if (hit) selectNodeById(hit.id);
     }
   }
@@ -181,19 +157,27 @@ function selectNodeById(id) {
   if (!n) return;
 
   game.selectedNodeId = n.id;
-  game.money += (n.type === "mission" ? 0 : 10);
-  game.heat = Math.min(100, game.heat + (n.type === "mission" ? 8 : 3));
 
+  // small economy + heat to feel alive
+  game.money += (n.type === "npc" ? 8 : 0);
+  game.heat = Math.min(100, game.heat + (n.type === "mission" ? 6 : 2));
+
+  // right panel
   const npcName = document.getElementById("npcName");
   const npcRole = document.getElementById("npcRole");
   const dialog = document.getElementById("dialogText");
 
   if (npcName) npcName.textContent = `${n.npc} // ${n.name}`;
-  if (npcRole) npcRole.textContent = n.type === "mission" ? "MISSION OFFER" : "NPC SIGNAL";
+  if (npcRole) npcRole.textContent = (n.type === "mission" ? "MISSION OFFER" : "NPC SIGNAL");
   if (dialog) dialog.textContent = n.tag;
 
-  updateNodeList(nodes, game.selectedNodeId, (pickId) => selectNodeById(pickId));
-  toast("NODE LOCKED.");
+  setTicker(`${n.npc}: ${n.tag}`);
 
-  markWorldDirty();
+  updateNodeList(nodes, game.selectedNodeId, (pickId) => selectNodeById(pickId));
+  toast(n.type === "mission" ? "MISSION NODE LOCKED" : "NPC SIGNAL LOCKED");
+}
+
+export function getSelectedNode() {
+  if (!game.selectedNodeId) return null;
+  return nodes.find(n => n.id === game.selectedNodeId) || null;
 }

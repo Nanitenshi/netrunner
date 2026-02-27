@@ -1,24 +1,29 @@
-import { initThree, setMoodProgress, setPerfMode } from "./threeScene.js";
-import { initWorld, worldTick, handleWorldPointer, worldSetFocusToggle } from "./world.js";
+import { initThree, setMoodProgress, setPaused as setThreePaused, setQuality as setThreeQuality } from "./threeScene.js";
+import { initWorld, worldTick, handleWorldPointer, worldCancelPointer } from "./world.js";
 import { initUI, uiTick, toast } from "./ui.js";
 import { loadSave, saveNow, resetSave } from "./save.js";
 import { openNpcDialog, npcTick } from "./npc.js";
-import { startMission, missionTick, handleMissionPointer } from "./missions.js";
+import { startMission, missionTick, handleMissionPointer, missionCancelPointer, missionSetPaused } from "./missions.js";
 
 export const game = {
   mode: "TITLE", // TITLE | WORLD | MISSION | RESULT
+  paused: false,
+
   money: 0,
   heat: 0,
   frags: 0,
-  district: 7,
+  district: 1,
   globalProgress: 0,
+  storyIndex: 0,
   missionsDone: 0,
-  storyLog: [],
+
+  settings: {
+    perfMode: true, // default: true fürs Tablet
+    autoMode: false
+  },
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   selectedNodeId: null,
-
-  perfMode: "perf", // perf | quality
 
   canvases: { three: null, world: null, mission: null },
   ctx: { world: null, mission: null }
@@ -26,14 +31,26 @@ export const game = {
 
 const $ = (id) => document.getElementById(id);
 
+// ===== Mode switching (FIX: Input sauber trennen + Capture killen) =====
 export function setMode(next) {
+  if (game.mode === next) return;
+
+  // HARD CANCEL input on switch (wichtig wegen PointerCapture)
+  worldCancelPointer?.();
+  missionCancelPointer?.();
+
   game.mode = next;
 
-  if (game.canvases.mission) {
-    game.canvases.mission.style.display = (next === "MISSION") ? "block" : "none";
-  }
+  // Canvas visibility + pointer-events (entscheidend!)
   if (game.canvases.world) {
-    game.canvases.world.style.display = (next === "MISSION" || next === "RESULT") ? "none" : "block";
+    const worldOn = (next === "TITLE" || next === "WORLD");
+    game.canvases.world.style.display = worldOn ? "block" : "none";
+    game.canvases.world.style.pointerEvents = worldOn ? "auto" : "none";
+  }
+  if (game.canvases.mission) {
+    const misOn = (next === "MISSION");
+    game.canvases.mission.style.display = misOn ? "block" : "none";
+    game.canvases.mission.style.pointerEvents = misOn ? "auto" : "none";
   }
 
   const toggle = (id, show) => {
@@ -47,52 +64,94 @@ export function setMode(next) {
   toggle("rightPanel", next === "WORLD");
   toggle("missionHud", next === "MISSION");
   toggle("result", next === "RESULT");
+
+  // Pause beim Moduswechsel immer aus
+  setPaused(false);
+}
+
+// ===== Pause System (FIX: echte Pause) =====
+export function setPaused(p) {
+  game.paused = !!p;
+
+  // Mission/Three synchronisieren
+  missionSetPaused?.(game.paused);
+  setThreePaused?.(game.paused);
+
+  // optional UI state
+  const btnPause = $("btnPause");
+  if (btnPause) btnPause.textContent = game.paused ? "RESUME" : "PAUSE";
+
+  toast(game.paused ? "PAUSED." : "RESUMED.");
+}
+
+export function togglePause() {
+  setPaused(!game.paused);
+}
+
+// ===== Quality / DPR (Performance) =====
+function getDpr() {
+  // Tablet-friendly: lieber stabil als ultra sharp
+  const raw = window.devicePixelRatio || 1;
+  const cap = game.settings.perfMode ? 1.15 : 1.6;
+  return Math.max(1, Math.min(cap, raw));
 }
 
 function resizeAll() {
-  // Perf: niedrigere DPR auf Tablet
-  const rawDpr = window.devicePixelRatio || 1;
-  const dpr = (game.perfMode === "perf") ? Math.min(1.25, rawDpr) : Math.min(2, rawDpr);
+  const dpr = getDpr();
 
-  for (const key of ["three", "world", "mission"]) {
+  for (const key of ["world", "mission"]) {
     const canvas = game.canvases[key];
     if (!canvas) continue;
     canvas.width = Math.floor(window.innerWidth * dpr);
     canvas.height = Math.floor(window.innerHeight * dpr);
-
     const ctx = game.ctx[key];
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+
+  // Three bekommt eigenes Quality-Handling
+  if (game.canvases.three) {
+    setThreeQuality?.({ dpr });
+  }
 }
 
-function bindCanvasPointers(canvas, handler) {
+// ===== Pointer binding (FIX: routed by mode) =====
+function bindCanvasPointers(canvas, handler, onlyWhen) {
   if (!canvas) return;
   const opts = { passive: false };
 
+  const fire = (type, e) => {
+    // nie durchreichen wenn falscher Mode oder paused
+    if (!onlyWhen()) return;
+    if (game.paused) return;
+    e.preventDefault();
+    handler(type, e);
+  };
+
   canvas.addEventListener("pointerdown", (e) => {
+    if (!onlyWhen()) return;
     e.preventDefault();
     try { canvas.setPointerCapture(e.pointerId); } catch {}
     handler("down", e);
   }, opts);
 
-  canvas.addEventListener("pointermove", (e) => {
-    e.preventDefault();
-    handler("move", e);
-  }, opts);
+  canvas.addEventListener("pointermove", (e) => fire("move", e), opts);
 
   canvas.addEventListener("pointerup", (e) => {
+    if (!onlyWhen()) return;
     e.preventDefault();
     try { canvas.releasePointerCapture(e.pointerId); } catch {}
     handler("up", e);
   }, opts);
 
   canvas.addEventListener("pointercancel", (e) => {
+    if (!onlyWhen()) return;
     e.preventDefault();
     try { canvas.releasePointerCapture(e.pointerId); } catch {}
     handler("cancel", e);
   }, opts);
 }
 
+// ===== Boot =====
 function boot() {
   game.canvases.three = $("threeCanvas");
   game.canvases.world = $("worldCanvas");
@@ -101,106 +160,83 @@ function boot() {
   if (game.canvases.world) game.ctx.world = game.canvases.world.getContext("2d", { alpha: true });
   if (game.canvases.mission) game.ctx.mission = game.canvases.mission.getContext("2d", { alpha: true });
 
-  bindCanvasPointers(game.canvases.world, handleWorldPointer);
-  bindCanvasPointers(game.canvases.mission, handleMissionPointer);
-
-  window.addEventListener("resize", () => {
-    resizeAll();
-  });
-
   // Save load
-  const saved = loadSave();
-  if (saved) {
-    const { upgrades, storyLog, ...rest } = saved;
+  const savedData = loadSave();
+  if (savedData) {
+    const { upgrades, settings, ...rest } = savedData;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
-    if (Array.isArray(storyLog)) game.storyLog = storyLog;
+    if (settings) Object.assign(game.settings, settings);
   }
 
-  // API: HIER ist der Mission-Fix
-  const api = {
+  // UI API
+  initUI({
     setMode,
+    startMission: (type) => {
+      // start mission + switch mode
+      startMission(type);
+      setMode("MISSION");
+    },
+    openNpcDialog,
     saveNow,
     resetSave,
-
-    openNpcDialog: (nodeId) => openNpcDialog(nodeId),
-
-    startMission: (type, nodeId) => {
-      // mission init + SCREEN SWITCH
-      setMode("MISSION");
-      startMission(type, nodeId);
-      toast("JACK IN…");
-    },
-
-    backToCity: () => {
-      setMode("WORLD");
-      toast("BACK TO CITY.");
-    },
-
-    setPerf: (mode) => {
-      game.perfMode = mode;
-      setPerfMode(mode);
+    togglePause,
+    togglePerf: () => {
+      game.settings.perfMode = !game.settings.perfMode;
+      saveNow();
       resizeAll();
-      toast(mode === "perf" ? "PERF MODE." : "QUALITY MODE.");
+      toast(game.settings.perfMode ? "PERF: ON" : "PERF: OFF");
     },
-
-    focusToggle: () => worldSetFocusToggle()
-  };
-
-  initUI(api);
-  initWorld();
-
-  if (game.canvases.three) initThree(game.canvases.three, () => game.perfMode);
-  setPerfMode(game.perfMode);
-
-  resizeAll();
-  setMode("TITLE");
-  toast("SYSTEM READY.");
-
-  // Buttons
-  $("btnStart")?.addEventListener("click", () => { setMode("WORLD"); toast("NIGHT CITY ONLINE."); }, { passive: true });
-
-  $("btnReset")?.addEventListener("click", () => {
-    if (confirm("WARNING: PURGE ALL DATA?")) { resetSave(); location.reload(); }
+    toggleAuto: () => {
+      game.settings.autoMode = !game.settings.autoMode;
+      saveNow();
+      toast(game.settings.autoMode ? "AUTO: ON" : "AUTO: OFF");
+    }
   });
 
-  $("btnBackToCity")?.addEventListener("click", () => api.backToCity());
+  // Three
+  if (game.canvases.three) initThree(game.canvases.three, { dpr: getDpr() });
 
-  // Loop
+  // World init
+  initWorld();
+  resizeAll();
+  window.addEventListener("resize", resizeAll);
+
+  // Pointer routing: world only when TITLE/WORLD, mission only when MISSION
+  bindCanvasPointers(game.canvases.world, handleWorldPointer, () => game.mode === "TITLE" || game.mode === "WORLD");
+  bindCanvasPointers(game.canvases.mission, handleMissionPointer, () => game.mode === "MISSION");
+
+  toast("SYSTEM READY.");
+  setMode("TITLE");
+
   requestAnimationFrame(loop);
 }
 
-let last = 0;
-let fpsT = 0, fpsN = 0, fps = 0;
+let lastTime = 0;
+function loop(timeNow) {
+  const dtRaw = (timeNow - lastTime) / 1000 || 0;
+  const dt = Math.min(0.033, dtRaw);
+  lastTime = timeNow;
 
-function loop(t) {
-  const dt = Math.min(0.033, (t - last) / 1000 || 0);
-  last = t;
-
-  // FPS
-  fpsT += dt; fpsN++;
-  if (fpsT >= 0.5) { fps = Math.round(fpsN / fpsT); fpsT = 0; fpsN = 0; }
-  const fpsEl = $("hudFps"); if (fpsEl) fpsEl.textContent = String(fps);
-
-  game.globalProgress = Math.min(1, game.missionsDone / 10);
+  // Mood
+  game.globalProgress = Math.min(1, game.missionsDone / 12);
   setMoodProgress(game.globalProgress);
 
-  if (game.mode === "WORLD" || game.mode === "TITLE") {
-    worldTick(dt);
-    npcTick(dt);
-  }
+  // Wenn paused: UI darf weiter, aber game ticks nicht
+  if (!game.paused) {
+    if (game.mode === "WORLD" || game.mode === "TITLE") {
+      worldTick(dt);
+      npcTick(dt);
+    }
 
-  if (game.mode === "MISSION") {
-    missionTick(dt, (resultData) => {
-      Object.assign(game, resultData.apply(game));
-      game.missionsDone += 1;
-      game.storyLog.unshift(resultData.storyLine);
-      saveNow();
-      // RESULT
-      const resText = $("resText");
-      if (resText) resText.textContent = resultData.report;
-      setMode("RESULT");
-    });
+    if (game.mode === "MISSION") {
+      missionTick(dt, (resultData) => {
+        Object.assign(game, resultData.apply(game));
+        game.missionsDone += 1;
+        saveNow();
+        setMode("WORLD");
+      });
+    }
   }
 
   uiTick();

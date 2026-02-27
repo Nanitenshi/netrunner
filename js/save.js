@@ -1,6 +1,25 @@
 import { game } from "./core.js";
 
-const KEY = "neon_alley_save_v2";
+const KEY = "neonAlley_save_v1";
+
+export function saveNow() {
+  try {
+    const data = {
+      mode: "WORLD",
+      money: game.money,
+      heat: game.heat,
+      frags: game.frags,
+      district: game.district,
+      globalProgress: game.globalProgress,
+      missionsDone: game.missionsDone,
+      upgrades: game.upgrades,
+      selectedNodeId: game.selectedNodeId,
+      perfMode: game.perfMode,
+      storyLog: game.storyLog
+    };
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch {}
+}
 
 export function loadSave() {
   try {
@@ -10,23 +29,6 @@ export function loadSave() {
   } catch {
     return null;
   }
-}
-
-export function saveNow() {
-  try {
-    const data = {
-      money: game.money,
-      heat: game.heat,
-      frags: game.frags,
-      district: game.district,
-      globalProgress: game.globalProgress,
-      storyIndex: game.storyIndex,
-      missionsDone: game.missionsDone,
-      upgrades: game.upgrades,
-      selectedNodeId: game.selectedNodeId
-    };
-    localStorage.setItem(KEY, JSON.stringify(data));
-  } catch {}
 }
 
 export function resetSave() {

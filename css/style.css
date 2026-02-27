@@ -31,24 +31,74 @@ html, body {
   width: 100%;
   overflow: hidden;
   touch-action: none;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-#canvas-container { position:absolute; inset:0; }
+#canvas-container { position: absolute; inset: 0; }
 
+/* ===== Canvases ===== */
 canvas { position: absolute; inset: 0; display: block; }
-#threeCanvas { z-index: 1; }
-#worldCanvas { z-index: 5; touch-action: none; }
-#missionCanvas { z-index: 12; display: none; background: rgba(2, 4, 6, .92); touch-action: none; }
 
-#ui { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
-.panel, .btn, .chip, .side, .toast, .card, .bottomBar, .comms { pointer-events: auto; }
+#threeCanvas { z-index: 1; }
+
+/* Overworld */
+#worldCanvas {
+  z-index: 5;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+/* Mission (MUSS pointer-events:auto haben, sonst kommen keine Pointer durch) */
+#missionCanvas {
+  z-index: 12;
+  display: none;
+  background: rgba(2, 4, 6, .92);
+  touch-action: none;
+  pointer-events: auto;
+}
+
+/* ===== UI Layer =====
+   UI ist oben, aber standardmäßig "durchlässig".
+   Nur echte Buttons / klickbare Teile sind pointer-events:auto.
+*/
+#ui {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Diese UI-Container sollen NICHT interagieren (sonst blocken sie Canvas-Taps) */
+.panel,
+.chip,
+.side,
+.card,
+.toast,
+.comms {
+  pointer-events: none;
+}
+
+/* BottomBar als Container auch durchlässig */
+.bottomBar { pointer-events: none; }
+
+/* NUR echte klickbare Dinge dürfen Touch empfangen */
+.btn,
+.nodeCard,
+.bottomBar button {
+  pointer-events: auto;
+}
 
 .scanlines::before {
   content: "";
-  position: absolute; inset: 0;
+  position: absolute;
+  inset: 0;
   pointer-events: none;
-  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .02) 0 1px, transparent 2px 4px);
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, .02) 0 1px,
+    transparent 2px 4px
+  );
   opacity: .35;
   mix-blend-mode: screen;
   z-index: 99;
@@ -62,15 +112,27 @@ canvas { position: absolute; inset: 0; display: block; }
   -webkit-backdrop-filter: blur(8px);
   border-radius: 12px;
 }
-.panel.pink { border-color: rgba(255, 0, 124, .28); box-shadow: var(--shadowP); }
+
+.panel.pink {
+  border-color: rgba(255, 0, 124, .28);
+  box-shadow: var(--shadowP);
+}
 
 .hidden { display: none !important; }
 
+/* ===== HUD ===== */
 .hud {
-  position: absolute; left: 12px; right: 12px; top: 12px;
-  display: flex; gap: 10px; justify-content: space-between; align-items: stretch;
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: stretch;
   pointer-events: none;
 }
+
 .missionHud { top: 64px; }
 
 .chip {
@@ -82,18 +144,41 @@ canvas { position: absolute; inset: 0; display: block; }
   flex-direction: column;
   gap: 2px;
 }
+
 .chip b { color: var(--text); font-size: 13px; }
 
+/* ===== Title Card ===== */
 .centerWrap {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
 }
-.card { width: min(560px, 92vw); padding: 22px; text-align: center; }
 
-.logo { font-size: 30px; font-weight: 900; letter-spacing: 4px; color: var(--cyan); text-shadow: 0 0 18px rgba(0, 243, 255, .35); }
-.sub { font-size: 11px; color: var(--pink); letter-spacing: 2px; margin: 6px 0 14px; }
+.card {
+  width: min(560px, 92vw);
+  padding: 22px;
+  text-align: center;
+}
 
+.logo {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: var(--cyan);
+  text-shadow: 0 0 18px rgba(0, 243, 255, .35);
+}
+
+.sub {
+  font-size: 11px;
+  color: var(--pink);
+  letter-spacing: 2px;
+  margin: 6px 0 14px;
+}
+
+/* ===== Buttons ===== */
 .btn {
   background: rgba(0, 0, 0, .25);
   border: 1px solid var(--cyan);
@@ -107,6 +192,7 @@ canvas { position: absolute; inset: 0; display: block; }
   transition: all 0.15s ease;
   user-select: none;
 }
+
 .btn:hover { background: rgba(0, 243, 255, .12); }
 .btn:active { transform: scale(0.96); }
 
@@ -116,11 +202,23 @@ canvas { position: absolute; inset: 0; display: block; }
 .btn.pink { border-color: var(--pink); color: var(--pink); }
 .btn.pink:hover { background: rgba(255, 0, 124, .10); }
 
-.btn.small { padding: 8px 10px; font-size: 11px; border-radius: 8px; }
+.btn.small {
+  padding: 8px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+}
 
-.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 14px;
+}
+
 .leftRow { justify-content: flex-start; }
 
+/* ===== Side Panels ===== */
 .side {
   position: absolute;
   top: 76px;
@@ -131,26 +229,54 @@ canvas { position: absolute; inset: 0; display: block; }
   flex-direction: column;
   gap: 10px;
 }
+
 #leftPanel { left: 12px; }
 #rightPanel { right: 12px; }
 
-.sideHead { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
-.sideTitle { font-weight: 900; letter-spacing: 2px; color: var(--cyan); font-size: 12px; }
+.sideHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sideTitle {
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--cyan);
+  font-size: 12px;
+}
+
 .pinkText { color: var(--pink); }
 .muted { color: var(--muted); }
 .small { font-size: 11px; }
 
-.list { display: flex; flex-direction: column; gap: 8px; overflow: auto; padding-right: 4px; }
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 4px;
+}
 
+/* ===== Node Cards (clickable list) ===== */
 .nodeCard {
   border: 1px solid rgba(255, 255, 255, .08);
   background: rgba(255, 255, 255, .02);
   padding: 10px;
   border-radius: 10px;
-  display: flex; justify-content: space-between; gap: 10px; align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
   transition: border-color 0.2s;
 }
-.nodeCard.active { border-color: rgba(255, 0, 124, .35); box-shadow: 0 0 16px rgba(255, 0, 124, .10) inset; }
+
+.nodeCard.active {
+  border-color: rgba(255, 0, 124, .35);
+  box-shadow: 0 0 16px rgba(255, 0, 124, .10) inset;
+}
+
 .nodeCard .name { font-weight: 900; font-size: 13px; }
 .nodeCard .meta { font-size: 11px; color: var(--muted); }
 
@@ -161,9 +287,11 @@ canvas { position: absolute; inset: 0; display: block; }
   border: 1px solid rgba(255, 255, 255, .14);
   color: #fff;
 }
+
 .badge.npc { border-color: rgba(255, 0, 124, .35); color: var(--pink); }
 .badge.mission { border-color: rgba(0, 243, 255, .35); color: var(--cyan); }
 
+/* ===== Dialog ===== */
 .dialog {
   min-height: 88px;
   max-height: 30vh;
@@ -176,11 +304,29 @@ canvas { position: absolute; inset: 0; display: block; }
   font-size: 13px;
 }
 
-.archive { margin-top: auto; border-top: 1px solid rgba(255, 255, 255, .08); padding-top: 10px; }
-#storyArchive { max-height: 18vh; overflow: auto; font-size: 11px; color: #9fb3c2; padding-right: 4px; }
-.archRow { padding: 6px 0; border-bottom: 1px dotted rgba(255, 255, 255, .10); }
+/* ===== Archive ===== */
+.archive {
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  padding-top: 10px;
+}
+
+#storyArchive {
+  max-height: 18vh;
+  overflow: auto;
+  font-size: 11px;
+  color: #9fb3c2;
+  padding-right: 4px;
+}
+
+.archRow {
+  padding: 6px 0;
+  border-bottom: 1px dotted rgba(255, 255, 255, .10);
+}
+
 .archRow:last-child { border-bottom: none; }
 
+/* ===== Toast ===== */
 .toast {
   position: absolute;
   left: 50%;
@@ -195,17 +341,18 @@ canvas { position: absolute; inset: 0; display: block; }
   white-space: nowrap;
 }
 
+/* ===== Bottom Bar (Comms + Buttons) ===== */
 .bottomBar {
-  position:absolute;
+  position: absolute;
   left: 12px;
   right: 12px;
   bottom: 12px;
-  display:flex;
+  display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  pointer-events: auto;
 }
+
 .comms {
   flex: 1;
   min-width: 210px;
@@ -213,6 +360,7 @@ canvas { position: absolute; inset: 0; display: block; }
   border-radius: 12px;
 }
 
+/* ===== Mobile Layout ===== */
 @media (max-width: 900px) {
   #rightPanel {
     top: auto;
@@ -222,6 +370,7 @@ canvas { position: absolute; inset: 0; display: block; }
     bottom: 70px;
     max-height: 38vh;
   }
+
   #leftPanel {
     width: auto;
     right: 12px;

@@ -11,7 +11,10 @@ let lastRenderedMood = -1; // Zum Cachen des Zustands
 export function initThree(canvas) {
   // Renderer Setup
   renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false }); // Antialias false für Performance (besonders auf Tablet)
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  // FIX: Tablet Performance (PixelRatio runter)
+// 1.0 = deutlich weniger GPU Last. (Auf Handy sieht’s trotzdem gut aus.)
+const dpr = window.devicePixelRatio || 1;
+renderer.setPixelRatio(Math.min(1.25, dpr)); // oder hart 1.0, wenn du Maximum Performance willst
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   scene = new THREE.Scene();

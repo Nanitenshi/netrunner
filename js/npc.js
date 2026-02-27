@@ -1,29 +1,34 @@
-import { game } from "./core.js";
-import { toast } from "./ui.js";
-import { startMission } from "./missions.js";
+import { toast, pushStoryLog, setTicker } from "./ui.js";
 
-export function npcTick() {}
+export function openNpcDialog(node) {
+  if (!node) return;
 
-export function openNpcDialog(nodeId) {
-  if (!nodeId) { toast("NO NODE SELECTED."); return; }
-
-  const choices = document.getElementById("choices");
-  if (!choices) return;
-  choices.innerHTML = "";
-
-  const b1 = document.createElement("button");
-  b1.className = "btn";
-  b1.textContent = "Ask for info";
-  b1.onclick = () => toast("Signal is noisy. But useful.");
-
-  const b2 = document.createElement("button");
-  b2.className = "btn yellow";
-  b2.textContent = "Start mission";
-  b2.onclick = () => {
-    if (game.mode !== "WORLD") return;
-    startMission({ id: "M_AUTO", name: "Quick Intrusion" });
+  const lines = {
+    NYX: [
+      "Wir sind drin. Bleib ruhig. Jeder Fehler zieht Heat.",
+      "Ich mag Runner mit Tempo. Lass mich nicht hängen.",
+      "Arasaka wirkt heute… nervös."
+    ],
+    GHOST: [
+      "Nyx erzählt dir die halbe Wahrheit.",
+      "Wenn du reich werden willst: mach’s dreckig.",
+      "Ich sehe ein Echo im Signal. Das bist nicht du."
+    ],
+    DOC: [
+      "Dein Deck ist heiß. Upgrades wären schlau.",
+      "Du spielst mit Black ICE. Trag’s nicht ins echte Leben."
+    ]
   };
 
-  choices.appendChild(b1);
-  choices.appendChild(b2);
+  const who = node.npc || "SYSTEM";
+  const pool = lines[who] || ["Signal rauscht…"];
+  const msg = pool[Math.floor(Math.random() * pool.length)];
+
+  setTicker(`${who}: ${msg}`);
+  pushStoryLog(`${who}: ${msg}`);
+  toast("COMMS RECEIVED");
+}
+
+export function npcTick() {
+  // reserved for future: NPC patrols, events
 }

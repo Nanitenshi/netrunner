@@ -1,5 +1,5 @@
 import { initThree, setMoodProgress, setPaused as setThreePaused, setQuality as setThreeQuality } from "./threeScene.js";
-import { initWorld, worldTick, handleWorldPointer, worldCancelPointer } from "./world.js";
+import { initWorld, worldTick, handleWorldPointer, worldCancelPointer, worldSetFocusToggle } from "./world.js";
 import { initUI, uiTick, toast } from "./ui.js";
 import { loadSave, saveNow, resetSave } from "./save.js";
 import { openNpcDialog, npcTick } from "./npc.js";
@@ -12,14 +12,14 @@ export const game = {
   money: 0,
   heat: 0,
   frags: 0,
-  district: 1,
+  district: 7,
   globalProgress: 0,
   storyIndex: 0,
   missionsDone: 0,
 
   settings: {
-    perfMode: true, // default: true fürs Tablet
-    autoMode: false
+    quality: "perf", // "perf" | "quality"
+    autosave: true
   },
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
@@ -31,28 +31,30 @@ export const game = {
 
 const $ = (id) => document.getElementById(id);
 
-// ===== Mode switching (FIX: Input sauber trennen + Capture killen) =====
+/* ---------------- MODE ---------------- */
 export function setMode(next) {
   if (game.mode === next) return;
 
-  // HARD CANCEL input on switch (wichtig wegen PointerCapture)
+  // kill pointer capture on switch (wichtig!)
   worldCancelPointer?.();
   missionCancelPointer?.();
 
   game.mode = next;
 
-  // Canvas visibility + pointer-events (entscheidend!)
+  // canvas visibility + input routing
   if (game.canvases.world) {
-    const worldOn = (next === "TITLE" || next === "WORLD");
-    game.canvases.world.style.display = worldOn ? "block" : "none";
-    game.canvases.world.style.pointerEvents = worldOn ? "auto" : "none";
-  }
-  if (game.canvases.mission) {
-    const misOn = (next === "MISSION");
-    game.canvases.mission.style.display = misOn ? "block" : "none";
-    game.canvases.mission.style.pointerEvents = misOn ? "auto" : "none";
+    const on = next === "TITLE" || next === "WORLD";
+    game.canvases.world.style.display = on ? "block" : "none";
+    game.canvases.world.style.pointerEvents = on ? "auto" : "none";
   }
 
+  if (game.canvases.mission) {
+    const on = next === "MISSION";
+    game.canvases.mission.style.display = on ? "block" : "none";
+    game.canvases.mission.style.pointerEvents = on ? "auto" : "none";
+  }
+
+  // UI panels
   const toggle = (id, show) => {
     const el = $(id);
     if (el) el.classList.toggle("hidden", !show);
@@ -60,24 +62,23 @@ export function setMode(next) {
 
   toggle("title", next === "TITLE");
   toggle("hudTop", next !== "TITLE");
+
   toggle("leftPanel", next === "WORLD");
   toggle("rightPanel", next === "WORLD");
+
   toggle("missionHud", next === "MISSION");
   toggle("result", next === "RESULT");
 
-  // Pause beim Moduswechsel immer aus
+  // Pause beim Wechsel aus
   setPaused(false);
 }
 
-// ===== Pause System (FIX: echte Pause) =====
+/* ---------------- PAUSE ---------------- */
 export function setPaused(p) {
   game.paused = !!p;
-
-  // Mission/Three synchronisieren
   missionSetPaused?.(game.paused);
   setThreePaused?.(game.paused);
 
-  // optional UI state
   const btnPause = $("btnPause");
   if (btnPause) btnPause.textContent = game.paused ? "RESUME" : "PAUSE";
 
@@ -88,12 +89,19 @@ export function togglePause() {
   setPaused(!game.paused);
 }
 
-// ===== Quality / DPR (Performance) =====
+/* ---------------- QUALITY / DPR ---------------- */
 function getDpr() {
-  // Tablet-friendly: lieber stabil als ultra sharp
   const raw = window.devicePixelRatio || 1;
-  const cap = game.settings.perfMode ? 1.15 : 1.6;
+  // perf = stabil, quality = schärfer
+  const cap = (game.settings.quality === "perf") ? 1.15 : 1.6;
   return Math.max(1, Math.min(cap, raw));
+}
+
+function applyQualityToThree() {
+  setThreeQuality?.({
+    dpr: getDpr(),
+    perf: game.settings.quality === "perf"
+  });
 }
 
 function resizeAll() {
@@ -108,19 +116,15 @@ function resizeAll() {
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  // Three bekommt eigenes Quality-Handling
-  if (game.canvases.three) {
-    setThreeQuality?.({ dpr });
-  }
+  applyQualityToThree();
 }
 
-// ===== Pointer binding (FIX: routed by mode) =====
+/* ---------------- POINTER ROUTING ---------------- */
 function bindCanvasPointers(canvas, handler, onlyWhen) {
   if (!canvas) return;
   const opts = { passive: false };
 
   const fire = (type, e) => {
-    // nie durchreichen wenn falscher Mode oder paused
     if (!onlyWhen()) return;
     if (game.paused) return;
     e.preventDefault();
@@ -151,7 +155,7 @@ function bindCanvasPointers(canvas, handler, onlyWhen) {
   }, opts);
 }
 
-// ===== Boot =====
+/* ---------------- BOOT ---------------- */
 function boot() {
   game.canvases.three = $("threeCanvas");
   game.canvases.world = $("worldCanvas");
@@ -160,51 +164,75 @@ function boot() {
   if (game.canvases.world) game.ctx.world = game.canvases.world.getContext("2d", { alpha: true });
   if (game.canvases.mission) game.ctx.mission = game.canvases.mission.getContext("2d", { alpha: true });
 
-  // Save load
-  const savedData = loadSave();
-  if (savedData) {
-    const { upgrades, settings, ...rest } = savedData;
+  // load save (nur values)
+  const saved = loadSave();
+  if (saved) {
+    const { upgrades, settings, ...rest } = saved;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
     if (settings) Object.assign(game.settings, settings);
   }
 
-  // UI API
+  // init modules
   initUI({
     setMode,
-    startMission: (type) => {
-      // start mission + switch mode
-      startMission(type);
+    startMission: () => {
+      // muss selected sein + mission node
+      if (!game.selectedNodeId) {
+        toast("SELECT A NODE FIRST.");
+        return;
+      }
+      startMission("cache");
       setMode("MISSION");
+      toast("MISSION LINKED.");
     },
     openNpcDialog,
     saveNow,
     resetSave,
     togglePause,
-    togglePerf: () => {
-      game.settings.perfMode = !game.settings.perfMode;
+    toggleQuality: () => {
+      game.settings.quality = (game.settings.quality === "perf") ? "quality" : "perf";
       saveNow();
       resizeAll();
-      toast(game.settings.perfMode ? "PERF: ON" : "PERF: OFF");
+      toast(game.settings.quality === "perf" ? "QUALITY: PERF" : "QUALITY: SHARP");
+      const b = $("btnQuality");
+      if (b) b.textContent = game.settings.quality === "perf" ? "PERF" : "SHARP";
+      b?.setAttribute("data-mode", game.settings.quality);
     },
-    toggleAuto: () => {
-      game.settings.autoMode = !game.settings.autoMode;
+    toggleAutosave: () => {
+      game.settings.autosave = !game.settings.autosave;
       saveNow();
-      toast(game.settings.autoMode ? "AUTO: ON" : "AUTO: OFF");
+      toast(game.settings.autosave ? "AUTO: ON" : "AUTO: OFF");
+      const b = $("btnSave");
+      if (b) b.textContent = game.settings.autosave ? "AUTO" : "MANUAL";
+    },
+    focusToggle: () => worldSetFocusToggle?.()
+  });
+
+  if (game.canvases.three) initThree(game.canvases.three, { dpr: getDpr(), perf: game.settings.quality === "perf" });
+  initWorld();
+
+  // route pointers
+  bindCanvasPointers(game.canvases.world, handleWorldPointer, () => game.mode === "TITLE" || game.mode === "WORLD");
+  bindCanvasPointers(game.canvases.mission, handleMissionPointer, () => game.mode === "MISSION");
+
+  // buttons from title
+  const btnStart = $("btnStart");
+  btnStart?.addEventListener("click", () => { setMode("WORLD"); toast("NIGHT CITY ONLINE."); }, { passive: false });
+
+  const btnReset = $("btnReset");
+  btnReset?.addEventListener("click", () => {
+    if (confirm("WARNING: PURGE ALL DATA?")) {
+      resetSave();
+      location.reload();
     }
   });
 
-  // Three
-  if (game.canvases.three) initThree(game.canvases.three, { dpr: getDpr() });
+  const btnBack = $("btnBackToCity");
+  btnBack?.addEventListener("click", () => setMode("WORLD"));
 
-  // World init
-  initWorld();
   resizeAll();
   window.addEventListener("resize", resizeAll);
-
-  // Pointer routing: world only when TITLE/WORLD, mission only when MISSION
-  bindCanvasPointers(game.canvases.world, handleWorldPointer, () => game.mode === "TITLE" || game.mode === "WORLD");
-  bindCanvasPointers(game.canvases.mission, handleMissionPointer, () => game.mode === "MISSION");
 
   toast("SYSTEM READY.");
   setMode("TITLE");
@@ -212,17 +240,15 @@ function boot() {
   requestAnimationFrame(loop);
 }
 
+/* ---------------- LOOP ---------------- */
 let lastTime = 0;
-function loop(timeNow) {
-  const dtRaw = (timeNow - lastTime) / 1000 || 0;
-  const dt = Math.min(0.033, dtRaw);
-  lastTime = timeNow;
+function loop(tNow) {
+  const dt = Math.min(0.033, ((tNow - lastTime) / 1000) || 0);
+  lastTime = tNow;
 
-  // Mood
   game.globalProgress = Math.min(1, game.missionsDone / 12);
   setMoodProgress(game.globalProgress);
 
-  // Wenn paused: UI darf weiter, aber game ticks nicht
   if (!game.paused) {
     if (game.mode === "WORLD" || game.mode === "TITLE") {
       worldTick(dt);
@@ -233,13 +259,15 @@ function loop(timeNow) {
       missionTick(dt, (resultData) => {
         Object.assign(game, resultData.apply(game));
         game.missionsDone += 1;
-        saveNow();
-        setMode("WORLD");
+        if (game.settings.autosave) saveNow();
+        setMode("RESULT");
+        const res = $("resText");
+        if (res) res.textContent = `Score applied. Eddies + Frags updated.\nHeat increased.`;
       });
     }
   }
 
-  uiTick();
+  uiTick(dt);
   requestAnimationFrame(loop);
 }
 
@@ -247,4 +275,4 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", boot);
 } else {
   boot();
-}
+          }

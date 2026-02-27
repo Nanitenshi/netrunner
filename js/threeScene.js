@@ -1,164 +1,177 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js";
 
 let scene, camera, renderer, clock;
-let cityInstancedMesh;
-let lights = [];
-let ambientLight, dirLight;
+let cityMesh, cityGeo, cityMat;
+let running = true;
 
-let currentMood = 0; // 0..1
-let lastRenderedMood = -1; // Zum Cachen des Zustands
+let mood = 0;           // 0..1
+let quality = "quality"; // quality|perf
+let targetFps = 60;
+let lastFrameTime = 0;
+
+// city params (changed by quality)
+let cityDensity = 1.0;  // 1.0 = full, 0.55 = perf
+let dprCap = 1.5;
 
 export function initThree(canvas) {
-  // Renderer Setup
-  renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false }); // Antialias false für Performance (besonders auf Tablet)
-  // FIX: Tablet Performance (PixelRatio runter)
-// 1.0 = deutlich weniger GPU Last. (Auf Handy sieht’s trotzdem gut aus.)
-const dpr = window.devicePixelRatio || 1;
-renderer.setPixelRatio(Math.min(1.25, dpr)); // oder hart 1.0, wenn du Maximum Performance willst
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1));
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
 
   scene = new THREE.Scene();
   clock = new THREE.Clock();
 
-  // Kamera Setup
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+  camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 1800);
   camera.position.set(0, 28, 70);
 
-  // Basis-Beleuchtung
-  ambientLight = new THREE.AmbientLight(0x0a1220, 0.8); // Farbe ändert sich später mit der Mood
-  scene.add(ambientLight);
+  // light cheap
+  scene.add(new THREE.AmbientLight(0x0a1220, 0.9));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.55);
+  dl.position.set(40, 60, 30);
+  scene.add(dl);
 
-  dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(40, 60, 30);
-  scene.add(dirLight);
-
-  // Nebel
   scene.fog = new THREE.FogExp2(0x05070a, 0.015);
 
   buildCity();
 
-  // Resize Handler
   window.addEventListener("resize", () => {
     if (!renderer || !camera) return;
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
   });
 
-  // Render Loop starten
-  renderer.setAnimationLoop(anim);
+  renderer.setAnimationLoop(renderLoop);
 }
 
-function buildCity() {
-  const gridX = 29; // -14 to 14
-  const gridZ = 21; // -10 to 10
-  const maxBuildings = gridX * gridZ;
+export function setMoodProgress(p) {
+  mood = Math.max(0, Math.min(1, p));
+  applyMood();
+}
 
-  // Gemeinsame Geometrie und Material für alle Gebäude
-  const geo = new THREE.BoxGeometry(1, 1, 1);
-  const mat = new THREE.MeshStandardMaterial({
+export function setThreeRunning(on) {
+  running = !!on;
+}
+
+export function setThreeQuality(mode) {
+  const next = (mode === "perf") ? "perf" : "quality";
+  if (quality === next) return;
+  quality = next;
+
+  // Tune for tablet
+  if (quality === "perf") {
+    targetFps = 30;
+    dprCap = 1.0;
+    cityDensity = 0.55;
+  } else {
+    targetFps = 60;
+    dprCap = 1.5;
+    cityDensity = 1.0;
+  }
+
+  if (renderer) {
+    renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+  }
+
+  // rebuild city with new density
+  buildCity(true);
+}
+
+function buildCity(rebuild = false) {
+  if (rebuild && cityMesh) {
+    scene.remove(cityMesh);
+    cityGeo?.dispose?.();
+    cityMat?.dispose?.();
+    cityMesh = null;
+  }
+
+  // Instancing
+  const gridX = 29;
+  const gridZ = 21;
+
+  cityGeo = new THREE.BoxGeometry(1, 1, 1);
+
+  // Fake neon: emissive glow-ish (cheap)
+  cityMat = new THREE.MeshStandardMaterial({
     color: 0x0b1017,
-    roughness: 0.8,
-    metalness: 0.25
+    roughness: 0.9,
+    metalness: 0.15,
+    emissive: new THREE.Color(0x001018),
+    emissiveIntensity: 0.85
   });
 
-  // InstancedMesh = 1 Draw Call für die ganze Stadt!
-  cityInstancedMesh = new THREE.InstancedMesh(geo, mat, maxBuildings);
+  const max = gridX * gridZ;
+  cityMesh = new THREE.InstancedMesh(cityGeo, cityMat, max);
+
   const dummy = new THREE.Object3D();
-  let buildingCount = 0;
+  let count = 0;
 
   for (let x = -14; x <= 14; x++) {
     for (let z = -10; z <= 10; z++) {
-      if (Math.random() < 0.35) continue; // Freie Flächen
+      // density cut
+      if (Math.random() > cityDensity) continue;
+      if (Math.random() < 0.20) continue; // empty lots
 
       const h = 4 + Math.random() * 38;
-      
-      // Transformieren des "Dummys" und in das InstancedMesh schreiben
-      dummy.scale.set(2.2, h, 2.2);
-      dummy.position.set(x * 3.2, h / 2, z * 3.4);
-      dummy.updateMatrix();
-      cityInstancedMesh.setMatrixAt(buildingCount, dummy.matrix);
-      
-      buildingCount++;
+      const sx = 2.2 + Math.random() * 0.6;
+      const sz = 2.2 + Math.random() * 0.6;
 
-      // Neon Strips (Stark limitiert auf max. ~25 Lichter für WebGL Performance)
-      // Bei InstancedMesh kann man Lichter nicht als Kind anhängen, sie müssen in die Scene.
-      if (lights.length < 25) {
-        if (Math.random() < 0.06) {
-          const n = new THREE.PointLight(0x00f3ff, 1.0, 28, 2);
-          n.position.set(dummy.position.x, Math.min(h - 2, 10 + Math.random() * 12), dummy.position.z);
-          lights.push(n);
-          scene.add(n);
-        } else if (Math.random() < 0.04) {
-          const p = new THREE.PointLight(0xff007c, 0.8, 22, 2);
-          p.position.set(dummy.position.x + 0.7, Math.min(h - 2, 10 + Math.random() * 14), dummy.position.z + 0.2);
-          lights.push(p);
-          scene.add(p);
-        }
-      }
+      dummy.scale.set(sx, h, sz);
+      dummy.position.set(x * 3.2, h / 2, z * 3.4);
+      dummy.rotation.y = Math.random() * Math.PI;
+      dummy.updateMatrix();
+
+      cityMesh.setMatrixAt(count, dummy.matrix);
+      count++;
     }
   }
 
-  // Wichtig: Dem Mesh sagen, dass wir nur die tatsächlich genutzten Plätze rendern
-  cityInstancedMesh.count = buildingCount;
-  scene.add(cityInstancedMesh);
+  cityMesh.count = count;
+  scene.add(cityMesh);
+
+  applyMood();
 }
 
-// Wird von core.js aufgerufen
-export function setMoodProgress(p) {
-  currentMood = Math.max(0, Math.min(1, p));
+function applyMood() {
+  if (!scene || !cityMat) return;
+
+  // day -> dusk -> night
+  const dayToSun = Math.min(1, mood * 2);
+  const sunToNight = Math.max(0, (mood - 0.5) * 2);
+
+  const day = new THREE.Color(0x0a1220);
+  const dusk = new THREE.Color(0x1b0f2a);
+  const night = new THREE.Color(0x05070a);
+
+  const c1 = day.clone().lerp(dusk, dayToSun);
+  const final = c1.clone().lerp(night, sunToNight);
+
+  scene.fog.color.copy(final);
+
+  // emissive gets stronger at night
+  cityMat.emissive = new THREE.Color(0x001018).lerp(new THREE.Color(0x240010), sunToNight);
+  cityMat.emissiveIntensity = 0.75 + sunToNight * 1.15;
+  cityMat.needsUpdate = true;
 }
 
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
+function renderLoop(nowMs) {
+  if (!renderer || !scene || !camera) return;
 
-function anim() {
-  const time = clock.getElapsedTime();
+  // pause during mission => huge perf
+  if (!running) return;
 
-  // Kamerabewegung (sanftes Schweben)
-  camera.position.x = Math.sin(time * 0.2) * 6;
-  camera.position.z = 70 + Math.cos(time * 0.1) * 3; // Leichtes Vor/Zurück
+  // fps cap (perf mode)
+  const frameMin = 1000 / targetFps;
+  if (nowMs - lastFrameTime < frameMin) return;
+  lastFrameTime = nowMs;
+
+  const t = clock.getElapsedTime();
+
+  camera.position.x = Math.sin(t * 0.2) * 6;
+  camera.position.z = 70 + Math.cos(t * 0.1) * 3;
   camera.lookAt(0, 10, 0);
-
-  // Mood nur updaten, wenn sie sich geändert hat (spart immens CPU!)
-  if (Math.abs(currentMood - lastRenderedMood) > 0.005) {
-    applyMood(currentMood);
-    lastRenderedMood = currentMood;
-  }
 
   renderer.render(scene, camera);
 }
-
-function applyMood(mood) {
-  // Map: 0.0(Day) -> 0.5(Sunset) -> 1.0(Night)
-  const dayToSunset = Math.min(1, mood * 2); 
-  const sunsetToNight = Math.max(0, (mood - 0.5) * 2);
-
-  const skyDay = new THREE.Color(0x0a1220);
-  const skySun = new THREE.Color(0x1b0f2a);
-  const skyNight = new THREE.Color(0x05070a);
-
-  // AmbientLight Farbe anpassen (wichtig für InstancedMesh, da wir nicht jedes Gebäude-Material ändern wollen)
-  const c1 = skyDay.clone().lerp(skySun, dayToSunset);
-  const finalColor = c1.clone().lerp(skyNight, sunsetToNight);
-  
-  scene.fog.color.copy(finalColor);
-  ambientLight.color.copy(finalColor);
-
-  // Directional Light wird abends schwächer und wärmer, nachts dunkel
-  dirLight.intensity = lerp(0.8, 0.1, mood);
-
-  // Neon-Intensität wächst mit der Nacht
-  const neonBoost = lerp(0.0, 1.8, sunsetToNight); // Leuchten erst ab Sonnenuntergang
-  lights.forEach(l => {
-    l.intensity = neonBoost;
-  });
-
-  // Gebäude-Material global anpassen
-  if (cityInstancedMesh) {
-    cityInstancedMesh.material.roughness = lerp(0.65, 0.95, mood);
-    cityInstancedMesh.material.metalness = lerp(0.35, 0.15, mood);
-    cityInstancedMesh.material.needsUpdate = true;
-  }
-    }

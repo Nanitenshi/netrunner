@@ -1,34 +1,18 @@
-import { toast, pushStoryLog, setTicker } from "./ui.js";
+import { game } from "./core.js";
+import { toast } from "./ui.js";
 
-export function openNpcDialog(node) {
-  if (!node) return;
+export function openNpcDialog(nodeId) {
+  if (!nodeId) return toast("NO NODE SELECTED.");
 
-  const lines = {
-    NYX: [
-      "Wir sind drin. Bleib ruhig. Jeder Fehler zieht Heat.",
-      "Ich mag Runner mit Tempo. Lass mich nicht hängen.",
-      "Arasaka wirkt heute… nervös."
-    ],
-    GHOST: [
-      "Nyx erzählt dir die halbe Wahrheit.",
-      "Wenn du reich werden willst: mach’s dreckig.",
-      "Ich sehe ein Echo im Signal. Das bist nicht du."
-    ],
-    DOC: [
-      "Dein Deck ist heiß. Upgrades wären schlau.",
-      "Du spielst mit Black ICE. Trag’s nicht ins echte Leben."
-    ]
-  };
+  // minimalist: “Talk” just drops a story line into archive
+  const line = (Math.random() > 0.5)
+    ? `Nyx: “Arasaka lächelt am Tag. Nachts fressen sie.”`
+    : `Ghost: “Wenn du glaubst du steuerst das, hat dich die Stadt schon.”`;
 
-  const who = node.npc || "SYSTEM";
-  const pool = lines[who] || ["Signal rauscht…"];
-  const msg = pool[Math.floor(Math.random() * pool.length)];
-
-  setTicker(`${who}: ${msg}`);
-  pushStoryLog(`${who}: ${msg}`);
-  toast("COMMS RECEIVED");
+  game.storyLog.unshift(`> ${line}`);
+  toast("COMMS RECEIVED.");
 }
 
 export function npcTick() {
-  // reserved for future: NPC patrols, events
+  // reserved for later (NPC movement, timed comms etc.)
 }

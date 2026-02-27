@@ -1,3 +1,0 @@
-# netrunner
-
-have fun

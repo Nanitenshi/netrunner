@@ -1,3 +1,4 @@
+// js/core.js
 import { initThree, setMoodProgress } from "./threeScene.js";
 import { initWorld, worldTick, handleWorldPointer } from "./world.js";
 import { initUI, uiTick, toast } from "./ui.js";
@@ -12,19 +13,18 @@ export const game = {
   heat: 0,
   frags: 0,
   district: 1,
-  globalProgress: 0, // 0..1 (day -> sunset -> night)
+  globalProgress: 0,
   storyIndex: 0,
   missionsDone: 0,
 
   upgrades: {
-    buffer: 0,     // +time
-    amplifier: 0,  // +hitbox
-    pulse: 0       // active ability (slow time)
+    buffer: 0,
+    amplifier: 0,
+    pulse: 0
   },
 
   selectedNodeId: null,
 
-  // Runtime references (nicht im Savegame speichern!)
   canvases: {
     three: null,
     world: null,
@@ -36,57 +36,67 @@ export const game = {
   }
 };
 
-// --- HELPER ---
 const $ = (id) => document.getElementById(id);
 
-// --- STATE MANAGEMENT ---
+// --- STATE MANAGEMENT (FIXED for your current index.html IDs) ---
 export function setMode(next) {
   game.mode = next;
 
-  // Sichtbarkeit der Canvases steuern
+  // Canvases visibility
   if (game.canvases.mission) {
     game.canvases.mission.style.display = (next === "MISSION") ? "block" : "none";
   }
   if (game.canvases.world) {
-    // World ist auf TITLE und WORLD sichtbar (als Overlay über Three.js)
+    // World shown in TITLE + WORLD, hidden during mission/result
     game.canvases.world.style.display = (next === "MISSION" || next === "RESULT") ? "none" : "block";
   }
+  if (game.canvases.three) {
+    // Keep 3D on in WORLD (optional: also in TITLE)
+    game.canvases.three.style.display = (next === "WORLD" || next === "TITLE") ? "block" : "block";
+  }
 
-  // UI-Panels steuern (sicherstellen, dass die IDs existieren)
-  const toggleVisibility = (id, forceShow) => {
+  // Helper: show/hide by toggling .hidden
+  const show = (id, yes) => {
     const el = $(id);
-    if (el) el.classList.toggle("hidden", !forceShow);
+    if (!el) return;
+    el.classList.toggle("hidden", !yes);
   };
 
-  toggleVisibility("title", next === "TITLE");
-  toggleVisibility("leftPanel", next === "WORLD");
-  toggleVisibility("rightPanel", next === "WORLD");
-  toggleVisibility("missionHud", next === "MISSION");
-  toggleVisibility("result", next === "RESULT");
+  // ✅ IDs from your index:
+  // title, hudTop, rightPanel, toast
+  show("title", next === "TITLE");
+  show("hudTop", next === "WORLD" || next === "MISSION");
+  show("rightPanel", next === "WORLD");
+
+  // Optional future panels (safe if missing)
+  show("leftPanel", next === "WORLD");
+  show("missionHud", next === "MISSION");
+  show("result", next === "RESULT");
+
+  console.log("[MODE]", next);
 }
 
 // --- RESIZE HANDLING ---
 function resizeAll() {
   const dpr = window.devicePixelRatio || 1;
 
-  for (const key of ["three", "world", "mission"]) {
-    const canvas = game.canvases[key];
-    if (!canvas) continue;
-
+  const fit = (canvas, ctx2d) => {
+    if (!canvas) return;
     canvas.width = Math.floor(window.innerWidth * dpr);
     canvas.height = Math.floor(window.innerHeight * dpr);
-    
-    // ctx updaten, falls es ein 2D Canvas ist
-    const ctx = game.ctx[key];
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
+    if (ctx2d) ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  fit(game.canvases.three, null);          // WebGL handles its own scale usually, but this keeps size correct
+  fit(game.canvases.world, game.ctx.world);
+  fit(game.canvases.mission, game.ctx.mission);
 }
 
 // --- INITIALIZATION ---
 function boot() {
   console.log("System boot sequence initiated...");
 
-  // DOM Elemente binden
+  // Bind DOM
   game.canvases.three = $("threeCanvas");
   game.canvases.world = $("worldCanvas");
   game.canvases.mission = $("missionCanvas");
@@ -94,73 +104,74 @@ function boot() {
   if (game.canvases.world) game.ctx.world = game.canvases.world.getContext("2d");
   if (game.canvases.mission) game.ctx.mission = game.canvases.mission.getContext("2d");
 
-  // Pointer Events für World (mit preventDefault in den Handlern, um Scrollen zu verhindern)
+  // Pointer events (WORLD)
   if (game.canvases.world) {
-    game.canvases.world.addEventListener("pointerdown",   (e) => handleWorldPointer("down", e),   { passive: false });
-    game.canvases.world.addEventListener("pointermove",   (e) => handleWorldPointer("move", e),   { passive: false });
-    game.canvases.world.addEventListener("pointerup",     (e) => handleWorldPointer("up", e),     { passive: false });
-    game.canvases.world.addEventListener("pointercancel", (e) => handleWorldPointer("cancel", e), { passive: false });
+    const c = game.canvases.world;
+    c.addEventListener("pointerdown",   (e) => handleWorldPointer("down", e),   { passive: false });
+    c.addEventListener("pointermove",   (e) => handleWorldPointer("move", e),   { passive: false });
+    c.addEventListener("pointerup",     (e) => handleWorldPointer("up", e),     { passive: false });
+    c.addEventListener("pointercancel", (e) => handleWorldPointer("cancel", e), { passive: false });
   }
 
-  // Pointer Events für Mission
+  // Pointer events (MISSION)
   if (game.canvases.mission) {
-    game.canvases.mission.addEventListener("pointerdown",   (e) => handleMissionPointer("down", e),   { passive: false });
-    game.canvases.mission.addEventListener("pointermove",   (e) => handleMissionPointer("move", e),   { passive: false });
-    game.canvases.mission.addEventListener("pointerup",     (e) => handleMissionPointer("up", e),     { passive: false });
-    game.canvases.mission.addEventListener("pointercancel", (e) => handleMissionPointer("cancel", e), { passive: false });
+    const c = game.canvases.mission;
+    c.addEventListener("pointerdown",   (e) => handleMissionPointer("down", e),   { passive: false });
+    c.addEventListener("pointermove",   (e) => handleMissionPointer("move", e),   { passive: false });
+    c.addEventListener("pointerup",     (e) => handleMissionPointer("up", e),     { passive: false });
+    c.addEventListener("pointercancel", (e) => handleMissionPointer("cancel", e), { passive: false });
   }
 
   window.addEventListener("resize", resizeAll);
 
-  // Spielstand laden (nur Spielwerte überschreiben, keine Laufzeit-Referenzen wie 'canvases')
+  // Load save (safe merge)
   const savedData = loadSave();
   if (savedData) {
-    // Sicheres Merge: Upgrades extra behandeln, falls neue im Code dazukamen
     const { upgrades, ...rest } = savedData;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
   }
 
-  // Module initialisieren
+  // Init modules (UI first so toast works)
   initUI({ setMode, startMission, openNpcDialog, saveNow, resetSave });
-  if (game.canvases.three) initThree(game.canvases.three);
+
+  // ✅ FAIL-SAFE: Three init must not crash the whole app
+  try {
+    if (game.canvases.three) initThree(game.canvases.three);
+  } catch (err) {
+    console.error("Three init failed:", err);
+    toast("3D OFFLINE — 2D WORLD ACTIVE");
+  }
+
   initWorld();
-  
-  toast("SYSTEM READY. TAP ENTER.");
 
   resizeAll();
   setMode("TITLE");
+  toast("SYSTEM READY. TAP ENTER.");
 
-  // Main Menu Buttons
+  // --- Buttons (match your index IDs) ---
   const btnStart = $("btnStart");
   if (btnStart) {
-    btnStart.onclick = () => {
+    btnStart.addEventListener("click", () => {
+      console.log("[BTN] Start pressed");
       setMode("WORLD");
-      toast("NIGHT CITY ONLINE.");
-    };
-  }
-
-  const btnContinue = $("btnContinue");
-  if (btnContinue) {
-    // Zeige "Continue" nur, wenn es einen Save gibt
-    btnContinue.style.display = savedData ? "inline-block" : "none";
-    btnContinue.onclick = () => {
-      setMode("WORLD");
-      toast("LINK RESTORED.");
-    };
+      toast("NIGHT CITY ONLINE. TAP A NODE.");
+    });
+  } else {
+    console.warn("btnStart not found in DOM.");
   }
 
   const btnReset = $("btnReset");
   if (btnReset) {
-    btnReset.onclick = () => {
+    btnReset.addEventListener("click", () => {
       if (confirm("WARNING: PURGE ALL DATA?")) {
         resetSave();
         location.reload();
       }
-    };
+    });
   }
 
-  // Game Loop starten
+  // Start loop
   requestAnimationFrame(loop);
 }
 
@@ -168,41 +179,34 @@ function boot() {
 let lastTime = 0;
 
 function loop(timeNow) {
-  // Delta Time berechnen (max 33ms / ~30fps Fallback bei Lag)
   const dt = Math.min(0.033, (timeNow - lastTime) / 1000 || 0);
   lastTime = timeNow;
 
-  // Globale Progression (Tageszeit)
+  // Global mood progress
   game.globalProgress = Math.min(1, game.missionsDone / 12);
-  setMoodProgress(game.globalProgress);
+  try { setMoodProgress(game.globalProgress); } catch {}
 
-  // State Updates
   if (game.mode === "WORLD" || game.mode === "TITLE") {
     worldTick(dt);
     npcTick(dt);
   }
-  
+
   if (game.mode === "MISSION") {
     missionTick(dt, (resultData) => {
-      // Mission abgeschlossen
-      Object.assign(game, resultData.apply(game)); // Values von der Mission anwenden
+      Object.assign(game, resultData.apply(game));
       game.missionsDone += 1;
       saveNow();
       setMode("RESULT");
     });
   }
 
-  // UI Update
   uiTick();
-
-  // Nächster Frame
   requestAnimationFrame(loop);
 }
 
 // --- START ---
-// Stelle sicher, dass das DOM komplett geladen ist
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", boot);
 } else {
   boot();
-                                           }
+  }

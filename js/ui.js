@@ -1,47 +1,46 @@
 import { game } from "./core.js";
 import { saveNow } from "./save.js";
-import { getSelectedNode } from "./world.js";
 
 const $ = (id) => document.getElementById(id);
+
 let api = null;
 let toastTimer = null;
 
 export function initUI(_api) {
   api = _api;
 
-  $("btnTalk")?.addEventListener("click", () => api.openNpcDialog(game.selectedNodeId));
+  // LEFT PANEL
+  const btnTalk = $("btnTalk");
+  if (btnTalk) btnTalk.onclick = () => api.openNpcDialog(game.selectedNodeId);
 
-  // FIX: Mission Button -> nutzt api.startMission (macht setMode("MISSION") in core.js)
-  $("btnMission")?.addEventListener("click", () => {
-    const n = getSelectedNode();
-    if (!n) return toast("NO NODE SELECTED.");
-    if (n.type !== "mission") return toast("SELECT A MISSION NODE.");
+  const btnMission = $("btnMission");
+  if (btnMission) btnMission.onclick = () => api.startMission();
 
-    api.startMission("cache", n.id);
-  });
+  const btnFocus = $("btnFocus");
+  if (btnFocus) btnFocus.onclick = () => api.focusToggle?.();
 
-  $("btnFocus")?.addEventListener("click", () => api.focusToggle());
+  // BOTTOM BAR
+  const btnPause = $("btnPause");
+  if (btnPause) {
+    btnPause.addEventListener("click", (e) => { e.preventDefault(); api.togglePause(); }, { passive: false });
+    btnPause.addEventListener("touchstart", (e) => { e.preventDefault(); api.togglePause(); }, { passive: false });
+  }
 
-  $("btnQuality")?.addEventListener("click", () => {
-    const btn = $("btnQuality");
-    const next = (game.perfMode === "perf") ? "quality" : "perf";
-    btn.dataset.mode = next;
-    btn.textContent = next.toUpperCase();
-    api.setPerf(next);
-  });
+  const btnQuality = $("btnQuality");
+  if (btnQuality) {
+    btnQuality.addEventListener("click", (e) => { e.preventDefault(); api.toggleQuality(); }, { passive: false });
+    btnQuality.addEventListener("touchstart", (e) => { e.preventDefault(); api.toggleQuality(); }, { passive: false });
+  }
 
-  $("btnPause")?.addEventListener("click", () => {
-    toast("Autosave.");
-    saveNow();
-  });
+  const btnSave = $("btnSave");
+  if (btnSave) {
+    btnSave.addEventListener("click", (e) => { e.preventDefault(); api.toggleAutosave(); }, { passive: false });
+    btnSave.addEventListener("touchstart", (e) => { e.preventDefault(); api.toggleAutosave(); }, { passive: false });
+  }
 
-  $("btnSave")?.addEventListener("click", () => {
-    toast("Saved.");
-    saveNow();
-  });
-
+  // Autosave on background (nur wenn AUTO an)
   window.addEventListener("visibilitychange", () => {
-    if (document.hidden) saveNow();
+    if (document.hidden && game.settings.autosave) saveNow();
   });
 }
 
@@ -53,7 +52,7 @@ export function toast(msg) {
   el.classList.remove("hidden");
 
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), 1200);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), 1600);
 }
 
 export function updateNodeList(nodes, selectedId, onPick) {
@@ -85,28 +84,28 @@ export function updateNodeList(nodes, selectedId, onPick) {
     card.appendChild(badge);
 
     card.addEventListener("click", () => onPick(n.id));
+    card.addEventListener("touchstart", (e) => { e.preventDefault(); onPick(n.id); }, { passive: false });
+
     wrap.appendChild(card);
   });
 }
 
-export function uiTick() {
-  $("hudDistrict") && ($("hudDistrict").textContent = `Sector-${String(game.district).padStart(2,"0")}`);
-  $("hudMoney") && ($("hudMoney").textContent = `E$ ${game.money}`);
-  $("hudHeat") && ($("hudHeat").textContent = `${game.heat}%`);
-  $("hudFrags") && ($("hudFrags").textContent = `${game.frags}`);
+export function uiTick(dt = 0) {
+  const d = $("hudDistrict"); if (d) d.textContent = `Sector-${String(game.district).padStart(2,"0")}`;
+  const m = $("hudMoney"); if (m) m.textContent = `E$ ${game.money}`;
+  const h = $("hudHeat"); if (h) h.textContent = `${game.heat}%`;
+  const f = $("hudFrags"); if (f) f.textContent = `${game.frags}`;
 
   const t = $("hudTime");
   if (t) t.textContent = game.globalProgress < 0.35 ? "DAY" : (game.globalProgress < 0.7 ? "DUSK" : "NIGHT");
 
-  // story archive
-  const arch = $("storyArchive");
-  if (arch) {
-    arch.innerHTML = game.storyLog.slice(0, 10).map(s => `<div class="archRow">${escapeHtml(s)}</div>`).join("");
-  }
-}
+  // quality label
+  const q = $("btnQuality");
+  if (q) q.textContent = (game.settings.quality === "perf") ? "PERF" : "SHARP";
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[c]));
+  const a = $("btnSave");
+  if (a) a.textContent = game.settings.autosave ? "AUTO" : "MANUAL";
+
+  const p = $("btnPause");
+  if (p) p.textContent = game.paused ? "RESUME" : "PAUSE";
 }

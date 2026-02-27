@@ -1,177 +1,95 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js";
+import { game } from "./core.js";
 
-let scene, camera, renderer, clock;
-let cityMesh, cityGeo, cityMat;
-let running = true;
+let canvas, ctx;
+let t = 0;
+let perfGetter = null;
+let mood = 0;
 
-let mood = 0;           // 0..1
-let quality = "quality"; // quality|perf
-let targetFps = 60;
-let lastFrameTime = 0;
+export function initThree(c, getPerfMode) {
+  canvas = c;
+  ctx = canvas.getContext("2d", { alpha: true });
+  perfGetter = getPerfMode;
+  requestAnimationFrame(loop);
+}
 
-// city params (changed by quality)
-let cityDensity = 1.0;  // 1.0 = full, 0.55 = perf
-let dprCap = 1.5;
-
-export function initThree(canvas) {
-  renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1));
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
-
-  scene = new THREE.Scene();
-  clock = new THREE.Clock();
-
-  camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 1800);
-  camera.position.set(0, 28, 70);
-
-  // light cheap
-  scene.add(new THREE.AmbientLight(0x0a1220, 0.9));
-  const dl = new THREE.DirectionalLight(0xffffff, 0.55);
-  dl.position.set(40, 60, 30);
-  scene.add(dl);
-
-  scene.fog = new THREE.FogExp2(0x05070a, 0.015);
-
-  buildCity();
-
-  window.addEventListener("resize", () => {
-    if (!renderer || !camera) return;
-    renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1));
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-  });
-
-  renderer.setAnimationLoop(renderLoop);
+export function setPerfMode(mode) {
+  // nothing needed here (core.js resizes DPR already)
 }
 
 export function setMoodProgress(p) {
   mood = Math.max(0, Math.min(1, p));
-  applyMood();
 }
 
-export function setThreeRunning(on) {
-  running = !!on;
+function loop() {
+  if (!ctx) return;
+
+  t += 0.016;
+
+  // 2D “Night City” background render: very fast
+  drawCity2D();
+
+  requestAnimationFrame(loop);
 }
 
-export function setThreeQuality(mode) {
-  const next = (mode === "perf") ? "perf" : "quality";
-  if (quality === next) return;
-  quality = next;
+function drawCity2D() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-  // Tune for tablet
-  if (quality === "perf") {
-    targetFps = 30;
-    dprCap = 1.0;
-    cityDensity = 0.55;
-  } else {
-    targetFps = 60;
-    dprCap = 1.5;
-    cityDensity = 1.0;
-  }
+  ctx.clearRect(0,0,w,h);
 
-  if (renderer) {
-    renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1));
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-  }
+  const isPerf = (perfGetter?.() === "perf");
+  const layers = isPerf ? 4 : 6;
 
-  // rebuild city with new density
-  buildCity(true);
-}
+  // mood colors
+  const day = { r: 10, g: 18, b: 32 };
+  const dusk = { r: 30, g: 12, b: 42 };
+  const night = { r: 5, g: 7, b: 10 };
 
-function buildCity(rebuild = false) {
-  if (rebuild && cityMesh) {
-    scene.remove(cityMesh);
-    cityGeo?.dispose?.();
-    cityMat?.dispose?.();
-    cityMesh = null;
-  }
+  const c1 = lerpRGB(day, dusk, Math.min(1, mood*2));
+  const c2 = lerpRGB(dusk, night, Math.max(0, (mood-0.5)*2));
+  const sky = mixRGB(c1, c2, Math.max(0, (mood-0.5)*2));
 
-  // Instancing
-  const gridX = 29;
-  const gridZ = 21;
+  // sky gradient
+  const grd = ctx.createLinearGradient(0,0,0,h);
+  grd.addColorStop(0, `rgb(${sky.r},${sky.g},${sky.b})`);
+  grd.addColorStop(1, `rgb(0,0,0)`);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0,0,w,h);
 
-  cityGeo = new THREE.BoxGeometry(1, 1, 1);
+  // parallax buildings
+  for (let i=0; i<layers; i++) {
+    const depth = i / (layers-1);
+    const baseY = h * (0.35 + depth * 0.35);
+    const scroll = (t * (10 + depth*30)) % 160;
 
-  // Fake neon: emissive glow-ish (cheap)
-  cityMat = new THREE.MeshStandardMaterial({
-    color: 0x0b1017,
-    roughness: 0.9,
-    metalness: 0.15,
-    emissive: new THREE.Color(0x001018),
-    emissiveIntensity: 0.85
-  });
+    const count = isPerf ? 18 : 28;
+    for (let b=0; b<count; b++) {
+      const bw = 22 + (b*13 % 40) + depth*40;
+      const bh = 50 + ((b*37) % 160) + depth*260;
+      const x = ((b * 90) - scroll) % (w + 200) - 100;
+      const y = baseY - bh;
 
-  const max = gridX * gridZ;
-  cityMesh = new THREE.InstancedMesh(cityGeo, cityMat, max);
+      ctx.fillStyle = `rgba(10,16,24,${0.28 + depth*0.22})`;
+      ctx.fillRect(x, y, bw, bh);
 
-  const dummy = new THREE.Object3D();
-  let count = 0;
-
-  for (let x = -14; x <= 14; x++) {
-    for (let z = -10; z <= 10; z++) {
-      // density cut
-      if (Math.random() > cityDensity) continue;
-      if (Math.random() < 0.20) continue; // empty lots
-
-      const h = 4 + Math.random() * 38;
-      const sx = 2.2 + Math.random() * 0.6;
-      const sz = 2.2 + Math.random() * 0.6;
-
-      dummy.scale.set(sx, h, sz);
-      dummy.position.set(x * 3.2, h / 2, z * 3.4);
-      dummy.rotation.y = Math.random() * Math.PI;
-      dummy.updateMatrix();
-
-      cityMesh.setMatrixAt(count, dummy.matrix);
-      count++;
+      // neon windows (cheap)
+      if (!isPerf || (b%3===0)) {
+        const neon = (b%2===0) ? "rgba(0,243,255,0.18)" : "rgba(255,0,124,0.14)";
+        ctx.fillStyle = neon;
+        for (let wy=0; wy<bh; wy+=18) {
+          if ((wy + b*7) % 36 === 0) ctx.fillRect(x+4, y+wy+8, Math.max(2, bw-8), 2);
+        }
+      }
     }
   }
 
-  cityMesh.count = count;
-  scene.add(cityMesh);
-
-  applyMood();
+  // soft haze
+  ctx.fillStyle = "rgba(0,243,255,0.03)";
+  ctx.fillRect(0,0,w,h);
 }
 
-function applyMood() {
-  if (!scene || !cityMat) return;
-
-  // day -> dusk -> night
-  const dayToSun = Math.min(1, mood * 2);
-  const sunToNight = Math.max(0, (mood - 0.5) * 2);
-
-  const day = new THREE.Color(0x0a1220);
-  const dusk = new THREE.Color(0x1b0f2a);
-  const night = new THREE.Color(0x05070a);
-
-  const c1 = day.clone().lerp(dusk, dayToSun);
-  const final = c1.clone().lerp(night, sunToNight);
-
-  scene.fog.color.copy(final);
-
-  // emissive gets stronger at night
-  cityMat.emissive = new THREE.Color(0x001018).lerp(new THREE.Color(0x240010), sunToNight);
-  cityMat.emissiveIntensity = 0.75 + sunToNight * 1.15;
-  cityMat.needsUpdate = true;
+function lerp(a,b,t){ return a + (b-a)*t; }
+function lerpRGB(a,b,t){
+  return { r: Math.round(lerp(a.r,b.r,t)), g: Math.round(lerp(a.g,b.g,t)), b: Math.round(lerp(a.b,b.b,t)) };
 }
-
-function renderLoop(nowMs) {
-  if (!renderer || !scene || !camera) return;
-
-  // pause during mission => huge perf
-  if (!running) return;
-
-  // fps cap (perf mode)
-  const frameMin = 1000 / targetFps;
-  if (nowMs - lastFrameTime < frameMin) return;
-  lastFrameTime = nowMs;
-
-  const t = clock.getElapsedTime();
-
-  camera.position.x = Math.sin(t * 0.2) * 6;
-  camera.position.z = 70 + Math.cos(t * 0.1) * 3;
-  camera.lookAt(0, 10, 0);
-
-  renderer.render(scene, camera);
-}
+function mixRGB(a,b,t){ return lerpRGB(a,b,t); }

@@ -14,7 +14,14 @@ const mission = {
   objective: 20
 };
 
+// Performance: immer gleiche Anzahl Caches, nicht ständig pushen
+const CACHE_COUNT = 6;
+
 const caches = [];
+let lastPopToast = 0;
+
+// kleines Feedback ohne DOM-Toast-Spam
+let flash = 0;
 
 export function missionSetPaused(p) {
   paused = !!p;
@@ -24,6 +31,7 @@ export function missionCancelPointer() {
   pointerDown = false;
 }
 
+/* ---------------- HUD ---------------- */
 function setHud() {
   const t = document.getElementById("mHudType");
   if (t) t.textContent = mission.type;
@@ -38,65 +46,135 @@ function setHud() {
   if (timer) timer.textContent = `${Math.max(0, mission.timeLimit - mission.timer).toFixed(1)}s`;
 }
 
-function spawnCaches() {
-  caches.length = 0;
+/* ---------------- CACHES ---------------- */
+function getPlayArea() {
+  // Spielbereich (HUD oben, Bottom-Bar unten)
+  // Falls du HUD/Bottom-Bar änderst, passe diese Zahlen an.
   const W = window.innerWidth;
   const H = window.innerHeight;
 
-  // spielbereich (HUD oben, bottom bar unten)
   const top = 140;
   const bottom = H - 120;
 
-  for (let i = 0; i < 6; i++) {
-    caches.push(makeCache(
-      120 + Math.random() * (W - 240),
-      top + Math.random() * (bottom - top)
-    ));
-  }
+  return { W, H, top, bottom };
 }
 
 function makeCache(x, y) {
+  const rOuter = 52 + Math.random() * 18;
+  const rInner = 22 + Math.random() * 10;
   return {
     x, y,
-    rOuter: 56 + Math.random() * 20,
-    rInner: 22 + Math.random() * 10,
+    rOuter,
+    rInner,
+    // squared radii for fast hit test
+    ringMin2: Math.max(6, rInner - 14) ** 2,
+    ringMax2: (rOuter + 14) ** 2,
     alive: true
   };
 }
 
+function respawnCache(c) {
+  const { W, top, bottom } = getPlayArea();
+  c.x = 120 + Math.random() * (W - 240);
+  c.y = top + Math.random() * (bottom - top);
+
+  const rOuter = 52 + Math.random() * 18;
+  const rInner = 22 + Math.random() * 10;
+
+  c.rOuter = rOuter;
+  c.rInner = rInner;
+  c.ringMin2 = Math.max(6, rInner - 14) ** 2;
+  c.ringMax2 = (rOuter + 14) ** 2;
+  c.alive = true;
+}
+
+function spawnCaches() {
+  caches.length = 0;
+  const { W, top, bottom } = getPlayArea();
+
+  for (let i = 0; i < CACHE_COUNT; i++) {
+    caches.push(
+      makeCache(
+        120 + Math.random() * (W - 240),
+        top + Math.random() * (bottom - top)
+      )
+    );
+  }
+}
+
+/* ---------------- START ---------------- */
 export function startMission(type = "cache") {
   mission.active = true;
   mission.timer = 0;
   mission.score = 0;
   mission.popped = 0;
+
   mission.type = "CACHE POP";
   mission.timeLimit = 10.0;
   mission.objective = 20;
+
+  flash = 0;
+  lastPopToast = 0;
 
   spawnCaches();
   setHud();
   toast("MISSION START: CACHE POP");
 }
 
+/* ---------------- INPUT ---------------- */
+function getLocalXY(e) {
+  // WICHTIG: clientX/clientY sind viewport coords.
+  // Wir brauchen coords relativ zum Canvas (BoundingRect),
+  // sonst passt Hit-Test auf manchen Geräten nicht.
+  const canvas = game.canvases.mission;
+  if (!canvas) return { x: e.clientX, y: e.clientY };
+
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: e.clientX - r.left,
+    y: e.clientY - r.top
+  };
+}
+
 function hitCache(x, y) {
+  // Best hit (nearest) within ring band
   let best = null;
-  let bestD = 1e9;
+  let bestD2 = Infinity;
 
   for (const c of caches) {
     if (!c.alive) continue;
-    const d = Math.hypot(x - c.x, y - c.y);
+    const dx = x - c.x;
+    const dy = y - c.y;
+    const d2 = dx * dx + dy * dy;
 
-    const ringMin = c.rInner - 12;
-    const ringMax = c.rOuter + 12;
-
-    if (d >= ringMin && d <= ringMax) {
-      if (d < bestD) {
-        bestD = d;
+    if (d2 >= c.ringMin2 && d2 <= c.ringMax2) {
+      if (d2 < bestD2) {
+        bestD2 = d2;
         best = c;
       }
     }
   }
   return best;
+}
+
+function popCache(c) {
+  c.alive = false;
+
+  mission.score += 1;
+  mission.popped += 1;
+  flash = 1.0;
+
+  // Weniger Toast-Spam: max 1 Toast pro 350ms
+  const now = performance.now();
+  if (now - lastPopToast > 350) {
+    toast("CACHE POP!");
+    lastPopToast = now;
+  }
+
+  // sofort respawn (konstante Anzahl)
+  respawnCache(c);
+
+  setHud();
 }
 
 export function handleMissionPointer(type, e) {
@@ -105,28 +183,21 @@ export function handleMissionPointer(type, e) {
   if (type === "down") {
     pointerDown = true;
 
-    const x = e.clientX;
-    const y = e.clientY;
-
+    const { x, y } = getLocalXY(e);
     const c = hitCache(x, y);
-    if (c) {
-      c.alive = false;
-      mission.score += 1;
-      mission.popped += 1;
-      setHud();
-      toast("CACHE POP!");
+    if (c) popCache(c);
+    return;
+  }
 
-      // respawn direkt (aber nicht genau am selben Ort)
-      const W = window.innerWidth;
-      const H = window.innerHeight;
-      const top = 140;
-      const bottom = H - 120;
+  // Wichtig: auf Tablets wird häufig minimal gezogen statt exakt getippt.
+  // Daher auch move verwerten, aber nur solange pointerDown true ist.
+  if (type === "move") {
+    if (!pointerDown) return;
 
-      caches.push(makeCache(
-        120 + Math.random() * (W - 240),
-        top + Math.random() * (bottom - top)
-      ));
-    }
+    const { x, y } = getLocalXY(e);
+    const c = hitCache(x, y);
+    if (c) popCache(c);
+    return;
   }
 
   if (type === "up" || type === "cancel") {
@@ -134,15 +205,25 @@ export function handleMissionPointer(type, e) {
   }
 }
 
+/* ---------------- RENDER ---------------- */
 function draw() {
   const ctx = game.ctx.mission;
   if (!ctx) return;
 
-  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  const W = window.innerWidth;
+  const H = window.innerHeight;
 
-  // dunkel overlay
+  ctx.clearRect(0, 0, W, H);
+
+  // dark overlay
   ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  ctx.fillRect(0, 0, W, H);
+
+  // subtle flash feedback
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(0,243,255,${0.08 * flash})`;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   // caches
   for (const c of caches) {
@@ -162,14 +243,16 @@ function draw() {
   }
 }
 
+/* ---------------- TICK ---------------- */
 export function missionTick(dt, onFinish) {
   if (!mission.active) return;
 
-  // Render immer
+  // Render immer (auch in Pause)
   draw();
-
-  // HUD immer
   setHud();
+
+  // Flash decay
+  flash = Math.max(0, flash - dt * 4.5);
 
   if (paused) return;
 

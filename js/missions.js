@@ -13,7 +13,16 @@ function localPos(e) {
 function playRect() {
   const W = window.innerWidth;
   const H = window.innerHeight;
-  return { x0: 60, y0: 170, x1: W - 60, y1: H - 120, W, H };
+
+  // Spielfläche beginnt unter dem (evtl. mehrzeiligen) Mission-HUD
+  const hud = $("missionHud");
+  let top = 170;
+  if (hud && !hud.classList.contains("hidden")) {
+    top = Math.max(120, hud.getBoundingClientRect().bottom + 34);
+  }
+
+  const margin = W < 600 ? 20 : 60;
+  return { x0: margin, y0: top, x1: W - margin, y1: H - 150, W, H };
 }
 
 // Touch-freundliche Zielgröße relativ zum Screen
@@ -107,10 +116,13 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
   function spawn(forceTrap = null) {
     const r = playRect();
     const trap = forceTrap !== null ? forceTrap : Math.random() < trapChance;
+    const rOuter = (52 + Math.random() * 20) * mods.ringScale * sizeMult;
+    const spanX = Math.max(1, r.x1 - r.x0 - rOuter * 2);
+    const spanY = Math.max(1, r.y1 - r.y0 - rOuter * 2);
     return {
-      x: r.x0 + Math.random() * (r.x1 - r.x0),
-      y: r.y0 + Math.random() * (r.y1 - r.y0),
-      rOuter: (52 + Math.random() * 20) * mods.ringScale * sizeMult,
+      x: r.x0 + rOuter + Math.random() * spanX,
+      y: r.y0 + rOuter + Math.random() * spanY,
+      rOuter,
       rInner: (20 + Math.random() * 10) * mods.ringScale * sizeMult,
       pulse: Math.random() * Math.PI * 2,
       trap,
@@ -633,12 +645,13 @@ function makeGhostNet({ diff, mods, timeMult = 1 }) {
     const r = playRect();
     const ang = Math.random() * Math.PI * 2;
     const sp = 50 + Math.random() * 70 + diff * 60;
+    const rad = baseRadius() * 0.9;
     return {
-      x: r.x0 + Math.random() * (r.x1 - r.x0),
-      y: r.y0 + Math.random() * (r.y1 - r.y0),
+      x: r.x0 + rad + Math.random() * Math.max(1, r.x1 - r.x0 - rad * 2),
+      y: r.y0 + rad + Math.random() * Math.max(1, r.y1 - r.y0 - rad * 2),
       vx: Math.cos(ang) * sp,
       vy: Math.sin(ang) * sp,
-      r: baseRadius() * 0.9,
+      r: rad,
       phase: Math.random() * Math.PI * 2,
       alive: true
     };

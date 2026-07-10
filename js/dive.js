@@ -243,9 +243,14 @@ function startLayer(spec) {
     timeMult: spec.mod.time,
     corrupt: !!spec.corrupt
   });
-  dive.mg.start();
   dive.phase = "play";
   showChoice(false);
+
+  // HUD erst mit echten Texten füllen, DANN platzieren —
+  // sonst misst playRect() eine zu niedrige HUD-Höhe (Mobile: Zeilenumbruch)
+  setDiveHud();
+  dive.mg.tick(0, true, () => {});
+  dive.mg.start();
 
   if (spec.boss === "big") toast("⚠⚠ ICE-KERN PRIME — 3 PHASEN. ALLES ODER NICHTS.");
   else if (spec.boss === "mini") toast("⚠ ICE-WÄCHTER ERKANNT — ZERSTÖREN SENKT TRACE.");

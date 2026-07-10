@@ -1,6 +1,6 @@
 // js/world.js
 import { game } from "./core.js";
-import { toast, updateNodeList } from "./ui.js";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js";
 import { openNpcDialog } from "./npc.js";
 
 const $ = (id) => document.getElementById(id);
@@ -204,6 +204,7 @@ function interact(n) {
   game.selectedMissionTier = n.tier || 1;
   game.selectedMissionHot = !!n.hot;
   pendingInteractId = null;
+  openSignalPanel();
 
   const npcName = $("npcName");
   const npcRole = $("npcRole");
@@ -243,6 +244,8 @@ function interact(n) {
 function goToNode(id) {
   const n = nodes.find((x) => x.id === id);
   if (!n) return;
+
+  closeNodesPanel();
 
   const d = Math.hypot(player.x - n.x, player.y - n.y);
   if (d <= INTERACT_R) {

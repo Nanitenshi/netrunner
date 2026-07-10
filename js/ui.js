@@ -73,6 +73,10 @@ export function initUI(_api) {
   // Result screen
   bindFastPress($("btnBackToCity"), () => api.setMode?.("WORLD"));
 
+  // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen
+  bindFastPress($("btnNodes"), () => $("leftPanel")?.classList.toggle("open"));
+  bindFastPress($("btnCloseSignal"), () => $("rightPanel")?.classList.remove("open"));
+
   // Autosave on background (nur wenn AUTO an)
   window.addEventListener("visibilitychange", () => {
     if (document.hidden && game.settings?.autosave) saveNow();
@@ -92,6 +96,14 @@ export function renderStoryLog() {
     row.textContent = line;
     wrap.appendChild(row);
   }
+}
+
+export function openSignalPanel() {
+  $("rightPanel")?.classList.add("open");
+}
+
+export function closeNodesPanel() {
+  $("leftPanel")?.classList.remove("open");
 }
 
 export function setComms(text) {

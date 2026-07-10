@@ -263,6 +263,8 @@ canvas { position: absolute; inset: 0; display: block; }
   gap: 8px;
   overflow: auto;
   padding-right: 4px;
+  flex: 1 1 auto;
+  min-height: 80px;
 }
 
 /* ===== Node Cards (clickable list) ===== */
@@ -367,23 +369,46 @@ canvas { position: absolute; inset: 0; display: block; }
   border-radius: 12px;
 }
 
-/* ===== Mobile Layout ===== */
+/* ===== Mobile Layout =====
+   Auf schmalen Screens sind die Panels Drawer:
+   - #leftPanel nur sichtbar mit .open (NODES-Button unten)
+   - #rightPanel nur sichtbar mit .open (öffnet bei Node-Auswahl)
+*/
 @media (max-width: 900px) {
+  .chip { min-width: 68px; padding: 6px 8px; font-size: 10px; }
+  .chip b { font-size: 12px; }
+
+  #leftPanel {
+    width: auto;
+    right: 12px;
+    top: 64px;
+    bottom: auto;
+    max-height: 62vh;
+    display: none;
+    z-index: 40;
+  }
+  #leftPanel.open { display: flex; }
+
   #rightPanel {
     top: auto;
     left: 12px;
     right: 12px;
     width: auto;
-    bottom: 70px;
-    max-height: 38vh;
+    bottom: 96px;
+    max-height: 34vh;
+    display: none;
+    z-index: 40;
+  }
+  #rightPanel.open { display: flex; }
+
+  .comms {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  #leftPanel {
-    width: auto;
-    right: 12px;
-    max-height: 42vh;
-  }
-  }
+  #storyArchive { max-height: 10vh; }
+}
 
 /* ===== Overlays (Dive Choice, Crew/Broker/Gear) ===== */
 .overlayCard {

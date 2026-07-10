@@ -1,18 +1,57 @@
+// js/npc.js
 import { game } from "./core.js";
-import { toast } from "./ui.js";
+import { toast, renderStoryLog } from "./ui.js";
+import { getNodeById } from "./world.js";
+import { crewTick } from "./crew.js";
+
+const LINES = {
+  NYX: [
+    "Wir starten sauber. Aber die Stadt bleibt nie sauber.",
+    "Arasaka lächelt am Tag. Nachts fressen sie.",
+    "Halt deinen Buffer voll und deinen Mund leer."
+  ],
+  GHOST: [
+    "Wenn du glaubst du steuerst das, hat dich die Stadt schon.",
+    "Ich hab was für dich. Frag nicht, woher.",
+    "Heat runter, Eddies rauf. So einfach ist das nicht, aber tu so."
+  ],
+  "RUNNER-9": [
+    "Der Kaffee hier ist schlechter als meine Firewall. Beides hält trotzdem.",
+    "Konzerne merken sich alles. Merk dir das."
+  ],
+  "ICE-VOICE": [
+    "Willkommen im Lobby-Bereich. Ihre Daten gehören jetzt uns.",
+    "Sicherheitsstufe steigt mit jedem Ihrer Schritte."
+  ],
+  RUST: [
+    "Schrott ist nur Metall, das noch nicht verkauft wurde.",
+    "Die Leitungen hier lügen nicht. Menschen schon."
+  ],
+  "DOC-K": [
+    "Ich flick dich. Frag nicht wie.",
+    "Heat zu hoch, und ich seh dich nicht wieder."
+  ],
+  ECHO: [
+    "Niemand hier war je wirklich hier.",
+    "Signale sterben nie. Sie warten nur."
+  ],
+  default: ["...Verbindung instabil..."]
+};
 
 export function openNpcDialog(nodeId) {
   if (!nodeId) return toast("NO NODE SELECTED.");
 
-  // minimalist: “Talk” just drops a story line into archive
-  const line = (Math.random() > 0.5)
-    ? `Nyx: “Arasaka lächelt am Tag. Nachts fressen sie.”`
-    : `Ghost: “Wenn du glaubst du steuerst das, hat dich die Stadt schon.”`;
+  const node = getNodeById(nodeId);
+  const pool = LINES[node?.npc] || LINES.default;
+  const line = pool[Math.floor(Math.random() * pool.length)];
 
-  game.storyLog.unshift(`> ${line}`);
+  game.storyLog.unshift(`> ${node?.npc || "SIGNAL"}: "${line}"`);
+  if (game.storyLog.length > 60) game.storyLog.length = 60;
+
+  renderStoryLog();
   toast("COMMS RECEIVED.");
 }
 
-export function npcTick() {
-  // reserved for later (NPC movement, timed comms etc.)
+export function npcTick(dt = 0) {
+  crewTick(dt);
 }

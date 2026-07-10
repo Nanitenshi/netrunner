@@ -27,17 +27,18 @@
         <div class="chip panel">EDDIES <b id="hudMoney">E$ 0</b></div>
         <div class="chip panel">HEAT <b id="hudHeat">0%</b></div>
         <div class="chip panel pink">FRAGS <b id="hudFrags">0</b></div>
-        <div class="chip panel">FPS <b id="hudFps">—</b></div>
+        <div class="chip panel yellow">RANK <b id="hudRank">ROOKIE</b></div>
       </header>
 
       <!-- TITLE -->
       <section id="title" class="centerWrap">
         <div class="panel card">
           <h1 class="logo">NEON ALLEY</h1>
-          <h2 class="sub">TABLET-FIRST // OVERWORLD + MISSIONS</h2>
+          <h2 class="sub">DIVE DEEP // LOOT ODER VERLIER ALLES</h2>
           <p class="muted">
-            Tablet: Ziehen = Navigieren · Tap auf Nodes.<br>
-            Danach: Node auswählen → Start Mission.
+            Lauf zu einem Netzzugang und starte einen DIVE.<br>
+            Jeder Layer bringt Loot in deinen Buffer — sichern oder tiefer gehen?<br>
+            Verkackst du, ist der Buffer weg. Mit Frags (◆) ziehst du neue Crew.
           </p>
           <div class="row">
             <button type="button" id="btnStart" class="btn yellow">Enter Night City</button>
@@ -54,7 +55,7 @@
         <header class="sideHead">
           <div>
             <h3 class="sideTitle">ROUTE / NODES</h3>
-            <div class="muted small">Tippe Node oder wähle aus Liste</div>
+            <div class="muted small">Tippen läuft hin · Liste = Ziel wählen</div>
           </div>
         </header>
 
@@ -85,12 +86,68 @@
 
       <!-- MISSION HUD -->
       <header id="missionHud" class="hud missionHud hidden">
-        <div class="chip panel">MISSION <b id="mHudType">—</b></div>
-        <div class="chip panel">OBJECTIVE <b id="mHudObjective">—</b></div>
-        <div class="chip panel pink" id="mHudTimerBox">TIMER <b id="mHudTimer">—</b></div>
-        <div class="chip panel">SCORE <b id="mHudScore">0</b></div>
-        <div class="chip panel">ABILITY <b id="mHudAbility">—</b></div>
+        <div class="chip panel">ICE <b id="mHudType">—</b></div>
+        <div class="chip panel yellow">LAYER <b id="mHudLayer">1</b></div>
+        <div class="chip panel">ZIEL <b id="mHudObjective">—</b></div>
+        <div class="chip panel" id="mHudTimerBox">TIMER <b id="mHudTimer">—</b></div>
+        <div class="chip panel pink">TRACE <b id="mHudTrace">0%</b></div>
+        <div class="chip panel yellow">BUFFER <b id="mHudBuffer">0</b></div>
+        <div class="chip panel">HINT <b id="mHudAbility">—</b></div>
       </header>
+
+      <!-- DIVE CHOICE (Jack Out / Go Deeper) -->
+      <section id="diveChoice" class="centerWrap hidden">
+        <div class="panel card overlayCard">
+          <h2 class="sub" style="margin-top:0">LAYER GESCHAFFT — UND JETZT?</h2>
+          <div class="row diveStats">
+            <div class="chip panel yellow">BUFFER <b id="dcBuffer">0</b></div>
+            <div class="chip panel pink" id="dcTraceChip">TRACE <b id="dcTrace">0%</b></div>
+            <div class="chip panel">NÄCHSTER <b id="dcNext">—</b></div>
+          </div>
+          <div class="dialog small" id="dcBanter">…</div>
+          <div class="row">
+            <button type="button" id="btnJackOut" class="btn yellow">JACK OUT — sichern</button>
+            <button type="button" id="btnDeeper" class="btn pink">GO DEEPER — riskieren</button>
+          </div>
+          <p class="muted small" style="margin-top:10px">
+            Verkackst du den nächsten Layer oder erreicht TRACE 100%, ist der Buffer weg.
+          </p>
+        </div>
+      </section>
+
+      <!-- CREW / BROKER / GEAR -->
+      <section id="crewOverlay" class="centerWrap hidden">
+        <div class="panel card overlayCard tall">
+          <div class="tabRow">
+            <button type="button" class="btn small tabBtn active" data-tab="broker">BROKER</button>
+            <button type="button" class="btn small tabBtn" data-tab="crew">CREW</button>
+            <button type="button" class="btn small tabBtn" data-tab="gear">GEAR</button>
+            <button type="button" id="btnCloseCrew" class="btn small pink closeBtn">✕</button>
+          </div>
+
+          <div id="tabBroker" class="tabPage">
+            <p class="muted small">
+              Gestohlene Identitätskerne vom Schwarzmarkt. Entschlüsseln = neues Crew-Mitglied.
+              Duplikate verbessern den Perk.
+            </p>
+            <div class="muted small" id="pityInfo">—</div>
+            <div class="row" style="justify-content:flex-start">
+              <button type="button" id="btnPull" class="btn yellow">DECRYPT CORE — 20 ◆</button>
+            </div>
+            <div id="pullResult"></div>
+          </div>
+
+          <div id="tabCrew" class="tabPage hidden">
+            <p class="muted small">Max. 2 gleichzeitig im Einsatz. Perks wirken im Dive.</p>
+            <div id="crewGrid" class="crewGrid"></div>
+          </div>
+
+          <div id="tabGear" class="tabPage hidden">
+            <p class="muted small">Cyberware-Upgrades. Wirken dauerhaft, in jedem Dive.</p>
+            <div id="gearList"></div>
+          </div>
+        </div>
+      </section>
 
       <!-- RESULT -->
       <section id="result" class="centerWrap hidden">
@@ -108,6 +165,7 @@
         <div id="commsTicker" class="panel pink comms">
           <b>COMMS:</b> Nyx: “Wir starten sauber. Aber die Stadt bleibt nie sauber.”
         </div>
+        <button type="button" id="btnCrew" class="btn small yellow">CREW ◆</button>
         <button type="button" id="btnQuality" class="btn small" data-mode="perf">PERF</button>
         <button type="button" id="btnPause" class="btn small">PAUSE</button>
         <button type="button" id="btnSave" class="btn small">AUTO</button>

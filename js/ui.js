@@ -3,6 +3,8 @@ import { saveNow } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
 
+const RANKS = ["ROOKIE", "STREET RUNNER", "NETRUNNER", "GHOSTWALKER", "ICE BREAKER", "LEGEND"];
+
 let api = null;
 let toastTimer = null;
 
@@ -22,7 +24,7 @@ function guardClick(e) {
   return false;
 }
 
-function bindFastPress(el, fn) {
+export function bindFastPress(el, fn) {
   if (!el) return;
 
   // Pointer Events (best for Android + desktop)
@@ -75,6 +77,28 @@ export function initUI(_api) {
   window.addEventListener("visibilitychange", () => {
     if (document.hidden && game.settings?.autosave) saveNow();
   });
+
+  renderStoryLog();
+}
+
+export function renderStoryLog() {
+  const wrap = $("storyArchive");
+  if (!wrap) return;
+
+  wrap.innerHTML = "";
+  for (const line of game.storyLog.slice(0, 30)) {
+    const row = document.createElement("div");
+    row.className = "archRow";
+    row.textContent = line;
+    wrap.appendChild(row);
+  }
+}
+
+export function setComms(text) {
+  const el = $("commsTicker");
+  if (!el) return;
+  el.innerHTML = "<b>COMMS:</b> ";
+  el.appendChild(document.createTextNode(text));
 }
 
 export function toast(msg) {
@@ -133,13 +157,16 @@ export function uiTick(dt = 0) {
   if (m) m.textContent = `E$ ${game.money}`;
 
   const h = $("hudHeat");
-  if (h) h.textContent = `${game.heat}%`;
+  if (h) h.textContent = `${Math.round(game.heat)}%`;
 
   const f = $("hudFrags");
   if (f) f.textContent = `${game.frags}`;
 
+  const rk = $("hudRank");
+  if (rk) rk.textContent = RANKS[Math.min(RANKS.length - 1, Math.floor(game.missionsDone / 3))];
+
   const t = $("hudTime");
-  if (t) t.textContent = game.globalProgress < 0.35 ? "DAY" : (game.globalProgress < 0.7 ? "DUSK" : "NIGHT");
+  if (t) t.textContent = game.dayRatio < 0.35 ? "DAY" : (game.dayRatio < 0.7 ? "DUSK" : "NIGHT");
 
   // Quality label
   const q = $("btnQuality");

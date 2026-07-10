@@ -17,14 +17,19 @@ import {
 import { initUI, uiTick, toast } from "./ui.js";
 import { loadSave, saveNow, resetSave } from "./save.js";
 import { openNpcDialog, npcTick } from "./npc.js";
+import { initCrewUI, closeCrewOverlay } from "./crew.js";
+import { unlockAudio } from "./sfx.js";
 
 import {
-  startMission,
-  missionTick,
-  handleMissionPointer,
-  missionCancelPointer,
-  missionSetPaused
-} from "./missions.js";
+  startDive,
+  diveTick,
+  handleDivePointer,
+  diveCancelPointer,
+  diveSetPaused,
+  initDive
+} from "./dive.js";
+
+const DAY_CYCLE = 220; // seconds for a full day/night loop
 
 export const game = {
   mode: "TITLE", // TITLE | WORLD | MISSION | RESULT
@@ -34,7 +39,8 @@ export const game = {
   heat: 0,
   frags: 0,
   district: 7,
-  globalProgress: 0,
+  dayClock: 0,
+  dayRatio: 0,
   missionsDone: 0,
 
   settings: {
@@ -43,7 +49,11 @@ export const game = {
   },
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
+  crew: { roster: {}, equipped: [], pity: 0 },
   selectedNodeId: null,
+  selectedMissionType: null,
+  selectedMissionTier: 1,
+  storyLog: [],
 
   canvases: { three: null, world: null, mission: null },
   ctx: { world: null, mission: null }
@@ -57,7 +67,7 @@ export function setMode(next) {
 
   // IMPORTANT: cancel pointer state on mode switch
   worldCancelPointer?.();
-  missionCancelPointer?.();
+  diveCancelPointer?.();
 
   game.mode = next;
 
@@ -86,6 +96,8 @@ export function setMode(next) {
   toggle("rightPanel", next === "WORLD");
   toggle("missionHud", next === "MISSION");
   toggle("result", next === "RESULT");
+  toggle("diveChoice", false);
+  closeCrewOverlay?.();
 
   // no pause carryover
   setPaused(false);
@@ -94,7 +106,7 @@ export function setMode(next) {
 /* ---------------- PAUSE ---------------- */
 export function setPaused(p) {
   game.paused = !!p;
-  missionSetPaused?.(game.paused);
+  diveSetPaused?.(game.paused);
   setThreePaused?.(game.paused);
 
   const btnPause = $("btnPause");
@@ -184,10 +196,21 @@ function boot() {
   // load save
   const saved = loadSave();
   if (saved) {
-    const { upgrades, settings, ...rest } = saved;
+    const { upgrades, settings, crew, ...rest } = saved;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
     if (settings) Object.assign(game.settings, settings);
+    if (crew) {
+      if (crew.roster) game.crew.roster = crew.roster;
+      if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
+      if (typeof crew.pity === "number") game.crew.pity = crew.pity;
+    }
+  } else {
+    // Frischer Start: Nyx schickt dir JUNO + genug Frags für 2 Pulls
+    game.frags = 40;
+    game.crew.roster = { juno: 1 };
+    game.crew.equipped = ["juno"];
+    game.storyLog.unshift(`> NYX: „Ich hab dir JUNO geschickt. Und 40 Frags. Verkack's nicht.“`);
   }
 
   // init modules
@@ -198,9 +221,13 @@ function boot() {
         toast("SELECT A NODE FIRST.");
         return;
       }
-      startMission("cache");
+      const type = game.selectedMissionType;
+      if (!type) {
+        toast("DIESER NODE HAT KEINEN NETZZUGANG.");
+        return;
+      }
       setMode("MISSION");
-      toast("MISSION LINKED.");
+      startDive(type, game.selectedMissionTier || 1);
     },
     openNpcDialog,
     saveNow,
@@ -228,9 +255,15 @@ function boot() {
   // overworld nodes
   initWorld();
 
+  initDive();
+  initCrewUI();
+
+  // Audio erst nach erster User-Geste (Autoplay-Policy)
+  window.addEventListener("pointerdown", unlockAudio, { once: true });
+
   // route pointers
   bindCanvasPointers(game.canvases.world, handleWorldPointer, () => (game.mode === "TITLE" || game.mode === "WORLD"));
-  bindCanvasPointers(game.canvases.mission, handleMissionPointer, () => (game.mode === "MISSION"));
+  bindCanvasPointers(game.canvases.mission, handleDivePointer, () => (game.mode === "MISSION"));
 
   // TITLE buttons (use pointerup for tablets that sometimes eat click)
   const btnStart = $("btnStart");
@@ -259,6 +292,9 @@ function boot() {
   toast("SYSTEM READY.");
   setMode("TITLE");
 
+  // Debug-/Test-Zugriff
+  window.__NEON = { game };
+
   requestAnimationFrame(loop);
 }
 
@@ -268,17 +304,20 @@ function loop(tNow) {
   const dt = Math.min(0.033, ((tNow - lastTime) / 1000) || 0);
   lastTime = tNow;
 
-  game.globalProgress = Math.min(1, game.missionsDone / 12);
-  setMoodProgress(game.globalProgress);
-
   if (!game.paused) {
+    game.dayClock = (game.dayClock + dt) % DAY_CYCLE;
+    game.dayRatio = game.dayClock / DAY_CYCLE;
+    setMoodProgress(game.dayRatio);
+
     if (game.mode === "WORLD" || game.mode === "TITLE") {
       worldTick(dt);
       npcTick(dt);
+      // Heat kühlt langsam ab, solange du dich in der Stadt bewegst
+      if (game.heat > 0) game.heat = Math.max(0, game.heat - dt * 0.25);
     }
 
     if (game.mode === "MISSION") {
-      missionTick(dt, (resultData) => {
+      diveTick(dt, (resultData) => {
         Object.assign(game, resultData.apply(game));
         game.missionsDone += 1;
 
@@ -286,12 +325,12 @@ function loop(tNow) {
 
         setMode("RESULT");
         const res = $("resText");
-        if (res) res.textContent = `Score applied.\nEddies + Frags updated.\nHeat increased.`;
+        if (res) res.textContent = resultData.text || "Dive beendet.";
       });
     }
   } else {
     // when paused: still draw mission frame for “frozen” visuals
-    if (game.mode === "MISSION") missionTick(0, () => {});
+    if (game.mode === "MISSION") diveTick(0, () => {});
   }
 
   uiTick(dt);

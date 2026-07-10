@@ -150,7 +150,12 @@ function setDiveHud() {
   if (b) b.textContent = `${dive.bufferE} E$ · ${dive.bufferF} ◆`;
 
   const m = $("mHudMod");
-  if (m) m.textContent = dive.layerMod?.name || "—";
+  if (m) {
+    if (dive.spec?.boss) m.textContent = dive.spec.boss === "big" ? "⚠⚠ BOSS" : "⚠ BOSS";
+    else if (dive.spec?.secret) m.textContent = "??? GEHEIM";
+    else if (dive.spec?.corrupt) m.textContent = "⚠ KORRUPT";
+    else m.textContent = dive.layerMod?.name || "—";
+  }
 }
 
 function showChoice(show) {
@@ -205,28 +210,48 @@ function hideAbilityBar() {
 }
 
 /* ---------------- Layer-Lifecycle ---------------- */
-function rollNextLayer() {
+function rollNextLayer(layerNum) {
+  // Bosse haben Vorrang: alle 10 Layer der große, alle 5 der kleine
+  if (layerNum % 10 === 0) {
+    return { type: "boss_big", mod: LAYER_MODS[0], hidden: false, boss: "big" };
+  }
+  if (layerNum % 5 === 0) {
+    return { type: "boss_mini", mod: LAYER_MODS[0], hidden: false, boss: "mini" };
+  }
+
+  // 6%: geheimes Signal — immer verdeckt, doppelter Loot
+  if (Math.random() < 0.06) {
+    return { type: "ghost", mod: LAYER_MODS[0], hidden: true, secret: true };
+  }
+
   return {
     type: MG_TYPES[Math.floor(Math.random() * MG_TYPES.length)],
     mod: rollLayerMod(),
     // 40% der Modifikatoren bleiben verdeckt — Restrisiko
-    hidden: Math.random() < 0.4
+    hidden: Math.random() < 0.4,
+    // 15%: der Layer ist korrumpiert — deutlich härter, Loot x1.8
+    corrupt: Math.random() < 0.15
   };
 }
 
-function startLayer(type, mod) {
-  dive.lastType = type;
-  dive.layerMod = mod;
-  dive.mg = createMinigame(type, {
+function startLayer(spec) {
+  dive.spec = spec;
+  dive.layerMod = spec.mod;
+  dive.mg = createMinigame(spec.type, {
     diff: layerDiff(dive.tier, dive.layer),
     mods: dive.mods,
-    timeMult: mod.time
+    timeMult: spec.mod.time,
+    corrupt: !!spec.corrupt
   });
   dive.mg.start();
   dive.phase = "play";
   showChoice(false);
 
-  if (mod.id !== "none") toast(`LAYER-MOD: ${mod.name} — ${mod.desc}`);
+  if (spec.boss === "big") toast("⚠⚠ ICE-KERN PRIME — 3 PHASEN. ALLES ODER NICHTS.");
+  else if (spec.boss === "mini") toast("⚠ ICE-WÄCHTER ERKANNT — ZERSTÖREN SENKT TRACE.");
+  else if (spec.secret) toast("??? GEHEIMES SIGNAL — LOOT x2.");
+  else if (spec.corrupt) toast("⚠ LAYER KORRUMPIERT — HÄRTER, ABER LOOT x1.8.");
+  else if (spec.mod.id !== "none") toast(`LAYER-MOD: ${spec.mod.name} — ${spec.mod.desc}`);
 }
 
 export function startDive(firstType, tier = 1, hot = false) {
@@ -243,7 +268,7 @@ export function startDive(firstType, tier = 1, hot = false) {
     mods,
     reviveLeft: mods.revive,
     mg: null,
-    lastType: firstType,
+    spec: null,
     layerMod: LAYER_MODS[0],
     next: null,
     event: null,
@@ -255,7 +280,7 @@ export function startDive(firstType, tier = 1, hot = false) {
   if (hot) dive.mods = { ...mods, lootMult: mods.lootMult * 1.5 };
 
   buildAbilityBar();
-  startLayer(firstType, LAYER_MODS[0]);
+  startLayer({ type: firstType, mod: LAYER_MODS[0], hidden: false });
   banter("start", true);
   toast(hot ? `HOT ZONE DIVE — TIER ${dive.tier} · +50% LOOT` : `DIVE START — TIER ${dive.tier}`);
 }
@@ -278,12 +303,26 @@ function renderChoice() {
 
   const dcN = $("dcNext");
   if (dcN) {
-    dcN.textContent = `${iceNames[n.type] || n.type} · ${n.hidden ? "??? (VERDECKT)" : n.mod.name}`;
+    if (n.boss === "big") dcN.textContent = "⚠⚠ BOSS: ICE-KERN PRIME";
+    else if (n.boss === "mini") dcN.textContent = "⚠ BOSS: ICE-WÄCHTER";
+    else if (n.secret) dcN.textContent = "??? UNBEKANNTES SIGNAL";
+    else dcN.textContent = `${iceNames[n.type] || n.type}${n.corrupt && !n.hidden ? " · ⚠ KORRUMPIERT" : ""} · ${n.hidden ? "??? (VERDECKT)" : n.mod.name}`;
   }
 
   const dcN2 = $("dcNext2");
   if (dcN2) {
-    dcN2.textContent = `LOOT x${depthMult(dive.layer + 1).toFixed(1)}${n.hidden ? "" : (n.mod.loot !== 1 ? ` ·x${n.mod.loot}` : "")} · TRACE ≈ +${range.lo}–${range.hi}${n.hidden ? "+?" : ""}`;
+    if (n.boss === "big") dcN2.textContent = "LOOT x4 · Sieg: TRACE -35, +40 ◆ · Niederlage: alles weg";
+    else if (n.boss === "mini") dcN2.textContent = "LOOT x2.5 · Sieg: TRACE -20 · Niederlage: alles weg";
+    else dcN2.textContent = `LOOT x${depthMult(dive.layer + 1).toFixed(1)}${n.hidden ? "" : (n.mod.loot !== 1 ? ` ·x${n.mod.loot}` : "")}${n.corrupt && !n.hidden ? " ·x1.8" : ""} · TRACE ≈ +${range.lo}–${range.hi}${n.hidden ? "+?" : ""}`;
+  }
+
+  // Countdown zum nächsten Boss als Anreiz
+  const dcBoss = $("dcBossHint");
+  if (dcBoss) {
+    const nl = dive.layer + 1;
+    const toMini = (5 - (nl % 5)) % 5;
+    const toBig = (10 - (nl % 10)) % 10;
+    dcBoss.textContent = toBig === 0 ? "" : (toMini === 0 ? "" : `Nächster Boss in ${Math.min(toMini, toBig)} Layer${Math.min(toMini, toBig) === 1 ? "" : "n"} — Bosse senken den Trace.`);
   }
 
   const bant = banterLine("clear");
@@ -344,17 +383,25 @@ function onReport(res) {
       dive.reviveLeft -= 1;
       toast("NULL ZIEHT DICH ZURÜCK — NOCH EIN VERSUCH.");
       sfx.good();
-      startLayer(dive.lastType, dive.layerMod);
+      startLayer(dive.spec);
       return;
     }
-    return dumped("ICE HAT DICH ERWISCHT");
+    return dumped(dive.spec.boss ? "DER BOSS HAT DICH ZERLEGT" : "ICE HAT DICH ERWISCHT");
   }
 
+  const spec = dive.spec;
   const mod = dive.layerMod;
   const mult = depthMult(dive.layer);
 
-  const e = Math.round(res.score * 3 * mult * dive.mods.lootMult * mod.loot);
-  const f = Math.round((res.score * 0.8 + dive.mods.fragsPerLayer) * (1 + 0.25 * (dive.layer - 1)));
+  // Sonder-Multiplikatoren: korrumpiert x1.8, geheim x2, Bosse x2.5 / x4
+  let special = 1;
+  if (spec.corrupt) special *= 1.8;
+  if (spec.secret) special *= 2;
+  if (spec.boss === "mini") special *= 2.5;
+  if (spec.boss === "big") special *= 4;
+
+  const e = Math.round(res.score * 3 * mult * dive.mods.lootMult * mod.loot * special);
+  const f = Math.round((res.score * 0.8 + dive.mods.fragsPerLayer) * (1 + 0.25 * (dive.layer - 1)) * (spec.boss ? 1.5 : 1));
   dive.bufferE += e;
   dive.bufferF += f;
 
@@ -362,13 +409,25 @@ function onReport(res) {
   const base = (10 + dive.tier * 3 + res.misses * 3) * dive.mods.traceMult * mod.trace;
   dive.trace += base * (0.75 + Math.random() * 0.6);
 
+  // Boss zerstört = Verbindung bereinigt: Trace sinkt deutlich
+  if (spec.boss === "mini") {
+    dive.trace = Math.max(0, dive.trace - 20);
+    toast("WÄCHTER ZERSTÖRT — TRACE -20.");
+    sfx.jackout();
+  } else if (spec.boss === "big") {
+    dive.trace = Math.max(0, dive.trace - 35);
+    dive.bufferF += 40;
+    toast("ICE-KERN VERNICHTET — TRACE -35, +40 ◆!");
+    sfx.jackout();
+  }
+
   if (dive.trace >= 100) {
     dive.trace = 100;
     return dumped("TRACE COMPLETE — VERBINDUNG GEKAPPT");
   }
 
   dive.phase = "choice";
-  dive.next = rollNextLayer();
+  dive.next = rollNextLayer(dive.layer + 1);
 
   // Ab Layer 2: 35% Chance auf ein Event (Testhook: __NEON_FORCE_EVENT)
   const evtChance = window.__NEON_FORCE_EVENT ? 1 : 0.35;
@@ -439,7 +498,7 @@ function goDeeper() {
   dive.layer += 1;
   sfx.deeper();
   banter("deeper");
-  startLayer(dive.next.type, dive.next.mod);
+  startLayer(dive.next);
 }
 
 function shakeScreen() {

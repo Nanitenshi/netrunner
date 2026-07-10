@@ -52,12 +52,80 @@ const NODE_DEFS = [
 
 const nodes = [];
 const citizens = [];
+const buildings = [];
+const cars = [];
 
 const CITIZEN_COLORS = {
   neon: "rgba(0,243,255,.55)", downtown: "rgba(150,170,255,.55)",
   corporate: "rgba(210,235,255,.55)", industrial: "rgba(255,160,70,.55)",
   slums: "rgba(150,220,110,.55)", undercity: "rgba(200,90,255,.55)"
 };
+
+// Gebäude-Stil pro Bezirk: Höhenprofil + Neon-Farbe der Dachkanten
+const BUILD_STYLE = {
+  neon:       { h: 1.0, neon: "0,243,255",   count: 16 },
+  downtown:   { h: 1.3, neon: "150,170,255", count: 16 },
+  corporate:  { h: 1.9, neon: "210,235,255", count: 13 },
+  industrial: { h: 0.6, neon: "255,150,60",  count: 15 },
+  slums:      { h: 0.5, neon: "140,220,110", count: 18 },
+  undercity:  { h: 0.8, neon: "190,90,255",  count: 13 }
+};
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+}
+
+function initBuildings() {
+  buildings.length = 0;
+  const hub = DISTRICTS[0];
+
+  for (const d of DISTRICTS) {
+    const style = BUILD_STYLE[d.id];
+
+    for (let i = 0; i < style.count; i++) {
+      let placed = false;
+      for (let tries = 0; tries < 24 && !placed; tries++) {
+        const ang = Math.random() * Math.PI * 2;
+        const rr = d.r * (0.2 + Math.random() * 0.68);
+        const x = d.cx + Math.cos(ang) * rr;
+        const y = d.cy + Math.sin(ang) * rr;
+        const w = 44 + Math.random() * 64;
+        const h = 44 + Math.random() * 64;
+
+        // nicht auf Nodes, Straßen oder anderen Gebäuden
+        if (NODE_DEFS.some((n) => Math.hypot(n.x - x, n.y - y) < 130)) continue;
+        if (DISTRICTS.slice(1).some((dd) => distToSegment(x, y, hub.cx, hub.cy, dd.cx, dd.cy) < 85)) continue;
+        if (buildings.some((b) => Math.abs(b.x - x) < (b.w + w) / 2 + 18 && Math.abs(b.y - y) < (b.h + h) / 2 + 18)) continue;
+
+        buildings.push({
+          x, y, w, h,
+          height: (0.4 + Math.random() * 0.9) * style.h,
+          neon: style.neon,
+          windows: Math.random() < 0.7
+        });
+        placed = true;
+      }
+    }
+  }
+}
+
+function initCars() {
+  cars.length = 0;
+  for (let i = 1; i < DISTRICTS.length; i++) {
+    for (let k = 0; k < 2; k++) {
+      cars.push({
+        seg: i,
+        t: Math.random(),
+        speed: 0.03 + Math.random() * 0.05,
+        dir: Math.random() < 0.5 ? 1 : -1,
+        color: Math.random() < 0.5 ? "255,60,140" : "0,220,255"
+      });
+    }
+  }
+}
 
 // Hot Zone: rotiert täglich über die Mission-Nodes (+1 Tier, +50% Loot)
 function todaySeed() {
@@ -91,6 +159,8 @@ export function initWorld() {
   }
 
   cam.x = player.x; cam.y = player.y;
+  initBuildings();
+  initCars();
   updateNodeList(nodes, game.selectedNodeId, goToNode);
 }
 
@@ -253,6 +323,120 @@ function stepCamera(dt) {
   cam.y += (player.y - cam.y) * f;
 }
 
+function stepCars(dt) {
+  for (const c of cars) {
+    c.t += c.speed * c.dir * dt;
+    if (c.t > 1) { c.t = 1; c.dir = -1; }
+    if (c.t < 0) { c.t = 0; c.dir = 1; }
+  }
+}
+
+/* ---- Fake-3D: Gebäude als extrudierte Blöcke (GTA-1/2-Stil) ---- */
+function drawBuildings(ctx, W, H) {
+  const perf = game.settings?.quality === "perf";
+  const lean = perf ? 0.15 : 0.22;
+  const cxS = W / 2, cyS = H / 2;
+
+  // sichtbare Gebäude einsammeln, weit entfernte zuerst zeichnen (Painter's)
+  const vis = [];
+  for (const b of buildings) {
+    const p = worldToScreen(b.x, b.y, W, H);
+    const m = 220 * cam.zoom;
+    if (p.x < -m || p.x > W + m || p.y < -m || p.y > H + m) continue;
+    vis.push({ b, p, d: Math.hypot(p.x - cxS, p.y - cyS) });
+  }
+  vis.sort((a, b) => b.d - a.d);
+
+  for (const { b, p } of vis) {
+    const hw = (b.w / 2) * cam.zoom;
+    const hh = (b.h / 2) * cam.zoom;
+    const k = lean * b.height;
+
+    // 4 Boden-Ecken + zugehörige Dach-Ecken (von der Bildmitte weggekippt)
+    const base = [
+      { x: p.x - hw, y: p.y - hh },
+      { x: p.x + hw, y: p.y - hh },
+      { x: p.x + hw, y: p.y + hh },
+      { x: p.x - hw, y: p.y + hh }
+    ];
+    const top = base.map((c) => ({
+      x: c.x + (c.x - cxS) * k,
+      y: c.y + (c.y - cyS) * k
+    }));
+
+    // Seitenwände: nur die zur Bildmitte gerichteten sind sichtbar
+    const normals = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
+    for (let i = 0; i < 4; i++) {
+      const n = normals[i];
+      if (n.x * (p.x - cxS) + n.y * (p.y - cyS) >= 0) continue;
+
+      const j = (i + 1) % 4;
+      ctx.fillStyle = "rgba(7,11,17,.96)";
+      ctx.beginPath();
+      ctx.moveTo(base[i].x, base[i].y);
+      ctx.lineTo(base[j].x, base[j].y);
+      ctx.lineTo(top[j].x, top[j].y);
+      ctx.lineTo(top[i].x, top[i].y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Fensterreihen auf der Wand
+      if (b.windows && !perf) {
+        ctx.strokeStyle = `rgba(${b.neon},.14)`;
+        ctx.lineWidth = 1;
+        for (const f of [0.3, 0.55, 0.8]) {
+          ctx.beginPath();
+          ctx.moveTo(base[i].x + (top[i].x - base[i].x) * f, base[i].y + (top[i].y - base[i].y) * f);
+          ctx.lineTo(base[j].x + (top[j].x - base[j].x) * f, base[j].y + (top[j].y - base[j].y) * f);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Dach
+    ctx.fillStyle = "rgba(19,29,42,.97)";
+    ctx.beginPath();
+    ctx.moveTo(top[0].x, top[0].y);
+    for (let i = 1; i < 4; i++) ctx.lineTo(top[i].x, top[i].y);
+    ctx.closePath();
+    ctx.fill();
+
+    // Neon-Dachkante
+    ctx.strokeStyle = `rgba(${b.neon},.4)`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+function drawCars(ctx, W, H) {
+  const hub = DISTRICTS[0];
+  for (const c of cars) {
+    const d = DISTRICTS[c.seg];
+    const wx = hub.cx + (d.cx - hub.cx) * c.t;
+    const wy = hub.cy + (d.cy - hub.cy) * c.t;
+    const p = worldToScreen(wx, wy, W, H);
+    if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
+
+    // Lichtspur
+    const dx = (d.cx - hub.cx), dy = (d.cy - hub.cy);
+    const len = Math.hypot(dx, dy) || 1;
+    const tx = (dx / len) * 14 * cam.zoom * -c.dir;
+    const ty = (dy / len) * 14 * cam.zoom * -c.dir;
+
+    ctx.strokeStyle = `rgba(${c.color},.35)`;
+    ctx.lineWidth = 3 * cam.zoom;
+    ctx.beginPath();
+    ctx.moveTo(p.x + tx, p.y + ty);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+
+    ctx.fillStyle = `rgba(${c.color},.95)`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3.2 * cam.zoom, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function draw() {
   const ctx = game.ctx.world;
   const c = game.canvases.world;
@@ -303,6 +487,10 @@ function draw() {
   for (let y = offY; y < H; y += step) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
+
+  // Gebäude (Fake-3D) + Verkehr
+  drawBuildings(ctx, W, H);
+  drawCars(ctx, W, H);
 
   // citizens
   for (const cz of citizens) {
@@ -367,6 +555,7 @@ function draw() {
 export function worldTick(dt = 0) {
   if (game.mode === "WORLD") stepPlayer(dt);
   stepCitizens(dt);
+  stepCars(dt);
   stepCamera(dt);
   draw();
 }

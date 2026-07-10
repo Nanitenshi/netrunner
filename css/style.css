@@ -1,0 +1,580 @@
+:root {
+  --bg: #05070a;
+  --panel: rgba(10, 16, 24, .90);
+  --line: rgba(0, 243, 255, .22);
+  --cyan: #00f3ff;
+  --pink: #ff007c;
+  --yellow: #fcee0a;
+  --text: #d9e7ee;
+  --muted: #8aa0b3;
+  --shadowC: 0 0 22px rgba(0, 243, 255, .22);
+  --shadowP: 0 0 22px rgba(255, 0, 124, .18);
+  --font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  touch-action: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+#canvas-container { position: absolute; inset: 0; }
+
+/* ===== Canvases ===== */
+canvas { position: absolute; inset: 0; display: block; }
+
+#threeCanvas { z-index: 1; }
+
+/* Overworld */
+#worldCanvas {
+  z-index: 5;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+/* Mission (MUSS pointer-events:auto haben, sonst kommen keine Pointer durch) */
+#missionCanvas {
+  z-index: 12;
+  display: none;
+  background: rgba(2, 4, 6, .92);
+  touch-action: none;
+  pointer-events: auto;
+}
+
+/* ===== UI Layer =====
+   UI ist oben, aber standardmäßig "durchlässig".
+   Nur echte Buttons / klickbare Teile sind pointer-events:auto.
+*/
+#ui {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Diese UI-Container sollen NICHT interagieren (sonst blocken sie Canvas-Taps) */
+.panel,
+.chip,
+.side,
+.card,
+.toast,
+.comms {
+  pointer-events: none;
+}
+
+/* BottomBar als Container auch durchlässig */
+.bottomBar { pointer-events: none; }
+
+/* NUR echte klickbare Dinge dürfen Touch empfangen */
+.btn,
+.nodeCard,
+.bottomBar button {
+  pointer-events: auto;
+}
+
+.scanlines::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, .02) 0 1px,
+    transparent 2px 4px
+  );
+  opacity: .35;
+  mix-blend-mode: screen;
+  z-index: 99;
+}
+
+.panel {
+  background: linear-gradient(180deg, rgba(10, 16, 24, .92), rgba(5, 9, 14, .92));
+  border: 1px solid rgba(0, 243, 255, .25);
+  box-shadow: var(--shadowC);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px;
+}
+
+.panel.pink {
+  border-color: rgba(255, 0, 124, .28);
+  box-shadow: var(--shadowP);
+}
+
+.panel.yellow {
+  border-color: rgba(252, 238, 10, .28);
+  box-shadow: 0 0 22px rgba(252, 238, 10, .18);
+}
+
+.hidden { display: none !important; }
+
+/* ===== HUD ===== */
+.hud {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+.missionHud { top: 64px; }
+
+.chip {
+  padding: 8px 12px;
+  min-width: 95px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chip b { color: var(--text); font-size: 13px; }
+
+/* ===== Title Card ===== */
+.centerWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.card {
+  width: min(560px, 92vw);
+  padding: 22px;
+  text-align: center;
+}
+
+.logo {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: var(--cyan);
+  text-shadow: 0 0 18px rgba(0, 243, 255, .35);
+}
+
+.sub {
+  font-size: 11px;
+  color: var(--pink);
+  letter-spacing: 2px;
+  margin: 6px 0 14px;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  background: rgba(0, 0, 0, .25);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 800;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn:hover { background: rgba(0, 243, 255, .12); }
+.btn:active { transform: scale(0.96); }
+
+.btn.yellow { border-color: var(--yellow); color: var(--yellow); }
+.btn.yellow:hover { background: rgba(252, 238, 10, .10); }
+
+.btn.pink { border-color: var(--pink); color: var(--pink); }
+.btn.pink:hover { background: rgba(255, 0, 124, .10); }
+
+.btn.small {
+  padding: 8px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.leftRow { justify-content: flex-start; }
+
+/* ===== Side Panels ===== */
+.side {
+  position: absolute;
+  top: 76px;
+  bottom: 70px;
+  width: min(360px, 90vw);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#leftPanel { left: 12px; }
+#rightPanel { right: 12px; }
+
+.sideHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sideTitle {
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+.pinkText { color: var(--pink); }
+.muted { color: var(--muted); }
+.small { font-size: 11px; }
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+/* ===== Node Cards (clickable list) ===== */
+.nodeCard {
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .02);
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  transition: border-color 0.2s;
+}
+
+.nodeCard.active {
+  border-color: rgba(255, 0, 124, .35);
+  box-shadow: 0 0 16px rgba(255, 0, 124, .10) inset;
+}
+
+.nodeCard .name { font-weight: 900; font-size: 13px; }
+.nodeCard .meta { font-size: 11px; color: var(--muted); }
+
+.badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  color: #fff;
+}
+
+.badge.npc { border-color: rgba(255, 0, 124, .35); color: var(--pink); }
+.badge.mission { border-color: rgba(0, 243, 255, .35); color: var(--cyan); }
+
+/* ===== Dialog ===== */
+.dialog {
+  min-height: 88px;
+  max-height: 30vh;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .18);
+  line-height: 1.45;
+  font-size: 13px;
+  white-space: pre-line;
+}
+
+/* ===== Archive ===== */
+.archive {
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  padding-top: 10px;
+}
+
+#storyArchive {
+  max-height: 18vh;
+  overflow: auto;
+  font-size: 11px;
+  color: #9fb3c2;
+  padding-right: 4px;
+}
+
+.archRow {
+  padding: 6px 0;
+  border-bottom: 1px dotted rgba(255, 255, 255, .10);
+}
+
+.archRow:last-child { border-bottom: none; }
+
+/* ===== Toast ===== */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 74px;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 243, 255, .35);
+  background: rgba(0, 0, 0, .85);
+  box-shadow: var(--shadowC);
+  z-index: 80;
+  white-space: nowrap;
+}
+
+/* ===== Bottom Bar (Comms + Buttons) ===== */
+.bottomBar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.comms {
+  flex: 1;
+  min-width: 210px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+/* ===== Mobile Layout ===== */
+@media (max-width: 900px) {
+  #rightPanel {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: 70px;
+    max-height: 38vh;
+  }
+
+  #leftPanel {
+    width: auto;
+    right: 12px;
+    max-height: 42vh;
+  }
+  }
+
+/* ===== Overlays (Dive Choice, Crew/Broker/Gear) ===== */
+.overlayCard {
+  pointer-events: auto;
+  width: min(720px, 94vw);
+  max-height: 86vh;
+  overflow: auto;
+  text-align: left;
+}
+
+.overlayCard.tall { min-height: 50vh; }
+
+.diveStats { justify-content: flex-start; margin-bottom: 12px; }
+
+.chip.danger {
+  border-color: rgba(255, 60, 60, .7);
+  box-shadow: 0 0 22px rgba(255, 60, 60, .35);
+  animation: pulseDanger 0.8s infinite alternate;
+}
+
+@keyframes pulseDanger {
+  from { box-shadow: 0 0 12px rgba(255, 60, 60, .25); }
+  to   { box-shadow: 0 0 28px rgba(255, 60, 60, .55); }
+}
+
+/* Screen-Shake bei Dump */
+.shake { animation: shake 0.45s; }
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-8px, 4px); }
+  40% { transform: translate(7px, -5px); }
+  60% { transform: translate(-5px, -3px); }
+  80% { transform: translate(4px, 5px); }
+}
+
+/* ===== Tabs ===== */
+.tabRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.tabBtn.active {
+  background: rgba(0, 243, 255, .16);
+  box-shadow: 0 0 12px rgba(0, 243, 255, .25);
+}
+
+.closeBtn { margin-left: auto; }
+
+.tabPage { display: flex; flex-direction: column; gap: 10px; }
+
+/* ===== Rarity ===== */
+.r-street  { --rc: #8aa0b3; }
+.r-pro     { --rc: #00f3ff; }
+.r-elite   { --rc: #ff007c; }
+.r-phantom { --rc: #fcee0a; }
+
+/* ===== Charakter-Karten ===== */
+.crewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.charCard, .pullCard {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--rc, rgba(255,255,255,.14));
+  background: rgba(0, 0, 0, .25);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--rc, #fff) 18%, transparent);
+}
+
+.charCard.locked {
+  opacity: .45;
+  filter: grayscale(.8);
+}
+
+.charCard.equipped {
+  background: color-mix(in srgb, var(--rc, #fff) 10%, rgba(0,0,0,.25));
+}
+
+.monogram {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--rc, #fff);
+  border: 2px solid var(--rc, rgba(255,255,255,.2));
+  background: rgba(0, 0, 0, .4);
+  text-shadow: 0 0 12px var(--rc, transparent);
+}
+
+.charBody, .pullBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.charCard .name, .pullCard .name {
+  font-weight: 900;
+  font-size: 13px;
+  color: var(--rc, var(--text));
+}
+
+.charCard .meta, .pullCard .meta { font-size: 11px; color: var(--muted); }
+.charCard .bio { font-style: italic; }
+
+.perkText {
+  font-size: 11px;
+  color: var(--text);
+  border: 1px dashed color-mix(in srgb, var(--rc, #fff) 40%, transparent);
+  border-radius: 6px;
+  padding: 3px 6px;
+  align-self: flex-start;
+}
+
+.pullCard .quote { font-size: 12px; color: var(--text); font-style: italic; }
+
+.pullCard.reveal { animation: reveal 0.5s ease-out; }
+@keyframes reveal {
+  0% { transform: scale(.6); opacity: 0; filter: brightness(3); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+}
+
+/* ===== Gear ===== */
+.gearRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .2);
+}
+
+.gearRow .name { font-weight: 900; font-size: 13px; }
+.gearRow .meta { font-size: 11px; color: var(--muted); }
+
+/* ===== Crew-Actives (im Dive) ===== */
+.abilityBar {
+  position: absolute;
+  left: 50%;
+  bottom: 128px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.abilityBtn { pointer-events: auto; }
+
+.abilityBtn.used {
+  opacity: .35;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+/* ===== Dive-Event ===== */
+.eventBox {
+  border: 1px solid rgba(255, 0, 124, .4);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+  background: rgba(255, 0, 124, .06);
+  box-shadow: 0 0 18px rgba(255, 0, 124, .15);
+  animation: reveal 0.35s ease-out;
+}
+
+/* ===== Hot Zone Badge ===== */
+.badge.hot {
+  border-color: rgba(255, 150, 40, .7);
+  color: #ff9628;
+  box-shadow: 0 0 10px rgba(255, 150, 40, .3);
+}
+
+.dailyLine {
+  padding: 6px 8px;
+  border: 1px dashed rgba(252, 238, 10, .3);
+  border-radius: 8px;
+}

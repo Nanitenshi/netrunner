@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+  <meta name="theme-color" content="#05070a"/>
+  <title>NEON ALLEY — Netrunner</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/core.js"></script>
+</head>
+
+<body>
+  <main id="app" class="scanlines">
+
+    <div id="canvas-container">
+      <canvas id="threeCanvas"></canvas>
+      <canvas id="worldCanvas"></canvas>
+      <canvas id="missionCanvas"></canvas>
+    </div>
+
+    <div id="ui">
+      <!-- TOP HUD -->
+      <header id="hudTop" class="hud hidden">
+        <div class="chip panel">DISTRICT <b id="hudDistrict">Sector-07</b></div>
+        <div class="chip panel">TIME <b id="hudTime">DAY</b></div>
+        <div class="chip panel">EDDIES <b id="hudMoney">E$ 0</b></div>
+        <div class="chip panel">HEAT <b id="hudHeat">0%</b></div>
+        <div class="chip panel pink">FRAGS <b id="hudFrags">0</b></div>
+        <div class="chip panel yellow">RANK <b id="hudRank">ROOKIE</b></div>
+      </header>
+
+      <!-- TITLE -->
+      <section id="title" class="centerWrap">
+        <div class="panel card">
+          <h1 class="logo">NEON ALLEY</h1>
+          <h2 class="sub">DIVE DEEP // LOOT ODER VERLIER ALLES</h2>
+          <p class="muted">
+            Lauf zu einem Netzzugang und starte einen DIVE.<br>
+            Jeder Layer bringt Loot in deinen Buffer — sichern oder tiefer gehen?<br>
+            Verkackst du, ist der Buffer weg. Mit Frags (◆) ziehst du neue Crew.
+          </p>
+          <div class="row">
+            <button type="button" id="btnStart" class="btn yellow">Enter Night City</button>
+            <button type="button" id="btnReset" class="btn pink">Reset Save</button>
+          </div>
+          <p class="muted small" style="margin-top:10px">
+            Tipp: Wenn’s ruckelt → unten auf <b>PERF</b> lassen.
+          </p>
+        </div>
+      </section>
+
+      <!-- LEFT PANEL -->
+      <aside id="leftPanel" class="panel side hidden">
+        <header class="sideHead">
+          <div>
+            <h3 class="sideTitle">ROUTE / NODES</h3>
+            <div class="muted small">Tippen läuft hin · Liste = Ziel wählen</div>
+          </div>
+        </header>
+
+        <div class="row leftRow">
+          <button type="button" id="btnFocus" class="btn small">Focus</button>
+          <button type="button" id="btnTalk" class="btn small pink">Talk</button>
+          <button type="button" id="btnMission" class="btn small yellow">Start Mission</button>
+        </div>
+
+        <div class="muted small dailyLine" id="dailyInfo">—</div>
+
+        <div id="nodeList" class="list" aria-label="Nodes"></div>
+
+        <div class="archive">
+          <div class="muted small" style="margin-bottom:6px">STORY LOG</div>
+          <div id="storyArchive"></div>
+        </div>
+      </aside>
+
+      <!-- RIGHT PANEL -->
+      <aside id="rightPanel" class="panel side pink hidden">
+        <header class="sideHead">
+          <div>
+            <h3 class="sideTitle pinkText" id="npcName">SIGNAL</h3>
+            <div class="muted small" id="npcRole">Wähle einen Node…</div>
+          </div>
+        </header>
+        <div id="dialogText" class="dialog">Keine Daten empfangen.</div>
+      </aside>
+
+      <!-- MISSION HUD -->
+      <header id="missionHud" class="hud missionHud hidden">
+        <div class="chip panel">ICE <b id="mHudType">—</b></div>
+        <div class="chip panel yellow">LAYER <b id="mHudLayer">1</b></div>
+        <div class="chip panel">ZIEL <b id="mHudObjective">—</b></div>
+        <div class="chip panel" id="mHudTimerBox">TIMER <b id="mHudTimer">—</b></div>
+        <div class="chip panel pink">TRACE <b id="mHudTrace">0%</b></div>
+        <div class="chip panel yellow">BUFFER <b id="mHudBuffer">0</b></div>
+        <div class="chip panel">MOD <b id="mHudMod">—</b></div>
+        <div class="chip panel">HINT <b id="mHudAbility">—</b></div>
+      </header>
+
+      <!-- CREW ACTIVES -->
+      <div id="abilityBar" class="abilityBar hidden"></div>
+
+      <!-- DIVE CHOICE (Jack Out / Go Deeper) -->
+      <section id="diveChoice" class="centerWrap hidden">
+        <div class="panel card overlayCard">
+          <h2 class="sub" style="margin-top:0">LAYER GESCHAFFT — UND JETZT?</h2>
+          <div class="row diveStats">
+            <div class="chip panel yellow">BUFFER <b id="dcBuffer">0</b></div>
+            <div class="chip panel pink" id="dcTraceChip">TRACE <b id="dcTrace">0%</b></div>
+            <div class="chip panel">NÄCHSTER <b id="dcNext">—</b></div>
+          </div>
+          <div class="muted small" id="dcNext2">—</div>
+          <div class="muted small" id="dcBossHint"></div>
+          <div class="dialog small" id="dcBanter">…</div>
+
+          <!-- Zufalls-Event: blockiert die Wahl, bis entschieden -->
+          <div id="dcEvent" class="eventBox hidden">
+            <div class="sideTitle pinkText" id="dcEventTitle">EVENT</div>
+            <div class="muted small" id="dcEventDesc">…</div>
+            <div class="row" style="justify-content:flex-start">
+              <button type="button" id="btnEventA" class="btn small pink">OPTION A</button>
+              <button type="button" id="btnEventB" class="btn small">OPTION B</button>
+            </div>
+          </div>
+
+          <div class="row" id="dcChoiceRow">
+            <button type="button" id="btnJackOut" class="btn yellow">JACK OUT — sichern</button>
+            <button type="button" id="btnDeeper" class="btn pink">GO DEEPER — riskieren</button>
+          </div>
+          <p class="muted small" style="margin-top:10px">
+            Verkackst du den nächsten Layer oder erreicht TRACE 100%, ist der Buffer weg.
+          </p>
+        </div>
+      </section>
+
+      <!-- CREW / BROKER / GEAR -->
+      <section id="crewOverlay" class="centerWrap hidden">
+        <div class="panel card overlayCard tall">
+          <div class="tabRow">
+            <button type="button" class="btn small tabBtn active" data-tab="broker">BROKER</button>
+            <button type="button" class="btn small tabBtn" data-tab="crew">CREW</button>
+            <button type="button" class="btn small tabBtn" data-tab="gear">GEAR</button>
+            <button type="button" id="btnCloseCrew" class="btn small pink closeBtn">✕</button>
+          </div>
+
+          <div id="tabBroker" class="tabPage">
+            <p class="muted small">
+              Gestohlene Identitätskerne vom Schwarzmarkt. Entschlüsseln = neues Crew-Mitglied.
+              Duplikate verbessern den Perk.
+            </p>
+            <div class="muted small" id="pityInfo">—</div>
+            <div class="row" style="justify-content:flex-start">
+              <button type="button" id="btnPull" class="btn yellow">DECRYPT CORE — 20 ◆</button>
+            </div>
+            <div id="pullResult"></div>
+          </div>
+
+          <div id="tabCrew" class="tabPage hidden">
+            <p class="muted small">Max. 2 gleichzeitig im Einsatz. Perks wirken im Dive.</p>
+            <div id="crewGrid" class="crewGrid"></div>
+          </div>
+
+          <div id="tabGear" class="tabPage hidden">
+            <p class="muted small">Cyberware-Upgrades. Wirken dauerhaft, in jedem Dive.</p>
+            <div id="gearList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESULT -->
+      <section id="result" class="centerWrap hidden">
+        <div class="panel card pink">
+          <h2 class="sub" style="margin-top:0">MISSION REPORT</h2>
+          <div class="dialog" id="resText">—</div>
+          <div class="row">
+            <button type="button" id="btnBackToCity" class="btn yellow">Back to City</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- BOTTOM BAR -->
+      <div id="bottomBar" class="bottomBar">
+        <div id="commsTicker" class="panel pink comms">
+          <b>COMMS:</b> Nyx: “Wir starten sauber. Aber die Stadt bleibt nie sauber.”
+        </div>
+        <button type="button" id="btnCrew" class="btn small yellow">CREW ◆</button>
+        <button type="button" id="btnQuality" class="btn small" data-mode="perf">PERF</button>
+        <button type="button" id="btnPause" class="btn small">PAUSE</button>
+        <button type="button" id="btnSave" class="btn small">AUTO</button>
+      </div>
+
+      <div id="toast" class="toast hidden"></div>
+    </div>
+  </main>
+
+  <!-- extra hardening: verhindert Double-Tap-Zoom auf manchen Androids -->
+  <script>
+    document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+  </script>
+</body>
+                                        </html>

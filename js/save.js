@@ -13,7 +13,7 @@ export function saveNow() {
       dayClock: game.dayClock,
       missionsDone: game.missionsDone,
       upgrades: game.upgrades,
-      selectedNodeId: game.selectedNodeId,
+      crew: game.crew,
       settings: game.settings,
       storyLog: game.storyLog
     };

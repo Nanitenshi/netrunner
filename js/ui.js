@@ -24,7 +24,7 @@ function guardClick(e) {
   return false;
 }
 
-function bindFastPress(el, fn) {
+export function bindFastPress(el, fn) {
   if (!el) return;
 
   // Pointer Events (best for Android + desktop)
@@ -94,6 +94,13 @@ export function renderStoryLog() {
   }
 }
 
+export function setComms(text) {
+  const el = $("commsTicker");
+  if (!el) return;
+  el.innerHTML = "<b>COMMS:</b> ";
+  el.appendChild(document.createTextNode(text));
+}
+
 export function toast(msg) {
   const el = $("toast");
   if (!el) return;
@@ -150,7 +157,7 @@ export function uiTick(dt = 0) {
   if (m) m.textContent = `E$ ${game.money}`;
 
   const h = $("hudHeat");
-  if (h) h.textContent = `${game.heat}%`;
+  if (h) h.textContent = `${Math.round(game.heat)}%`;
 
   const f = $("hudFrags");
   if (f) f.textContent = `${game.frags}`;

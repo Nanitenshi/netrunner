@@ -30,24 +30,24 @@ const DISTRICTS = [
 
 const NODE_DEFS = [
   { id: "A1", type: "npc",     name: "Neon Gate",         npc: "NYX",       tag: "Clean start. Too clean.",                  x: -120, y: -80 },
-  { id: "M1", type: "mission", name: "Cache Pop Terminal",npc: "NYX",       tag: "Pop caches. Stay sharp.",                  x: 160,  y: 120,  missionType: "cache" },
-  { id: "B1", type: "npc",     name: "Alley Market",      npc: "GHOST",     tag: "Dirty deals. Quick money.",                x: 200,  y: -160 },
-  { id: "M2", type: "mission", name: "Relay Tap",         npc: "GHOST",     tag: "Finde beide Enden. Verbinde sie.",         x: -180, y: 180,  missionType: "wires" },
+  { id: "M1", type: "mission", name: "Cache Pop Terminal",npc: "NYX",       tag: "Pop caches. Stay sharp.",                  x: 160,  y: 120,  missionType: "cache",  tier: 1 },
+  { id: "B1", type: "npc",     name: "Alley Market",      npc: "GHOST",     tag: "Dirty deals. Quick money. Gear gibt's im CREW-Menü.", x: 200, y: -160 },
+  { id: "M2", type: "mission", name: "Relay Tap",         npc: "GHOST",     tag: "Finde die Paare, bevor der Trace greift.", x: -180, y: 180,  missionType: "wires",  tier: 1 },
 
   { id: "C1", type: "npc",     name: "Datastream Café",   npc: "RUNNER-9",  tag: "Kaffee und Gerüchte. Beides bitter.",      x: 950,  y: -260 },
-  { id: "M3", type: "mission", name: "Corp Firewall",     npc: "RUNNER-9",  tag: "Reihenfolge knacken, bevor sie zurückverfolgen.", x: 1080, y: -40, missionType: "breach" },
+  { id: "M3", type: "mission", name: "Corp Firewall",     npc: "RUNNER-9",  tag: "Reihenfolge knacken, bevor sie zurückverfolgen.", x: 1080, y: -40, missionType: "breach", tier: 2 },
 
   { id: "D1", type: "npc",     name: "Arasaka Lobby",     npc: "ICE-VOICE", tag: "Lächeln am Tag. Nachts fressen sie.",      x: 1650, y: -780 },
-  { id: "M4", type: "mission", name: "Executive Breach",  npc: "ICE-VOICE", tag: "Höchste Sicherheitsstufe. Höchster Preis.",x: 1850, y: -560, missionType: "breach" },
+  { id: "M4", type: "mission", name: "Executive Breach",  npc: "ICE-VOICE", tag: "Höchste Sicherheitsstufe. Höchster Preis.",x: 1850, y: -560, missionType: "breach", tier: 3 },
 
   { id: "E1", type: "npc",     name: "Scrapyard Boss",    npc: "RUST",      tag: "Schrott ist nur Metall, das noch nicht verkauft wurde.", x: 650, y: 1020 },
-  { id: "M5", type: "mission", name: "Line Sabotage",     npc: "RUST",      tag: "Kabel kreuzen sich. Finde die Paare.",     x: 850,  y: 860,  missionType: "wires" },
+  { id: "M5", type: "mission", name: "Line Sabotage",     npc: "RUST",      tag: "Kabel kreuzen sich. Finde die Paare.",     x: 850,  y: 860,  missionType: "wires",  tier: 2 },
 
-  { id: "F1", type: "npc",     name: "Clinic Runner",     npc: "DOC-K",     tag: "Ich flick dich. Frag nicht wie.",          x: -900, y: 820 },
-  { id: "M6", type: "mission", name: "Black Cache",       npc: "DOC-K",     tag: "Schnelle Beute, schneller Ausstieg.",      x: -760, y: 650,  missionType: "cache" },
+  { id: "F1", type: "npc",     name: "Clinic Runner",     npc: "DOC-K",     tag: "Ich flick dich. Frag nicht wie. (Senkt Heat gegen Eddies)", x: -900, y: 820 },
+  { id: "M6", type: "mission", name: "Black Cache",       npc: "DOC-K",     tag: "Schnelle Beute, schneller Ausstieg.",      x: -760, y: 650,  missionType: "cache",  tier: 2 },
 
   { id: "G1", type: "npc",     name: "Ghost Signal",      npc: "ECHO",      tag: "Wenn du glaubst du steuerst das, hat dich die Stadt schon.", x: -280, y: 1600 },
-  { id: "M7", type: "mission", name: "Deep Breach",       npc: "ECHO",      tag: "Niemand hier war je wirklich hier.",       x: -180, y: 1450, missionType: "breach" }
+  { id: "M7", type: "mission", name: "Deep Breach",       npc: "ECHO",      tag: "Niemand hier war je wirklich hier.",       x: -180, y: 1450, missionType: "breach", tier: 3 }
 ];
 
 const nodes = [];
@@ -120,6 +120,7 @@ function screenToWorld(sx, sy, W, H) {
 function interact(n) {
   game.selectedNodeId = n.id;
   game.selectedMissionType = n.missionType || null;
+  game.selectedMissionTier = n.tier || 1;
   pendingInteractId = null;
 
   const npcName = $("npcName");
@@ -127,18 +128,29 @@ function interact(n) {
   const dialog = $("dialogText");
 
   if (npcName) npcName.textContent = `${n.npc} // ${n.name}`;
-  if (npcRole) npcRole.textContent = (n.type === "mission" ? "MISSION OFFER" : "NPC SIGNAL");
+  if (npcRole) npcRole.textContent = (n.type === "mission" ? `NETZZUGANG · TIER ${n.tier || 1}` : "NPC SIGNAL");
   if (dialog) dialog.textContent = n.tag;
 
   if (n.type === "npc") {
     openNpcDialog(n.id);
-    if (!n.visited) {
+
+    // Clinic: Heat gegen Eddies löschen
+    if (n.id === "F1" && game.heat >= 5) {
+      const cost = Math.ceil(game.heat * 2);
+      if (game.money >= cost) {
+        game.money -= cost;
+        game.heat = 0;
+        toast(`DOC-K: SYSTEM CLEAN. -${cost} E$`);
+      } else {
+        toast(`DOC-K will ${cost} E$ für den Clean.`);
+      }
+    } else if (!n.visited) {
       n.visited = true;
       game.money += 5;
       toast(`+5 E$ // ${n.npc} TIP.`);
     }
   } else {
-    toast(`${n.name.toUpperCase()} LOCKED. Tippe START MISSION.`);
+    toast(`TIER ${n.tier || 1} NETZ. START MISSION = DIVE.`);
   }
 
   updateNodeList(nodes, game.selectedNodeId, goToNode);

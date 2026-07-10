@@ -133,6 +133,7 @@ canvas { position: absolute; inset: 0; display: block; }
   top: 12px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: stretch;
   pointer-events: none;
@@ -307,6 +308,7 @@ canvas { position: absolute; inset: 0; display: block; }
   background: rgba(0, 0, 0, .18);
   line-height: 1.45;
   font-size: 13px;
+  white-space: pre-line;
 }
 
 /* ===== Archive ===== */
@@ -382,3 +384,151 @@ canvas { position: absolute; inset: 0; display: block; }
     max-height: 42vh;
   }
   }
+
+/* ===== Overlays (Dive Choice, Crew/Broker/Gear) ===== */
+.overlayCard {
+  pointer-events: auto;
+  width: min(720px, 94vw);
+  max-height: 86vh;
+  overflow: auto;
+  text-align: left;
+}
+
+.overlayCard.tall { min-height: 50vh; }
+
+.diveStats { justify-content: flex-start; margin-bottom: 12px; }
+
+.chip.danger {
+  border-color: rgba(255, 60, 60, .7);
+  box-shadow: 0 0 22px rgba(255, 60, 60, .35);
+  animation: pulseDanger 0.8s infinite alternate;
+}
+
+@keyframes pulseDanger {
+  from { box-shadow: 0 0 12px rgba(255, 60, 60, .25); }
+  to   { box-shadow: 0 0 28px rgba(255, 60, 60, .55); }
+}
+
+/* Screen-Shake bei Dump */
+.shake { animation: shake 0.45s; }
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-8px, 4px); }
+  40% { transform: translate(7px, -5px); }
+  60% { transform: translate(-5px, -3px); }
+  80% { transform: translate(4px, 5px); }
+}
+
+/* ===== Tabs ===== */
+.tabRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.tabBtn.active {
+  background: rgba(0, 243, 255, .16);
+  box-shadow: 0 0 12px rgba(0, 243, 255, .25);
+}
+
+.closeBtn { margin-left: auto; }
+
+.tabPage { display: flex; flex-direction: column; gap: 10px; }
+
+/* ===== Rarity ===== */
+.r-street  { --rc: #8aa0b3; }
+.r-pro     { --rc: #00f3ff; }
+.r-elite   { --rc: #ff007c; }
+.r-phantom { --rc: #fcee0a; }
+
+/* ===== Charakter-Karten ===== */
+.crewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.charCard, .pullCard {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--rc, rgba(255,255,255,.14));
+  background: rgba(0, 0, 0, .25);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--rc, #fff) 18%, transparent);
+}
+
+.charCard.locked {
+  opacity: .45;
+  filter: grayscale(.8);
+}
+
+.charCard.equipped {
+  background: color-mix(in srgb, var(--rc, #fff) 10%, rgba(0,0,0,.25));
+}
+
+.monogram {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--rc, #fff);
+  border: 2px solid var(--rc, rgba(255,255,255,.2));
+  background: rgba(0, 0, 0, .4);
+  text-shadow: 0 0 12px var(--rc, transparent);
+}
+
+.charBody, .pullBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.charCard .name, .pullCard .name {
+  font-weight: 900;
+  font-size: 13px;
+  color: var(--rc, var(--text));
+}
+
+.charCard .meta, .pullCard .meta { font-size: 11px; color: var(--muted); }
+.charCard .bio { font-style: italic; }
+
+.perkText {
+  font-size: 11px;
+  color: var(--text);
+  border: 1px dashed color-mix(in srgb, var(--rc, #fff) 40%, transparent);
+  border-radius: 6px;
+  padding: 3px 6px;
+  align-self: flex-start;
+}
+
+.pullCard .quote { font-size: 12px; color: var(--text); font-style: italic; }
+
+.pullCard.reveal { animation: reveal 0.5s ease-out; }
+@keyframes reveal {
+  0% { transform: scale(.6); opacity: 0; filter: brightness(3); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+}
+
+/* ===== Gear ===== */
+.gearRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .2);
+}
+
+.gearRow .name { font-weight: 900; font-size: 13px; }
+.gearRow .meta { font-size: 11px; color: var(--muted); }

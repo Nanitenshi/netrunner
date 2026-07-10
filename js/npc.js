@@ -2,6 +2,7 @@
 import { game } from "./core.js";
 import { toast, renderStoryLog } from "./ui.js";
 import { getNodeById } from "./world.js";
+import { crewTick } from "./crew.js";
 
 const LINES = {
   NYX: [
@@ -51,6 +52,6 @@ export function openNpcDialog(nodeId) {
   toast("COMMS RECEIVED.");
 }
 
-export function npcTick() {
-  // reserved: timed comms, faction events (Phase 2)
+export function npcTick(dt = 0) {
+  crewTick(dt);
 }

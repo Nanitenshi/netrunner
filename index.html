@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#05070a"/>
   <title>NEON ALLEY — Netrunner</title>
 
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
   <script type="module" src="js/core.js"></script>
 </head>
@@ -65,6 +67,8 @@
           <button type="button" id="btnMission" class="btn small yellow">Start Mission</button>
         </div>
 
+        <div class="muted small dailyLine" id="dailyInfo">—</div>
+
         <div id="nodeList" class="list" aria-label="Nodes"></div>
 
         <div class="archive">
@@ -92,8 +96,12 @@
         <div class="chip panel" id="mHudTimerBox">TIMER <b id="mHudTimer">—</b></div>
         <div class="chip panel pink">TRACE <b id="mHudTrace">0%</b></div>
         <div class="chip panel yellow">BUFFER <b id="mHudBuffer">0</b></div>
+        <div class="chip panel">MOD <b id="mHudMod">—</b></div>
         <div class="chip panel">HINT <b id="mHudAbility">—</b></div>
       </header>
+
+      <!-- CREW ACTIVES -->
+      <div id="abilityBar" class="abilityBar hidden"></div>
 
       <!-- DIVE CHOICE (Jack Out / Go Deeper) -->
       <section id="diveChoice" class="centerWrap hidden">
@@ -104,8 +112,20 @@
             <div class="chip panel pink" id="dcTraceChip">TRACE <b id="dcTrace">0%</b></div>
             <div class="chip panel">NÄCHSTER <b id="dcNext">—</b></div>
           </div>
+          <div class="muted small" id="dcNext2">—</div>
           <div class="dialog small" id="dcBanter">…</div>
-          <div class="row">
+
+          <!-- Zufalls-Event: blockiert die Wahl, bis entschieden -->
+          <div id="dcEvent" class="eventBox hidden">
+            <div class="sideTitle pinkText" id="dcEventTitle">EVENT</div>
+            <div class="muted small" id="dcEventDesc">…</div>
+            <div class="row" style="justify-content:flex-start">
+              <button type="button" id="btnEventA" class="btn small pink">OPTION A</button>
+              <button type="button" id="btnEventB" class="btn small">OPTION B</button>
+            </div>
+          </div>
+
+          <div class="row" id="dcChoiceRow">
             <button type="button" id="btnJackOut" class="btn yellow">JACK OUT — sichern</button>
             <button type="button" id="btnDeeper" class="btn pink">GO DEEPER — riskieren</button>
           </div>

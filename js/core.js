@@ -50,9 +50,11 @@ export const game = {
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
+  daily: { date: "", done: false },
   selectedNodeId: null,
   selectedMissionType: null,
   selectedMissionTier: 1,
+  selectedMissionHot: false,
   storyLog: [],
 
   canvases: { three: null, world: null, mission: null },
@@ -60,6 +62,21 @@ export const game = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+/* ---------------- DAILY (Tagesauftrag) ---------------- */
+export const DAILY_GOAL_LAYER = 3;
+export const DAILY_REWARD = 30;
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+export function checkDailyReset() {
+  if (game.daily.date !== todayStr()) {
+    game.daily = { date: todayStr(), done: false };
+  }
+}
 
 /* ---------------- MODE ---------------- */
 export function setMode(next) {
@@ -196,10 +213,11 @@ function boot() {
   // load save
   const saved = loadSave();
   if (saved) {
-    const { upgrades, settings, crew, ...rest } = saved;
+    const { upgrades, settings, crew, daily, ...rest } = saved;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
     if (settings) Object.assign(game.settings, settings);
+    if (daily) Object.assign(game.daily, daily);
     if (crew) {
       if (crew.roster) game.crew.roster = crew.roster;
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
@@ -213,12 +231,14 @@ function boot() {
     game.storyLog.unshift(`> NYX: „Ich hab dir JUNO geschickt. Und 40 Frags. Verkack's nicht.“`);
   }
 
+  checkDailyReset();
+
   // init modules
   initUI({
     setMode,
     startMission: () => {
       if (!game.selectedNodeId) {
-        toast("SELECT A NODE FIRST.");
+        toast("WÄHL ZUERST EINEN NODE.");
         return;
       }
       const type = game.selectedMissionType;
@@ -227,7 +247,7 @@ function boot() {
         return;
       }
       setMode("MISSION");
-      startDive(type, game.selectedMissionTier || 1);
+      startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot);
     },
     openNpcDialog,
     saveNow,
@@ -312,8 +332,8 @@ function loop(tNow) {
     if (game.mode === "WORLD" || game.mode === "TITLE") {
       worldTick(dt);
       npcTick(dt);
-      // Heat kühlt langsam ab, solange du dich in der Stadt bewegst
-      if (game.heat > 0) game.heat = Math.max(0, game.heat - dt * 0.25);
+      // Heat kühlt nur langsam ab — die Klinik ist der schnelle Weg
+      if (game.heat > 0) game.heat = Math.max(0, game.heat - dt * 0.08);
     }
 
     if (game.mode === "MISSION") {
@@ -321,11 +341,21 @@ function loop(tNow) {
         Object.assign(game, resultData.apply(game));
         game.missionsDone += 1;
 
+        // Tagesauftrag: 1x per Jack Out aus Layer 3+ zurückkommen
+        checkDailyReset();
+        let dailyLine = "";
+        if (!game.daily.done && resultData.meta?.jackout && resultData.meta.layer >= DAILY_GOAL_LAYER) {
+          game.daily.done = true;
+          game.frags += DAILY_REWARD;
+          dailyLine = `\n\n✔ TAGESAUFTRAG ERFÜLLT: +${DAILY_REWARD} ◆`;
+          toast(`TAGESAUFTRAG ERFÜLLT: +${DAILY_REWARD} ◆`);
+        }
+
         if (game.settings.autosave) saveNow();
 
         setMode("RESULT");
         const res = $("resText");
-        if (res) res.textContent = resultData.text || "Dive beendet.";
+        if (res) res.textContent = (resultData.text || "Dive beendet.") + dailyLine;
       });
     }
   } else {

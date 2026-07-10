@@ -1,4 +1,4 @@
-import { game } from "./core.js";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js";
 import { saveNow } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
@@ -136,8 +136,8 @@ export function updateNodeList(nodes, selectedId, onPick) {
     left.appendChild(meta);
 
     const badge = document.createElement("div");
-    badge.className = "badge " + (n.type === "mission" ? "mission" : "npc");
-    badge.textContent = (n.type || "node").toUpperCase();
+    badge.className = "badge " + (n.hot ? "hot" : (n.type === "mission" ? "mission" : "npc"));
+    badge.textContent = n.hot ? "🔥 HOT" : (n.type === "mission" ? `TIER ${n.tier || 1}` : "NPC");
 
     card.appendChild(left);
     card.appendChild(badge);
@@ -177,4 +177,11 @@ export function uiTick(dt = 0) {
 
   const p = $("btnPause");
   if (p) p.textContent = game.paused ? "RESUME" : "PAUSE";
+
+  const daily = $("dailyInfo");
+  if (daily) {
+    daily.textContent = game.daily?.done
+      ? "✔ TAGESAUFTRAG erledigt — morgen gibt's einen neuen."
+      : `TAGESAUFTRAG: Jack Out aus Layer ${DAILY_GOAL_LAYER}+ → +${DAILY_REWARD} ◆`;
+  }
 }

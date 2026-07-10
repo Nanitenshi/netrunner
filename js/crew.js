@@ -377,9 +377,9 @@ export function crewTick(dt) {
 
 /* ---------------- GEAR ---------------- */
 const GEAR = [
-  { id: "amplifier", name: "SIGNAL AMP", desc: "+12% Loot pro Stufe", costs: [80, 200, 480] },
-  { id: "pulse", name: "PULSE FILTER", desc: "-8% Trace-Anstieg pro Stufe", costs: [80, 200, 480] },
-  { id: "buffer", name: "BUFFER GUARD", desc: "+15% Rettung bei Dump pro Stufe", costs: [60, 160, 400] }
+  { id: "amplifier", name: "SIGNAL AMP", desc: "+12% Loot pro Stufe", costs: [80, 200, 480, 1000, 2000] },
+  { id: "pulse", name: "PULSE FILTER", desc: "-8% Trace-Anstieg pro Stufe", costs: [80, 200, 480, 1000, 2000] },
+  { id: "buffer", name: "BUFFER GUARD", desc: "+15% Rettung bei Dump pro Stufe", costs: [60, 160, 400, 900, 1800] }
 ];
 
 function buyGear(gid) {

@@ -59,9 +59,20 @@ const CITIZEN_COLORS = {
   slums: "rgba(150,220,110,.55)", undercity: "rgba(200,90,255,.55)"
 };
 
+// Hot Zone: rotiert täglich über die Mission-Nodes (+1 Tier, +50% Loot)
+function todaySeed() {
+  const d = new Date();
+  return d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
+}
+
 export function initWorld() {
   nodes.length = 0;
-  NODE_DEFS.forEach((n) => nodes.push({ ...n, visited: false }));
+  NODE_DEFS.forEach((n) => nodes.push({ ...n, visited: false, hot: false }));
+
+  const missionNodes = nodes.filter((n) => n.type === "mission");
+  if (missionNodes.length) {
+    missionNodes[todaySeed() % missionNodes.length].hot = true;
+  }
 
   citizens.length = 0;
   for (const d of DISTRICTS) {
@@ -121,6 +132,7 @@ function interact(n) {
   game.selectedNodeId = n.id;
   game.selectedMissionType = n.missionType || null;
   game.selectedMissionTier = n.tier || 1;
+  game.selectedMissionHot = !!n.hot;
   pendingInteractId = null;
 
   const npcName = $("npcName");
@@ -128,8 +140,10 @@ function interact(n) {
   const dialog = $("dialogText");
 
   if (npcName) npcName.textContent = `${n.npc} // ${n.name}`;
-  if (npcRole) npcRole.textContent = (n.type === "mission" ? `NETZZUGANG · TIER ${n.tier || 1}` : "NPC SIGNAL");
-  if (dialog) dialog.textContent = n.tag;
+  if (npcRole) npcRole.textContent = (n.type === "mission"
+    ? `NETZZUGANG · TIER ${n.tier || 1}${n.hot ? " · 🔥 HOT ZONE" : ""}`
+    : "NPC SIGNAL");
+  if (dialog) dialog.textContent = n.hot ? `${n.tag}\n\n🔥 HOT ZONE HEUTE: +1 Tier, +50% Loot.` : n.tag;
 
   if (n.type === "npc") {
     openNpcDialog(n.id);
@@ -301,10 +315,21 @@ function draw() {
   }
 
   // nodes
+  const tNow = performance.now() / 1000;
   nodes.forEach((n) => {
     const p = worldToScreen(n.x, n.y, W, H);
     const active = (game.selectedNodeId === n.id);
     const inRange = Math.hypot(player.x - n.x, player.y - n.y) <= INTERACT_R;
+
+    // Hot Zone: pulsierender orangener Ring
+    if (n.hot) {
+      const pulse = 1 + Math.sin(tNow * 4) * 0.18;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(255,150,40,.85)";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 30 * cam.zoom * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     ctx.fillStyle = active ? "#ffffff" : (n.type === "mission" ? "rgba(0,243,255,.6)" : "rgba(255,0,124,.6)");
     ctx.beginPath();

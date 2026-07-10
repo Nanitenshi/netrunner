@@ -532,3 +532,49 @@ canvas { position: absolute; inset: 0; display: block; }
 
 .gearRow .name { font-weight: 900; font-size: 13px; }
 .gearRow .meta { font-size: 11px; color: var(--muted); }
+
+/* ===== Crew-Actives (im Dive) ===== */
+.abilityBar {
+  position: absolute;
+  left: 50%;
+  bottom: 128px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.abilityBtn { pointer-events: auto; }
+
+.abilityBtn.used {
+  opacity: .35;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+/* ===== Dive-Event ===== */
+.eventBox {
+  border: 1px solid rgba(255, 0, 124, .4);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+  background: rgba(255, 0, 124, .06);
+  box-shadow: 0 0 18px rgba(255, 0, 124, .15);
+  animation: reveal 0.35s ease-out;
+}
+
+/* ===== Hot Zone Badge ===== */
+.badge.hot {
+  border-color: rgba(255, 150, 40, .7);
+  color: #ff9628;
+  box-shadow: 0 0 10px rgba(255, 150, 40, .3);
+}
+
+.dailyLine {
+  padding: 6px 8px;
+  border: 1px dashed rgba(252, 238, 10, .3);
+  border-radius: 8px;
+}

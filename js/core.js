@@ -26,6 +26,8 @@ import {
   missionSetPaused
 } from "./missions.js";
 
+const DAY_CYCLE = 220; // seconds for a full day/night loop
+
 export const game = {
   mode: "TITLE", // TITLE | WORLD | MISSION | RESULT
   paused: false,
@@ -34,7 +36,8 @@ export const game = {
   heat: 0,
   frags: 0,
   district: 7,
-  globalProgress: 0,
+  dayClock: 0,
+  dayRatio: 0,
   missionsDone: 0,
 
   settings: {
@@ -44,6 +47,8 @@ export const game = {
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   selectedNodeId: null,
+  selectedMissionType: null,
+  storyLog: [],
 
   canvases: { three: null, world: null, mission: null },
   ctx: { world: null, mission: null }
@@ -198,9 +203,14 @@ function boot() {
         toast("SELECT A NODE FIRST.");
         return;
       }
-      startMission("cache");
+      const type = game.selectedMissionType;
+      if (!type) {
+        toast("THIS NODE HAS NO MISSION.");
+        return;
+      }
+      startMission(type);
       setMode("MISSION");
-      toast("MISSION LINKED.");
+      toast(`MISSION LINKED: ${type.toUpperCase()}`);
     },
     openNpcDialog,
     saveNow,
@@ -268,10 +278,11 @@ function loop(tNow) {
   const dt = Math.min(0.033, ((tNow - lastTime) / 1000) || 0);
   lastTime = tNow;
 
-  game.globalProgress = Math.min(1, game.missionsDone / 12);
-  setMoodProgress(game.globalProgress);
-
   if (!game.paused) {
+    game.dayClock = (game.dayClock + dt) % DAY_CYCLE;
+    game.dayRatio = game.dayClock / DAY_CYCLE;
+    setMoodProgress(game.dayRatio);
+
     if (game.mode === "WORLD" || game.mode === "TITLE") {
       worldTick(dt);
       npcTick(dt);

@@ -10,11 +10,11 @@ export function saveNow() {
       heat: game.heat,
       frags: game.frags,
       district: game.district,
-      globalProgress: game.globalProgress,
+      dayClock: game.dayClock,
       missionsDone: game.missionsDone,
       upgrades: game.upgrades,
       selectedNodeId: game.selectedNodeId,
-      perfMode: game.perfMode,
+      settings: game.settings,
       storyLog: game.storyLog
     };
     localStorage.setItem(KEY, JSON.stringify(data));

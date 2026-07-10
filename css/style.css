@@ -118,6 +118,11 @@ canvas { position: absolute; inset: 0; display: block; }
   box-shadow: var(--shadowP);
 }
 
+.panel.yellow {
+  border-color: rgba(252, 238, 10, .28);
+  box-shadow: 0 0 22px rgba(252, 238, 10, .18);
+}
+
 .hidden { display: none !important; }
 
 /* ===== HUD ===== */

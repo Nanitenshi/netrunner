@@ -3,6 +3,8 @@ import { saveNow } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
 
+const RANKS = ["ROOKIE", "STREET RUNNER", "NETRUNNER", "GHOSTWALKER", "ICE BREAKER", "LEGEND"];
+
 let api = null;
 let toastTimer = null;
 
@@ -75,6 +77,21 @@ export function initUI(_api) {
   window.addEventListener("visibilitychange", () => {
     if (document.hidden && game.settings?.autosave) saveNow();
   });
+
+  renderStoryLog();
+}
+
+export function renderStoryLog() {
+  const wrap = $("storyArchive");
+  if (!wrap) return;
+
+  wrap.innerHTML = "";
+  for (const line of game.storyLog.slice(0, 30)) {
+    const row = document.createElement("div");
+    row.className = "archRow";
+    row.textContent = line;
+    wrap.appendChild(row);
+  }
 }
 
 export function toast(msg) {
@@ -138,8 +155,11 @@ export function uiTick(dt = 0) {
   const f = $("hudFrags");
   if (f) f.textContent = `${game.frags}`;
 
+  const rk = $("hudRank");
+  if (rk) rk.textContent = RANKS[Math.min(RANKS.length - 1, Math.floor(game.missionsDone / 3))];
+
   const t = $("hudTime");
-  if (t) t.textContent = game.globalProgress < 0.35 ? "DAY" : (game.globalProgress < 0.7 ? "DUSK" : "NIGHT");
+  if (t) t.textContent = game.dayRatio < 0.35 ? "DAY" : (game.dayRatio < 0.7 ? "DUSK" : "NIGHT");
 
   // Quality label
   const q = $("btnQuality");

@@ -15,6 +15,11 @@ export function unlockAudio() {
   ctx();
 }
 
+// Gemeinsamer Context für music.js (zwei Contexts pro Seite wären Verschwendung)
+export function getAudioCtx() {
+  return ctx();
+}
+
 export function setSfxEnabled(on) {
   enabled = !!on;
 }

@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=2b8dfd1d";
+} from "./threeScene.js?v=782c1c42";
 
 import {
   initWorld,
@@ -12,13 +12,14 @@ import {
   handleWorldPointer,
   worldCancelPointer,
   worldSetFocusToggle
-} from "./world.js?v=2b8dfd1d";
+} from "./world.js?v=782c1c42";
 
-import { initUI, uiTick, toast } from "./ui.js?v=2b8dfd1d";
-import { loadSave, saveNow, resetSave } from "./save.js?v=2b8dfd1d";
-import { openNpcDialog, npcTick } from "./npc.js?v=2b8dfd1d";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=2b8dfd1d";
-import { unlockAudio } from "./sfx.js?v=2b8dfd1d";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=782c1c42";
+import { loadSave, saveNow, resetSave } from "./save.js?v=782c1c42";
+import { openNpcDialog, npcTick } from "./npc.js?v=782c1c42";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=782c1c42";
+import { unlockAudio } from "./sfx.js?v=782c1c42";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=782c1c42";
 
 import {
   startDive,
@@ -27,7 +28,7 @@ import {
   diveCancelPointer,
   diveSetPaused,
   initDive
-} from "./dive.js?v=2b8dfd1d";
+} from "./dive.js?v=782c1c42";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -45,12 +46,14 @@ export const game = {
 
   settings: {
     quality: "perf", // perf | quality
-    autosave: true
+    autosave: true,
+    music: true
   },
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
   daily: { date: "", done: false },
+  stats: { bestLayer: 0, dives: 0, dumps: 0 },
   selectedNodeId: null,
   selectedMissionType: null,
   selectedMissionTier: 1,
@@ -115,6 +118,15 @@ export function setMode(next) {
   toggle("result", next === "RESULT");
   toggle("diveChoice", false);
   closeCrewOverlay?.();
+
+  // Musik: dichter im Dive, ruhiger in der Stadt
+  musicSetIntensity(next === "MISSION" ? 1 : 0);
+
+  // Erste-Schritte-Hinweis für frische Spieler
+  if (next === "WORLD" && game.missionsDone === 0 && !game._introShown) {
+    game._introShown = true;
+    setComms(`NYX: „Lauf zum CACHE POP TERMINAL — dein erster Dive wartet. Tipp einfach hin.“`);
+  }
 
   // no pause carryover
   setPaused(false);
@@ -213,11 +225,12 @@ function boot() {
   // load save
   const saved = loadSave();
   if (saved) {
-    const { upgrades, settings, crew, daily, ...rest } = saved;
+    const { upgrades, settings, crew, daily, stats, ...rest } = saved;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
     if (settings) Object.assign(game.settings, settings);
     if (daily) Object.assign(game.daily, daily);
+    if (stats) Object.assign(game.stats, stats);
     if (crew) {
       if (crew.roster) game.crew.roster = crew.roster;
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
@@ -264,6 +277,12 @@ function boot() {
       saveNow();
       toast(game.settings.autosave ? "AUTO: ON" : "AUTO: OFF");
     },
+    toggleMusic: () => {
+      game.settings.music = !game.settings.music;
+      saveNow();
+      musicSetEnabled(game.settings.music);
+      toast(game.settings.music ? "MUSIK: ON" : "MUSIK: OFF");
+    },
     focusToggle: () => worldSetFocusToggle?.()
   });
 
@@ -279,7 +298,10 @@ function boot() {
   initCrewUI();
 
   // Audio erst nach erster User-Geste (Autoplay-Policy)
-  window.addEventListener("pointerdown", unlockAudio, { once: true });
+  window.addEventListener("pointerdown", () => {
+    unlockAudio();
+    musicSetEnabled(game.settings.music);
+  }, { once: true });
 
   // route pointers
   bindCanvasPointers(game.canvases.world, handleWorldPointer, () => (game.mode === "TITLE" || game.mode === "WORLD"));
@@ -341,6 +363,18 @@ function loop(tNow) {
         Object.assign(game, resultData.apply(game));
         game.missionsDone += 1;
 
+        // Statistik + Tiefen-Rekord
+        game.stats.dives += 1;
+        if (!resultData.meta?.jackout) game.stats.dumps += 1;
+        let recordLine = "";
+        if ((resultData.meta?.layer || 0) > game.stats.bestLayer) {
+          game.stats.bestLayer = resultData.meta.layer;
+          if (game.stats.bestLayer >= 3) {
+            recordLine = `\n\n★ NEUER TIEFEN-REKORD: LAYER ${game.stats.bestLayer}`;
+            toast(`★ NEUER REKORD: LAYER ${game.stats.bestLayer}`);
+          }
+        }
+
         // Tagesauftrag: 1x per Jack Out aus Layer 3+ zurückkommen
         checkDailyReset();
         let dailyLine = "";
@@ -355,7 +389,7 @@ function loop(tNow) {
 
         setMode("RESULT");
         const res = $("resText");
-        if (res) res.textContent = (resultData.text || "Dive beendet.") + dailyLine;
+        if (res) res.textContent = (resultData.text || "Dive beendet.") + recordLine + dailyLine;
       });
     }
   } else {

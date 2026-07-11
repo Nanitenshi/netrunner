@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=2b8dfd1d";
-import { saveNow } from "./save.js?v=2b8dfd1d";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=782c1c42";
+import { saveNow } from "./save.js?v=782c1c42";
 
 const $ = (id) => document.getElementById(id);
 
@@ -69,6 +69,7 @@ export function initUI(_api) {
   bindFastPress($("btnPause"), () => api.togglePause?.());
   bindFastPress($("btnQuality"), () => api.toggleQuality?.());
   bindFastPress($("btnSave"), () => api.toggleAutosave?.());
+  bindFastPress($("btnMusic"), () => api.toggleMusic?.());
 
   // Result screen
   bindFastPress($("btnBackToCity"), () => api.setMode?.("WORLD"));
@@ -197,5 +198,16 @@ export function uiTick(dt = 0) {
     daily.textContent = game.daily?.done
       ? "✔ TAGESAUFTRAG erledigt — morgen gibt's einen neuen."
       : `TAGESAUFTRAG: Jack Out aus Layer ${DAILY_GOAL_LAYER}+ → +${DAILY_REWARD} ◆`;
+  }
+
+  const snd = $("btnMusic");
+  if (snd) snd.textContent = game.settings?.music ? "SND" : "MUTE";
+
+  const stats = $("titleStats");
+  if (stats) {
+    const owned = Object.keys(game.crew?.roster || {}).length;
+    stats.textContent = game.stats?.dives > 0
+      ? `REKORD: LAYER ${game.stats.bestLayer} · DIVES: ${game.stats.dives} · CREW: ${owned}/15`
+      : "Noch keine Dives. Zeit, das zu ändern.";
   }
 }

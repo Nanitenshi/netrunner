@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=2b8dfd1d";
-import { sfx } from "./sfx.js?v=2b8dfd1d";
+import { game } from "./core.js?v=782c1c42";
+import { sfx } from "./sfx.js?v=782c1c42";
 
 const $ = (id) => document.getElementById(id);
 
@@ -679,9 +679,25 @@ function makeGhostNet({ diff, mods, timeMult = 1 }) {
     const ang = Math.random() * Math.PI * 2;
     const sp = 50 + Math.random() * 70 + diff * 60;
     const rad = baseRadius() * 0.9;
+
+    // Best-of-N gegen bestehende Geister, damit sie nicht aufeinander spawnen
+    let best = null, bestScore = -Infinity;
+    for (let tries = 0; tries < 12; tries++) {
+      const x = r.x0 + rad + Math.random() * Math.max(1, r.x1 - r.x0 - rad * 2);
+      const y = r.y0 + rad + Math.random() * Math.max(1, r.y1 - r.y0 - rad * 2);
+      let minGap = Infinity;
+      for (const g of ghosts) {
+        if (!g.alive) continue;
+        const d = Math.hypot(x - g.x, y - g.y) - rad * 2.5;
+        if (d < minGap) minGap = d;
+      }
+      if (!ghosts.some((g) => g.alive)) minGap = 999;
+      if (minGap > bestScore) { bestScore = minGap; best = { x, y }; }
+      if (minGap >= 0) break;
+    }
+
     return {
-      x: r.x0 + rad + Math.random() * Math.max(1, r.x1 - r.x0 - rad * 2),
-      y: r.y0 + rad + Math.random() * Math.max(1, r.y1 - r.y0 - rad * 2),
+      x: best.x, y: best.y,
       vx: Math.cos(ang) * sp,
       vy: Math.sin(ang) * sp,
       r: rad,

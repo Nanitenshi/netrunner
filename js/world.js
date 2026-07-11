@@ -1,8 +1,8 @@
 // js/world.js
-import { game } from "./core.js?v=2b8dfd1d";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=2b8dfd1d";
-import { openNpcDialog } from "./npc.js?v=2b8dfd1d";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=2b8dfd1d";
+import { game } from "./core.js?v=782c1c42";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=782c1c42";
+import { openNpcDialog } from "./npc.js?v=782c1c42";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=782c1c42";
 
 const $ = (id) => document.getElementById(id);
 

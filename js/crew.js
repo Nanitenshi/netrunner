@@ -1,7 +1,7 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game } from "./core.js?v=2b8dfd1d";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=2b8dfd1d";
-import { saveNow } from "./save.js?v=2b8dfd1d";
+import { game } from "./core.js?v=782c1c42";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=782c1c42";
+import { saveNow } from "./save.js?v=782c1c42";
 
 const $ = (id) => document.getElementById(id);
 
@@ -256,7 +256,8 @@ export function getChar(id) {
 export function computeMods() {
   const m = {
     lootMult: 1, traceMult: 1, timeBonus: 0, peekBonus: 0, ringScale: 1,
-    salvage: 0, fragsPerLayer: 0, startTrace: 0, forgive: 0, revive: 0
+    // 10% Grundrettung bei Dump für alle — Buffer Guard und Crew stapeln darauf
+    salvage: 0.10, fragsPerLayer: 0, startTrace: 0, forgive: 0, revive: 0
   };
 
   for (const id of game.crew.equipped) {

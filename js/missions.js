@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=a02c9cdc";
-import { sfx } from "./sfx.js?v=a02c9cdc";
+import { game } from "./core.js?v=11a32f07";
+import { sfx } from "./sfx.js?v=11a32f07";
 
 const $ = (id) => document.getElementById(id);
 

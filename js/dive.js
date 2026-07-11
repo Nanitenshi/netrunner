@@ -1,9 +1,9 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=a02c9cdc";
-import { toast, bindFastPress } from "./ui.js?v=a02c9cdc";
-import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=a02c9cdc";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=a02c9cdc";
-import { sfx } from "./sfx.js?v=a02c9cdc";
+import { game } from "./core.js?v=11a32f07";
+import { toast, bindFastPress } from "./ui.js?v=11a32f07";
+import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=11a32f07";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=11a32f07";
+import { sfx } from "./sfx.js?v=11a32f07";
 
 const $ = (id) => document.getElementById(id);
 

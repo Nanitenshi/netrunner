@@ -23,7 +23,7 @@ let timer = null;
 function ensureGraph(ac) {
   if (master) return;
   master = ac.createGain();
-  master.gain.value = 0.055;
+  master.gain.value = 0.11;
   master.connect(ac.destination);
 }
 

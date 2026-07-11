@@ -267,13 +267,23 @@ export function startDive(firstType, tier = 1, hot = false) {
   const mods = computeMods();
   clearParticles();
 
+  // Tagesboni von NPC-Besuchen: einmalig, werden hier verbraucht
+  const buffs = game.buffs;
+  mods.lootMult *= buffs.lootBonus;
+  mods.traceMult *= buffs.traceMultCut;
+
+  const buffLines = [];
+  if (buffs.lootBonus > 1) buffLines.push(`+${Math.round((buffs.lootBonus - 1) * 100)}% Loot (RUNNER-9)`);
+  if (buffs.traceMultCut < 1) buffLines.push(`-${Math.round((1 - buffs.traceMultCut) * 100)}% Trace-Anstieg (ICE-VOICE)`);
+  if (buffs.traceCut > 0) buffLines.push(`-${buffs.traceCut} Start-Trace (NYX)`);
+
   dive = {
     tier: tier + (hot ? 1 : 0),
     hot,
     layer: 1,
     bufferE: 0,
     bufferF: 0,
-    trace: Math.max(0, game.heat * 0.4 - mods.startTrace),
+    trace: Math.max(0, game.heat * 0.4 - mods.startTrace - buffs.traceCut),
     mods,
     reviveLeft: mods.revive,
     mg: null,
@@ -287,6 +297,12 @@ export function startDive(firstType, tier = 1, hot = false) {
   };
 
   if (hot) dive.mods = { ...mods, lootMult: mods.lootMult * 1.5 };
+
+  // verbraucht — erst nach dem Kopieren in dive.mods zurücksetzen
+  game.buffs.traceCut = 0;
+  game.buffs.lootBonus = 1;
+  game.buffs.traceMultCut = 1;
+  if (buffLines.length) toast(`AKTIVE BONI: ${buffLines.join(" · ")}`);
 
   buildAbilityBar();
   startLayer({ type: firstType, mod: LAYER_MODS[0], hidden: false });

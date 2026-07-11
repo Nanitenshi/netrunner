@@ -1,6 +1,7 @@
 // js/sfx.js — synthetisierte Sounds über WebAudio, keine Assets nötig
 let ac = null;
 let enabled = true;
+let sfxMaster = null;
 
 function ctx() {
   if (!ac) {
@@ -8,6 +9,19 @@ function ctx() {
   }
   if (ac.state === "suspended") ac.resume().catch(() => {});
   return ac;
+}
+
+// Alle SFX laufen über diesen Bus — Handy-Lautsprecher sind leise,
+// Rohwerte hier deutlich höher als "am Rechner richtig" ansetzen
+function sfxBus() {
+  const a = ctx();
+  if (!a) return null;
+  if (!sfxMaster) {
+    sfxMaster = a.createGain();
+    sfxMaster.gain.value = 1.9;
+    sfxMaster.connect(a.destination);
+  }
+  return sfxMaster;
 }
 
 // Erst nach erster User-Geste initialisieren (Autoplay-Policy)
@@ -31,7 +45,8 @@ export function sfxEnabled() {
 function tone({ freq = 440, end = freq, dur = 0.12, type = "square", vol = 0.15, delay = 0 }) {
   if (!enabled) return;
   const a = ctx();
-  if (!a) return;
+  const bus = sfxBus();
+  if (!a || !bus) return;
 
   const t0 = a.currentTime + delay;
   const osc = a.createOscillator();
@@ -44,7 +59,7 @@ function tone({ freq = 440, end = freq, dur = 0.12, type = "square", vol = 0.15,
   gain.gain.setValueAtTime(vol, t0);
   gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
 
-  osc.connect(gain).connect(a.destination);
+  osc.connect(gain).connect(bus);
   osc.start(t0);
   osc.stop(t0 + dur + 0.02);
 }
@@ -52,7 +67,8 @@ function tone({ freq = 440, end = freq, dur = 0.12, type = "square", vol = 0.15,
 function noise({ dur = 0.2, vol = 0.2, delay = 0 }) {
   if (!enabled) return;
   const a = ctx();
-  if (!a) return;
+  const bus = sfxBus();
+  if (!a || !bus) return;
 
   const t0 = a.currentTime + delay;
   const len = Math.floor(a.sampleRate * dur);
@@ -71,7 +87,7 @@ function noise({ dur = 0.2, vol = 0.2, delay = 0 }) {
   filter.type = "lowpass";
   filter.frequency.value = 900;
 
-  src.connect(filter).connect(gain).connect(a.destination);
+  src.connect(filter).connect(gain).connect(bus);
   src.start(t0);
 }
 

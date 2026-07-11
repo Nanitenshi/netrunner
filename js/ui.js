@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=11a32f07";
-import { saveNow } from "./save.js?v=11a32f07";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=3977a132";
+import { saveNow } from "./save.js?v=3977a132";
 
 const $ = (id) => document.getElementById(id);
 
@@ -99,6 +99,8 @@ export function renderStoryLog() {
 }
 
 export function openSignalPanel() {
+  // Nie beide Drawer gleichzeitig offen (mobile: würden sich überlappen)
+  $("leftPanel")?.classList.remove("open");
   $("rightPanel")?.classList.add("open");
 }
 

@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=11a32f07";
-import { sfx } from "./sfx.js?v=11a32f07";
+import { game } from "./core.js?v=3977a132";
+import { sfx } from "./sfx.js?v=3977a132";
 
 const $ = (id) => document.getElementById(id);
 
@@ -113,17 +113,39 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
   let timer = 0, popped = 0, misses = 0, finished = false;
   let magnetUntil = -1;
 
+  // Ringgröße an die verfügbare Spielfläche koppeln, damit sie auf schmalen
+  // Handys nicht größer ist als der Platz, in dem sie kollisionsfrei passt
+  function maxRing(r) {
+    return Math.max(30, Math.min(72, Math.min(r.x1 - r.x0, r.y1 - r.y0) / 4.2));
+  }
+
   function spawn(forceTrap = null) {
     const r = playRect();
     const trap = forceTrap !== null ? forceTrap : Math.random() < trapChance;
-    const rOuter = (52 + Math.random() * 20) * mods.ringScale * sizeMult;
-    const spanX = Math.max(1, r.x1 - r.x0 - rOuter * 2);
-    const spanY = Math.max(1, r.y1 - r.y0 - rOuter * 2);
+    const cap = maxRing(r);
+    const rOuter = (cap * 0.72 + Math.random() * cap * 0.28) * mods.ringScale * sizeMult;
+    const rInner = rOuter * (0.36 + Math.random() * 0.16);
+
+    let best = null, bestScore = -Infinity;
+    for (let tries = 0; tries < 20; tries++) {
+      const x = r.x0 + rOuter + Math.random() * Math.max(1, r.x1 - r.x0 - rOuter * 2);
+      const y = r.y0 + rOuter + Math.random() * Math.max(1, r.y1 - r.y0 - rOuter * 2);
+
+      let minGap = Infinity;
+      for (const c of caches) {
+        if (!c.alive) continue;
+        const d = Math.hypot(x - c.x, y - c.y) - (rOuter + c.rOuter);
+        if (d < minGap) minGap = d;
+      }
+      if (!caches.some((c) => c.alive)) minGap = 999;
+
+      if (minGap > bestScore) { bestScore = minGap; best = { x, y }; }
+      if (minGap >= 4) break;
+    }
+
     return {
-      x: r.x0 + rOuter + Math.random() * spanX,
-      y: r.y0 + rOuter + Math.random() * spanY,
-      rOuter,
-      rInner: (20 + Math.random() * 10) * mods.ringScale * sizeMult,
+      x: best.x, y: best.y,
+      rOuter, rInner,
       pulse: Math.random() * Math.PI * 2,
       trap,
       alive: true
@@ -158,7 +180,10 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
     },
     start() {
       caches.length = 0;
-      for (let i = 0; i < 6; i++) caches.push(spawn());
+      const r = playRect();
+      const area = (r.x1 - r.x0) * (r.y1 - r.y0);
+      const count = Math.max(3, Math.min(6, Math.round(area / 34000)));
+      for (let i = 0; i < count; i++) caches.push(spawn());
     },
     pointer(type, e) {
       if (type !== "down" || finished) return;

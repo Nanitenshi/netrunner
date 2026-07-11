@@ -1,8 +1,8 @@
 // js/npc.js
-import { game } from "./core.js?v=11a32f07";
-import { toast, renderStoryLog } from "./ui.js?v=11a32f07";
-import { getNodeById } from "./world.js?v=11a32f07";
-import { crewTick } from "./crew.js?v=11a32f07";
+import { game } from "./core.js?v=3977a132";
+import { toast, renderStoryLog } from "./ui.js?v=3977a132";
+import { getNodeById } from "./world.js?v=3977a132";
+import { crewTick } from "./crew.js?v=3977a132";
 
 const LINES = {
   NYX: [

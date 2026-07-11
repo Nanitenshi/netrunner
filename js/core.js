@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=31691361";
+} from "./threeScene.js?v=a392ba06";
 
 import {
   initWorld,
@@ -12,14 +12,14 @@ import {
   handleWorldPointer,
   worldCancelPointer,
   worldSetFocusToggle
-} from "./world.js?v=31691361";
+} from "./world.js?v=a392ba06";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=31691361";
-import { loadSave, saveNow, resetSave } from "./save.js?v=31691361";
-import { openNpcDialog, npcTick } from "./npc.js?v=31691361";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=31691361";
-import { unlockAudio } from "./sfx.js?v=31691361";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=31691361";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=a392ba06";
+import { loadSave, saveNow, resetSave } from "./save.js?v=a392ba06";
+import { openNpcDialog, npcTick } from "./npc.js?v=a392ba06";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=a392ba06";
+import { unlockAudio } from "./sfx.js?v=a392ba06";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=a392ba06";
 
 import {
   startDive,
@@ -28,7 +28,7 @@ import {
   diveCancelPointer,
   diveSetPaused,
   initDive
-} from "./dive.js?v=31691361";
+} from "./dive.js?v=a392ba06";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -52,8 +52,10 @@ export const game = {
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
-  daily: { date: "", done: false },
+  daily: { date: "", done: false, npcs: {} },
   stats: { bestLayer: 0, dives: 0, dumps: 0 },
+  // einmalige Boni von NPC-Besuchen, werden beim nächsten Dive verbraucht
+  buffs: { traceCut: 0, lootBonus: 1, traceMultCut: 1, gearDiscount: 0 },
   selectedNodeId: null,
   selectedMissionType: null,
   selectedMissionTier: 1,
@@ -77,7 +79,7 @@ function todayStr() {
 
 export function checkDailyReset() {
   if (game.daily.date !== todayStr()) {
-    game.daily = { date: todayStr(), done: false };
+    game.daily = { date: todayStr(), done: false, npcs: {} };
   }
 }
 
@@ -227,12 +229,14 @@ function boot() {
   // load save
   const saved = loadSave();
   if (saved) {
-    const { upgrades, settings, crew, daily, stats, ...rest } = saved;
+    const { upgrades, settings, crew, daily, stats, buffs, ...rest } = saved;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
     if (settings) Object.assign(game.settings, settings);
     if (daily) Object.assign(game.daily, daily);
     if (stats) Object.assign(game.stats, stats);
+    if (buffs) Object.assign(game.buffs, buffs);
+    if (!game.daily.npcs) game.daily.npcs = {};
     if (crew) {
       if (crew.roster) game.crew.roster = crew.roster;
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;

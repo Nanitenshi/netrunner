@@ -1,7 +1,7 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game } from "./core.js?v=31691361";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=31691361";
-import { saveNow } from "./save.js?v=31691361";
+import { game } from "./core.js?v=a392ba06";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=a392ba06";
+import { saveNow } from "./save.js?v=a392ba06";
 
 const $ = (id) => document.getElementById(id);
 
@@ -388,13 +388,16 @@ function buyGear(gid) {
   const lvl = game.upgrades[gid] || 0;
 
   if (lvl >= g.costs.length) return toast("MAX-STUFE ERREICHT.");
-  const cost = g.costs[lvl];
+
+  const discount = game.buffs.gearDiscount || 0;
+  const cost = Math.round(g.costs[lvl] * (1 - discount));
   if (game.money < cost) return toast(`ZU WENIG EDDIES (${cost} E$).`);
 
   game.money -= cost;
   game.upgrades[gid] = lvl + 1;
+  game.buffs.gearDiscount = 0; // Rabatt (RUST) ist pro Kauf verbraucht
   saveNow();
-  toast(`${g.name} → STUFE ${lvl + 1}`);
+  toast(discount > 0 ? `${g.name} → STUFE ${lvl + 1} (RUST-RABATT: -${Math.round(discount * 100)}%)` : `${g.name} → STUFE ${lvl + 1}`);
   renderGear();
 }
 
@@ -571,10 +574,13 @@ function renderGear() {
 
     body.append(name, desc);
 
+    const discount = game.buffs.gearDiscount || 0;
+    const price = Math.round(g.costs[lvl] * (1 - discount));
+
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn small yellow";
-    btn.textContent = maxed ? "MAX" : `KAUFEN ${g.costs[lvl]} E$`;
+    btn.textContent = maxed ? "MAX" : (discount > 0 ? `KAUFEN ${price} E$ (RUST -${Math.round(discount * 100)}%)` : `KAUFEN ${price} E$`);
     if (!maxed) bindFastPress(btn, () => buyGear(g.id));
 
     row.append(body, btn);

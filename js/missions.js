@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=31691361";
-import { sfx } from "./sfx.js?v=31691361";
+import { game } from "./core.js?v=a392ba06";
+import { sfx } from "./sfx.js?v=a392ba06";
 
 const $ = (id) => document.getElementById(id);
 
@@ -145,6 +145,9 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
   let timeLimit = (Math.max(6, 12 - diff * 2) + mods.timeBonus) * timeMult;
   const trapChance = corrupt ? 0.35 : (diff > 0.25 ? 0.22 : 0);
   const sizeMult = corrupt ? 0.85 : 1;
+  // ab mittlerer Schwierigkeit treiben die Ringe langsam — reines Reflex-Tippen
+  // wird zu Tippen+Verfolgen, damit sich Layer 15 anders anfühlt als Layer 1
+  const drifting = diff > 0.45;
 
   const caches = [];
   let timer = 0, popped = 0, misses = 0, finished = false;
@@ -180,10 +183,15 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
       if (minGap >= 4) break;
     }
 
+    const driftAng = Math.random() * Math.PI * 2;
+    const driftSpeed = drifting ? 22 + Math.random() * 20 : 0;
+
     return {
       x: best.x, y: best.y,
       rOuter, rInner,
       pulse: Math.random() * Math.PI * 2,
+      vx: Math.cos(driftAng) * driftSpeed,
+      vy: Math.sin(driftAng) * driftSpeed,
       trap,
       alive: true
     };
@@ -259,6 +267,16 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
 
       for (const c of caches) {
         if (!c.alive) continue;
+
+        if (drifting && !paused) {
+          c.x += c.vx * dt;
+          c.y += c.vy * dt;
+          if (c.x - c.rOuter < r.x0 || c.x + c.rOuter > r.x1) c.vx *= -1;
+          if (c.y - c.rOuter < r.y0 || c.y + c.rOuter > r.y1) c.vy *= -1;
+          c.x = Math.max(r.x0 + c.rOuter, Math.min(r.x1 - c.rOuter, c.x));
+          c.y = Math.max(r.y0 + c.rOuter, Math.min(r.y1 - c.rOuter, c.y));
+        }
+
         c.pulse += dt * 3;
         const wob = (1 + Math.sin(c.pulse) * 0.05) * mag;
 
@@ -283,7 +301,10 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
       drawParticles(ctx, dt);
       if (corrupt) drawGlitch(ctx, r);
 
-      setHud(`${popped} / ${objective}`, timer, timeLimit, trapChance > 0 ? "RINGE POPPEN — ROTE MEIDEN!" : "TIPP AUF DIE RINGE");
+      const hint = trapChance > 0
+        ? (drifting ? "RINGE TREIBEN — ROTE MEIDEN!" : "RINGE POPPEN — ROTE MEIDEN!")
+        : (drifting ? "RINGE TREIBEN — VERFOLGEN!" : "TIPP AUF DIE RINGE");
+      setHud(`${popped} / ${objective}`, timer, timeLimit, hint);
       if (paused || finished) return;
 
       timer += dt;
@@ -311,6 +332,11 @@ function makeWireMatch({ diff, mods, timeMult = 1, corrupt = false }) {
   let resolveAt = -1;
   let phase = "peek";
   let revealUntil = -1;
+
+  // ab mittlerer Schwierigkeit tauschen zwei verdeckte Kacheln gelegentlich
+  // die Plätze — reines Auswendiglernen reicht dann nicht mehr
+  const shuffling = diff > 0.45;
+  let nextShuffleAt = -1;
 
   function layout() {
     const r = playRect();
@@ -405,8 +431,23 @@ function makeWireMatch({ diff, mods, timeMult = 1, corrupt = false }) {
         if (timer >= peekTime) {
           phase = "play";
           for (const t of tiles) t.revealed = false;
+          if (shuffling) nextShuffleAt = timer + 3 + Math.random() * 1.5;
         }
-      } else if (selection.length === 2 && timer >= resolveAt) {
+      } else if (shuffling && timer >= nextShuffleAt) {
+        const pool = tiles.filter((t) => !t.matched && !t.revealed && !selection.includes(t));
+        if (pool.length >= 2) {
+          const a = pool[Math.floor(Math.random() * pool.length)];
+          let b = pool[Math.floor(Math.random() * pool.length)];
+          if (b === a) b = pool[(pool.indexOf(a) + 1) % pool.length];
+          [a.x, b.x] = [b.x, a.x];
+          [a.y, b.y] = [b.y, a.y];
+          burst((a.x + b.x) / 2, (a.y + b.y) / 2, "#7dc3ff", 8);
+          sfx.tap();
+        }
+        nextShuffleAt = timer + 3 + Math.random() * 1.5;
+      }
+
+      if (selection.length === 2 && timer >= resolveAt) {
         const [a, b] = selection;
         if (a.color === b.color) {
           a.matched = true; b.matched = true;
@@ -444,6 +485,11 @@ function makeBreachSequence({ diff, mods, timeMult = 1, corrupt = false }) {
   let forgiveLeft = mods.forgive;
   let hintUntil = -1;
 
+  // ab mittlerer Schwierigkeit springen die offenen Ziele periodisch neu —
+  // reines Auswendiglernen der Positionen reicht dann nicht mehr
+  const reshuffling = diff > 0.45;
+  let nextReshuffleAt = 3.5;
+
   function place() {
     const r = playRect();
     const radius = fitRadius(total, r, baseRadius());
@@ -453,6 +499,18 @@ function makeBreachSequence({ diff, mods, timeMult = 1, corrupt = false }) {
     for (let i = 1; i <= total; i++) {
       targets.push({ n: i, x: pts[i - 1].x, y: pts[i - 1].y, radius, done: false, missFlash: 0 });
     }
+  }
+
+  function reshuffleOpen() {
+    const r = playRect();
+    const open = targets.filter((t) => !t.done);
+    if (open.length < 2) return;
+
+    const radius = open[0].radius;
+    const pts = placeSpread(open.length, radius, r);
+    open.forEach((t, i) => { t.x = pts[i].x; t.y = pts[i].y; });
+    burst(pts[0].x, pts[0].y, "#0ff", 6);
+    sfx.tap();
   }
 
   const debug = { type: "breach", targets, get next() { return next; } };
@@ -534,6 +592,12 @@ function makeBreachSequence({ diff, mods, timeMult = 1, corrupt = false }) {
       if (paused || finished) return;
 
       timer += dt;
+
+      if (reshuffling && timer >= nextReshuffleAt) {
+        reshuffleOpen();
+        nextReshuffleAt = timer + 3.5 + Math.random() * 1.5;
+      }
+
       if (next > total) {
         finished = true;
         report({ success: true, score: total * 2, misses });
@@ -554,15 +618,20 @@ function makePulseLock({ diff, mods, timeMult = 1, corrupt = false }) {
   let angle = 0;
   const speedBase = (2.2 + diff * 1.6) * (corrupt ? 1.3 : 1);
   let speed = speedBase;
+  let dir = 1;
   let arcWidth = (0.9 - diff * 0.35) * (corrupt ? 0.8 : 1);
   let zoneStart = Math.random() * Math.PI * 2;
   let zoneShuffleAt = 2.5;
   let flash = 0, flashColor = "#7dff8a";
   let widenUntil = -1;
+  // ab mittlerer Schwierigkeit kann die Richtung nach jedem Treffer kippen —
+  // reiner Rhythmus reicht dann nicht, man muss wirklich hinschauen
+  const reversing = diff > 0.45;
 
   function nextZone() {
     zoneStart = Math.random() * Math.PI * 2;
     speed = speedBase * (1 + done * 0.06);
+    if (reversing && Math.random() < 0.4) dir *= -1;
     zoneShuffleAt = timer + 2.5;
   }
 
@@ -667,11 +736,12 @@ function makePulseLock({ diff, mods, timeMult = 1, corrupt = false }) {
       drawParticles(ctx, dt);
       if (corrupt) drawGlitch(ctx, r);
 
-      setHud(`${done} / ${hits}`, timer, timeLimit, corrupt ? "ZONE SPRINGT — TIMING!" : "TIMING IST ALLES");
+      const pulseHint = corrupt ? "ZONE SPRINGT — TIMING!" : (reversing ? "RICHTUNG WECHSELT — AUFPASSEN!" : "TIMING IST ALLES");
+      setHud(`${done} / ${hits}`, timer, timeLimit, pulseHint);
       if (paused || finished) return;
 
       timer += dt;
-      angle = norm(angle + speed * dt);
+      angle = norm(angle + speed * dir * dt);
 
       // Korrumpiert: Zone springt regelmäßig von selbst
       if (corrupt && timer >= zoneShuffleAt) nextZone();

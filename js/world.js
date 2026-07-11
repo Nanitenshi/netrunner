@@ -1,8 +1,8 @@
 // js/world.js
-import { game } from "./core.js?v=31691361";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=31691361";
-import { openNpcDialog } from "./npc.js?v=31691361";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=31691361";
+import { game } from "./core.js?v=a392ba06";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=a392ba06";
+import { openNpcDialog } from "./npc.js?v=a392ba06";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=a392ba06";
 
 const $ = (id) => document.getElementById(id);
 
@@ -20,6 +20,9 @@ const NPC_PALETTE = {
 };
 let pendingInteractId = null;
 let downPos = null;
+let dragLast = null;
+let dragging = false;
+let manualPan = false;
 
 const keys = new Set();
 window.addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
@@ -108,18 +111,79 @@ function initBuildings() {
         if (DISTRICTS.slice(1).some((dd) => distToSegment(x, y, hub.cx, hub.cy, dd.cx, dd.cy) < 85)) continue;
         if (buildings.some((b) => Math.abs(b.x - x) < (b.w + w) / 2 + 18 && Math.abs(b.y - y) < (b.h + h) / 2 + 18)) continue;
 
+        const height = (0.4 + Math.random() * 0.9) * style.h;
         buildings.push({
           x, y, w, h,
-          height: (0.4 + Math.random() * 0.9) * style.h,
+          height,
           neon: style.neon,
           windows: Math.random() < 0.85,
           seed: Math.random() * 1000,
           hasAntenna: Math.random() < 0.4,
-          hasSign: Math.random() < 0.35
+          hasSign: Math.random() < 0.35,
+          hasBillboard: height > 0.9 && Math.random() < 0.3,
+          district: d.id,
+          landmark: false
         });
         placed = true;
       }
     }
+  }
+
+  // pro Bezirk das höchste Gebäude als Wahrzeichen markieren — größer,
+  // heller, mit Lichtstrahl, damit die Skyline einen Blickfang hat
+  for (const d of DISTRICTS) {
+    let best = null;
+    for (const b of buildings) {
+      if (b.district === d.id && (!best || b.height > best.height)) best = b;
+    }
+    if (best) {
+      best.landmark = true;
+      best.height *= 1.6;
+      best.hasBillboard = true;
+      best.hasAntenna = true;
+    }
+  }
+}
+
+/* ---- Ambient-Partikel: treibende Neon-Motes über der Stadt ---- */
+const ambient = [];
+function initAmbient() {
+  ambient.length = 0;
+  for (let i = 0; i < 26; i++) {
+    ambient.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vy: -8 - Math.random() * 14,
+      vx: (Math.random() - 0.5) * 6,
+      r: 1 + Math.random() * 2,
+      life: Math.random(),
+      speed: 0.05 + Math.random() * 0.08,
+      color: Math.random() < 0.5 ? "0,243,255" : "255,0,124"
+    });
+  }
+}
+
+function stepAmbient(dt) {
+  const W = window.innerWidth, H = window.innerHeight;
+  for (const p of ambient) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life += p.speed * dt;
+    if (p.life >= 1 || p.y < -10) {
+      p.life = 0;
+      p.x = Math.random() * W;
+      p.y = H + 10;
+    }
+  }
+}
+
+function drawAmbient(ctx) {
+  for (const p of ambient) {
+    const fade = Math.sin(p.life * Math.PI);
+    ctx.fillStyle = `rgba(${p.color},${(0.35 * fade).toFixed(2)})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
@@ -210,6 +274,7 @@ export function initWorld() {
   initCars();
   initLamps();
   initDrones();
+  initAmbient();
   updateNodeList(nodes, game.selectedNodeId, goToNode);
 }
 
@@ -225,6 +290,7 @@ export function worldSetFocusToggle() {
 
 export function worldCancelPointer() {
   downPos = null;
+  dragging = false;
 }
 
 function localPos(e) {
@@ -306,6 +372,7 @@ function goToNode(id) {
   player.ty = n.y;
   player.moving = true;
   pendingInteractId = n.id;
+  manualPan = false;
   toast(`ROUTING TO ${n.name.toUpperCase()}…`);
 }
 
@@ -323,6 +390,7 @@ function stepPlayer(dt) {
     player.facing = Math.atan2(ky, kx);
     player.moving = true;
     pendingInteractId = null;
+    manualPan = false;
   } else if (player.moving) {
     const dx = player.tx - player.x;
     const dy = player.ty - player.y;
@@ -390,6 +458,7 @@ function stepCitizens(dt) {
 }
 
 function stepCamera(dt) {
+  if (manualPan) return; // Spieler schaut sich um — Kamera nicht wegziehen
   const f = 1 - Math.pow(0.0001, dt);
   cam.x += (player.x - cam.x) * f;
   cam.y += (player.y - cam.y) * f;
@@ -479,8 +548,11 @@ function drawBuildings(ctx, W, H) {
             const wx = bx + (tx - bx) * f2;
             const wy = by + (ty - by) * f2;
 
-            const lit = hashRnd(b.seed, i * 37 + cxi * 7 + ryi * 13) > 0.42;
-            ctx.fillStyle = lit ? `rgba(${b.neon},.75)` : "rgba(40,55,80,.8)";
+            const roll = hashRnd(b.seed, i * 37 + cxi * 7 + ryi * 13);
+            const warm = hashRnd(b.seed, i * 91 + cxi * 5 + ryi * 3 + 500) > 0.8;
+            ctx.fillStyle = roll > 0.42
+              ? (warm ? "rgba(255,200,120,.7)" : `rgba(${b.neon},.75)`)
+              : "rgba(40,55,80,.8)";
             ctx.fillRect(wx - ws / 2, wy - ws / 2, ws, ws * 1.4);
           }
         }
@@ -498,6 +570,33 @@ function drawBuildings(ctx, W, H) {
         ctx.fillRect(mx - sw / 2 - 2, my - 4, sw + 4, 8);
         ctx.fillStyle = `rgba(${b.neon},.95)`;
         ctx.fillRect(mx - sw / 2, my - 2, sw, 4);
+      }
+
+      // Großes animiertes Billboard: pulsierende Farbe, dreht den Farbton
+      // langsam durch — der Signatur-"lebendige Stadt"-Blickfang
+      if (b.hasBillboard && !perf) {
+        const wallPt = (u, v) => {
+          const lx0 = base[i].x + (top[i].x - base[i].x) * v;
+          const ly0 = base[i].y + (top[i].y - base[i].y) * v;
+          const lx1 = base[j].x + (top[j].x - base[j].x) * v;
+          const ly1 = base[j].y + (top[j].y - base[j].y) * v;
+          return { x: lx0 + (lx1 - lx0) * u, y: ly0 + (ly1 - ly0) * u };
+        };
+
+        const corners = [wallPt(0.15, 0.1), wallPt(0.85, 0.1), wallPt(0.85, 0.4), wallPt(0.15, 0.4)];
+        const hue = (performance.now() / 40 + b.seed * 30) % 360;
+        const flick = 0.55 + 0.35 * Math.sin(performance.now() / 260 + b.seed);
+
+        ctx.fillStyle = `hsla(${hue},90%,60%,${(0.55 * flick).toFixed(2)})`;
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let c = 1; c < 4; c++) ctx.lineTo(corners[c].x, corners[c].y);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = `hsla(${hue},90%,75%,.8)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
       }
     }
 
@@ -538,6 +637,19 @@ function drawBuildings(ctx, W, H) {
         ctx.fillStyle = "rgba(255,60,60,.95)";
         ctx.beginPath(); ctx.arc(ax, ay, 2.2, 0, Math.PI * 2); ctx.fill();
       }
+    }
+
+    // Wahrzeichen: heller Lichtstrahl schießt in den Himmel — als Landmarke
+    // von überall auf der Karte sichtbar (grober Fernwirkungs-Effekt)
+    if (b.landmark) {
+      const beam = ctx.createLinearGradient(rcx, rcy, rcx, rcy - 260 * cam.zoom);
+      beam.addColorStop(0, `rgba(${b.neon},.35)`);
+      beam.addColorStop(1, `rgba(${b.neon},0)`);
+      ctx.fillStyle = beam;
+      ctx.fillRect(rcx - 3 * cam.zoom, rcy - 260 * cam.zoom, 6 * cam.zoom, 260 * cam.zoom);
+
+      ctx.fillStyle = `rgba(${b.neon},.9)`;
+      ctx.beginPath(); ctx.arc(rcx, rcy, 3.5 * cam.zoom, 0, Math.PI * 2); ctx.fill();
     }
   }
 }
@@ -741,12 +853,15 @@ function draw() {
       ctx.beginPath(); ctx.arc(ax, ay - 3 * cam.zoom, 2, 0, Math.PI * 2); ctx.fill();
     }
   }
+
+  drawAmbient(ctx);
 }
 
 export function worldTick(dt = 0) {
   if (game.mode === "WORLD") stepPlayer(dt);
   stepCitizens(dt);
   stepCars(dt);
+  stepAmbient(dt);
   stepCamera(dt);
   draw();
 }
@@ -756,15 +871,33 @@ export function handleWorldPointer(type, e) {
 
   if (type === "down") {
     downPos = localPos(e);
+    dragLast = downPos;
+    dragging = true;
+    return;
+  }
+
+  if (type === "move") {
+    if (!dragging || !downPos) return;
+    const p = localPos(e);
+
+    // erst ab einer kleinen Schwelle als Kamera-Wisch werten (sonst zittern Taps)
+    if (manualPan || Math.hypot(p.x - downPos.x, p.y - downPos.y) > 14) {
+      if (!manualPan) toast("KAMERA FREI — Tippen zum Hinlaufen kehrt zurück.");
+      manualPan = true;
+      cam.x -= (p.x - dragLast.x) / cam.zoom;
+      cam.y -= (p.y - dragLast.y) / cam.zoom;
+    }
+    dragLast = p;
     return;
   }
 
   if (type === "up") {
+    dragging = false;
     if (!downPos) return;
     const p = localPos(e);
     const dist = Math.hypot(p.x - downPos.x, p.y - downPos.y);
     downPos = null;
-    if (dist > 14) return;
+    if (dist > 14) return; // war ein Kamera-Wisch, kein Tap
 
     let hit = null;
     let bestD = 30;
@@ -779,6 +912,7 @@ export function handleWorldPointer(type, e) {
     } else {
       const w = screenToWorld(p.x, p.y, p.w, p.h);
       pendingInteractId = null;
+      manualPan = false;
       player.tx = w.x;
       player.ty = w.y;
       player.moving = true;
@@ -786,5 +920,5 @@ export function handleWorldPointer(type, e) {
     return;
   }
 
-  if (type === "cancel") downPos = null;
+  if (type === "cancel") { downPos = null; dragging = false; }
 }

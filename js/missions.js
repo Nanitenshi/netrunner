@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=3977a132";
-import { sfx } from "./sfx.js?v=3977a132";
+import { game } from "./core.js?v=2b8dfd1d";
+import { sfx } from "./sfx.js?v=2b8dfd1d";
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,8 +21,16 @@ function playRect() {
     top = Math.max(120, hud.getBoundingClientRect().bottom + 34);
   }
 
+  // ...und endet über der Crew-Ability-Leiste, falls sichtbar (sonst fangen
+  // ihre Buttons Taps ab, bevor sie die Canvas erreichen)
+  let bottomMargin = 150;
+  const bar = $("abilityBar");
+  if (bar && !bar.classList.contains("hidden") && bar.children.length) {
+    bottomMargin = Math.max(bottomMargin, (H - bar.getBoundingClientRect().top) + 16);
+  }
+
   const margin = W < 600 ? 20 : 60;
-  return { x0: margin, y0: top, x1: W - margin, y1: H - 150, W, H };
+  return { x0: margin, y0: top, x1: W - margin, y1: H - bottomMargin, W, H };
 }
 
 // Touch-freundliche Zielgröße relativ zum Screen

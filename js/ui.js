@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=3977a132";
-import { saveNow } from "./save.js?v=3977a132";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=2b8dfd1d";
+import { saveNow } from "./save.js?v=2b8dfd1d";
 
 const $ = (id) => document.getElementById(id);
 

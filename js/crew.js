@@ -1,7 +1,7 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game } from "./core.js?v=3977a132";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=3977a132";
-import { saveNow } from "./save.js?v=3977a132";
+import { game } from "./core.js?v=2b8dfd1d";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=2b8dfd1d";
+import { saveNow } from "./save.js?v=2b8dfd1d";
 
 const $ = (id) => document.getElementById(id);
 

@@ -224,13 +224,17 @@ function rollNextLayer(layerNum) {
     return { type: "ghost", mod: LAYER_MODS[0], hidden: true, secret: true };
   }
 
+  // Einsteiger-Schutz: die ersten 3 Dives ohne Korruption und ohne
+  // verdeckte Modifikatoren — erst das Grundspiel lernen, dann das Risiko
+  const rookie = game.missionsDone < 3;
+
   return {
     type: MG_TYPES[Math.floor(Math.random() * MG_TYPES.length)],
     mod: rollLayerMod(),
     // 40% der Modifikatoren bleiben verdeckt — Restrisiko
-    hidden: Math.random() < 0.4,
+    hidden: !rookie && Math.random() < 0.4,
     // 15%: der Layer ist korrumpiert — deutlich härter, Loot x1.8
-    corrupt: Math.random() < 0.15
+    corrupt: !rookie && Math.random() < 0.15
   };
 }
 
@@ -316,8 +320,8 @@ function renderChoice() {
 
   const dcN2 = $("dcNext2");
   if (dcN2) {
-    if (n.boss === "big") dcN2.textContent = "LOOT x4 · Sieg: TRACE -35, +40 ◆ · Niederlage: alles weg";
-    else if (n.boss === "mini") dcN2.textContent = "LOOT x2.5 · Sieg: TRACE -20 · Niederlage: alles weg";
+    if (n.boss === "big") dcN2.textContent = "LOOT x4 · Sieg: TRACE -50, +40 ◆ · Niederlage: alles weg";
+    else if (n.boss === "mini") dcN2.textContent = "LOOT x2.5 · Sieg: TRACE -30 · Niederlage: alles weg";
     else dcN2.textContent = `LOOT x${depthMult(dive.layer + 1).toFixed(1)}${n.hidden ? "" : (n.mod.loot !== 1 ? ` ·x${n.mod.loot}` : "")}${n.corrupt && !n.hidden ? " ·x1.8" : ""} · TRACE ≈ +${range.lo}–${range.hi}${n.hidden ? "+?" : ""}`;
   }
 
@@ -415,14 +419,16 @@ function onReport(res) {
   dive.trace += base * (0.75 + Math.random() * 0.6);
 
   // Boss zerstört = Verbindung bereinigt: Trace sinkt deutlich
+  // (Werte per Simulation kalibriert: -30/-50 macht Layer 10+ erreichbar,
+  //  ohne dass Neulinge endlos loopen können)
   if (spec.boss === "mini") {
-    dive.trace = Math.max(0, dive.trace - 20);
-    toast("WÄCHTER ZERSTÖRT — TRACE -20.");
+    dive.trace = Math.max(0, dive.trace - 30);
+    toast("WÄCHTER ZERSTÖRT — TRACE -30.");
     sfx.jackout();
   } else if (spec.boss === "big") {
-    dive.trace = Math.max(0, dive.trace - 35);
+    dive.trace = Math.max(0, dive.trace - 50);
     dive.bufferF += 40;
-    toast("ICE-KERN VERNICHTET — TRACE -35, +40 ◆!");
+    toast("ICE-KERN VERNICHTET — TRACE -50, +40 ◆!");
     sfx.jackout();
   }
 
@@ -446,20 +452,25 @@ function onReport(res) {
 }
 
 function dumped(reason) {
-  const lost = dive.bufferE;
-  const salvage = Math.round(lost * dive.mods.salvage);
+  const lostE = dive.bufferE;
+  const lostF = dive.bufferF;
+  const salvageE = Math.round(lostE * dive.mods.salvage);
+  // Frags überleben einen Dump zu mindestens 25% — sonst ist die Hälfte
+  // aller Runs null Gacha-Fortschritt (Simulation: tötet die Motivation)
+  const salvageF = Math.round(lostF * Math.max(0.25, dive.mods.salvage));
   const layer = dive.layer;
 
   dive.pending = {
     apply: (g) => ({
-      money: g.money + salvage,
+      money: g.money + salvageE,
+      frags: g.frags + salvageF,
       heat: Math.min(100, g.heat + 12)
     }),
     meta: { layer, jackout: false },
     text:
       `${reason}.\n\n` +
-      `Buffer verloren: ${lost} E$ · ${dive.bufferF} ◆\n` +
-      (salvage > 0 ? `Buffer Guard gerettet: ${salvage} E$\n` : "") +
+      `Buffer verloren: ${lostE - salvageE} E$ · ${lostF - salvageF} ◆\n` +
+      `Gerettet: ${salvageE} E$ · ${salvageF} ◆\n` +
       `Heat +12\n\n` +
       `Layer erreicht: ${layer}`
   };

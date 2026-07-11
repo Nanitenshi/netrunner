@@ -1,7 +1,7 @@
 // js/world.js
-import { game } from "./core.js";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js";
-import { openNpcDialog } from "./npc.js";
+import { game } from "./core.js?v=a02c9cdc";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=a02c9cdc";
+import { openNpcDialog } from "./npc.js?v=a02c9cdc";
 
 const $ = (id) => document.getElementById(id);
 

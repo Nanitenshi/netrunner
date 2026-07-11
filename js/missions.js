@@ -39,6 +39,35 @@ function baseRadius() {
   return Math.max(30, Math.min(42, minDim * 0.05));
 }
 
+// Zielradius so wählen, dass `count` Ziele kollisionsfrei in die Fläche passen
+function fitRadius(count, r, want) {
+  const area = Math.max(1, (r.x1 - r.x0) * (r.y1 - r.y0));
+  const maxR = Math.sqrt(area / count) / 2.6;
+  return Math.max(20, Math.min(want, maxR));
+}
+
+// Best-Kandidat-Platzierung: maximiert den Mindestabstand zu bereits gesetzten Zielen
+function placeSpread(count, radius, r) {
+  const pts = [];
+  for (let i = 0; i < count; i++) {
+    let best = null, bestScore = -Infinity;
+    for (let t = 0; t < 26; t++) {
+      const x = r.x0 + radius + Math.random() * Math.max(1, (r.x1 - r.x0) - radius * 2);
+      const y = r.y0 + radius + Math.random() * Math.max(1, (r.y1 - r.y0) - radius * 2);
+      let minGap = Infinity;
+      for (const p of pts) {
+        const d = Math.hypot(x - p.x, y - p.y) - radius * 2.2;
+        if (d < minGap) minGap = d;
+      }
+      if (!pts.length) minGap = 999;
+      if (minGap > bestScore) { bestScore = minGap; best = { x, y }; }
+      if (minGap >= 6) break;
+    }
+    pts.push(best);
+  }
+  return pts;
+}
+
 function setHud(objective, timer, timeLimit, hint) {
   const o = $("mHudObjective");
   if (o) o.textContent = objective;
@@ -417,19 +446,12 @@ function makeBreachSequence({ diff, mods, timeMult = 1, corrupt = false }) {
 
   function place() {
     const r = playRect();
-    const radius = baseRadius();
+    const radius = fitRadius(total, r, baseRadius());
     targets.length = 0;
 
+    const pts = placeSpread(total, radius, r);
     for (let i = 1; i <= total; i++) {
-      let x, y, ok, tries = 0;
-      do {
-        x = r.x0 + radius + Math.random() * (r.x1 - r.x0 - radius * 2);
-        y = r.y0 + radius + Math.random() * (r.y1 - r.y0 - radius * 2);
-        ok = targets.every((t) => Math.hypot(t.x - x, t.y - y) > radius * 2.3);
-        tries++;
-      } while (!ok && tries < 50);
-
-      targets.push({ n: i, x, y, radius, done: false, missFlash: 0 });
+      targets.push({ n: i, x: pts[i - 1].x, y: pts[i - 1].y, radius, done: false, missFlash: 0 });
     }
   }
 
@@ -827,22 +849,15 @@ function makeBossGuard({ diff, mods, timeMult = 1 }) {
 
   function place() {
     const r = playRect();
-    const radius = baseRadius();
+    const radius = fitRadius(total, r, baseRadius());
     targets.length = 0;
 
+    const pts = placeSpread(total, radius, r);
     for (let i = 1; i <= total; i++) {
-      let x, y, ok, tries = 0;
-      do {
-        x = r.x0 + radius + Math.random() * (r.x1 - r.x0 - radius * 2);
-        y = r.y0 + radius + Math.random() * (r.y1 - r.y0 - radius * 2);
-        ok = targets.every((t) => Math.hypot(t.x - x, t.y - y) > radius * 2.3);
-        tries++;
-      } while (!ok && tries < 50);
-
       const ang = Math.random() * Math.PI * 2;
       const sp = 24 + Math.random() * 26 + diff * 20;
       targets.push({
-        n: i, x, y, radius,
+        n: i, x: pts[i - 1].x, y: pts[i - 1].y, radius,
         vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
         done: false, missFlash: 0
       });
@@ -985,17 +1000,11 @@ function makeBossCore({ diff, mods, timeMult = 1 }) {
 
   function placeSeq() {
     const r = playRect();
-    const radius = baseRadius();
+    const radius = fitRadius(SEQ_GOAL, r, baseRadius());
     seq.length = 0;
+    const pts = placeSpread(SEQ_GOAL, radius, r);
     for (let i = 1; i <= SEQ_GOAL; i++) {
-      let x, y, ok, tries = 0;
-      do {
-        x = r.x0 + radius + Math.random() * (r.x1 - r.x0 - radius * 2);
-        y = r.y0 + radius + Math.random() * (r.y1 - r.y0 - radius * 2);
-        ok = seq.every((t) => Math.hypot(t.x - x, t.y - y) > radius * 2.4);
-        tries++;
-      } while (!ok && tries < 50);
-      seq.push({ n: i, x, y, radius, done: false, missFlash: 0 });
+      seq.push({ n: i, x: pts[i - 1].x, y: pts[i - 1].y, radius, done: false, missFlash: 0 });
     }
   }
 

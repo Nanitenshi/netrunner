@@ -111,7 +111,9 @@ export function setMode(next) {
   };
 
   toggle("title", next === "TITLE");
-  toggle("hudTop", next !== "TITLE");
+  // Stadt-HUD im Dive ausblenden: verhindert Chip-Überlappung auf schmalen
+  // Screens und gibt der Spielfläche ~100px mehr Höhe
+  toggle("hudTop", next !== "TITLE" && next !== "MISSION");
   toggle("leftPanel", next === "WORLD");
   toggle("rightPanel", next === "WORLD");
   toggle("missionHud", next === "MISSION");

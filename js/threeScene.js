@@ -68,10 +68,10 @@ function drawCity2D() {
   const isPerf = !!quality.perf;
   const layers = isPerf ? 4 : 6;
 
-  // mood colors
-  const day = { r: 10, g: 18, b: 32 };
-  const dusk = { r: 30, g: 12, b: 42 };
-  const night = { r: 5, g: 7, b: 10 };
+  // mood colors — bewusst heller: die Stadt soll einladend leuchten, nicht schlucken
+  const day = { r: 26, g: 44, b: 72 };
+  const dusk = { r: 58, g: 30, b: 82 };
+  const night = { r: 12, g: 18, b: 34 };
 
   const dayToSun = Math.min(1, mood * 2);
   const sunToNight = Math.max(0, (mood - 0.5) * 2);
@@ -82,7 +82,7 @@ function drawCity2D() {
   // sky gradient
   const grd = ctx.createLinearGradient(0, 0, 0, h);
   grd.addColorStop(0, `rgb(${sky.r},${sky.g},${sky.b})`);
-  grd.addColorStop(1, `rgb(0,0,0)`);
+  grd.addColorStop(1, `rgb(8,12,22)`);
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, w, h);
 
@@ -100,12 +100,12 @@ function drawCity2D() {
       const x = ((b * 90) - scroll) % (w + 200) - 100;
       const y = baseY - bh;
 
-      ctx.fillStyle = `rgba(10,16,24,${0.28 + depth * 0.22})`;
+      ctx.fillStyle = `rgba(22,32,50,${0.32 + depth * 0.24})`;
       ctx.fillRect(x, y, bw, bh);
 
       // cheap neon windows
       if (!isPerf || (b % 3 === 0)) {
-        const neon = (b % 2 === 0) ? "rgba(0,243,255,0.18)" : "rgba(255,0,124,0.14)";
+        const neon = (b % 2 === 0) ? "rgba(0,243,255,0.30)" : "rgba(255,0,124,0.24)";
         ctx.fillStyle = neon;
         for (let wy = 0; wy < bh; wy += 18) {
           if (((wy + b * 7) % 36) === 0) {
@@ -117,7 +117,7 @@ function drawCity2D() {
   }
 
   // haze
-  ctx.fillStyle = "rgba(0,243,255,0.03)";
+  ctx.fillStyle = "rgba(0,243,255,0.05)";
   ctx.fillRect(0, 0, w, h);
 }
 

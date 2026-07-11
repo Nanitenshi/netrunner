@@ -1,5 +1,5 @@
 :root {
-  --bg: #05070a;
+  --bg: #0a1120;
   --panel: rgba(10, 16, 24, .90);
   --line: rgba(0, 243, 255, .22);
   --cyan: #00f3ff;
@@ -53,7 +53,7 @@ canvas { position: absolute; inset: 0; display: block; }
 #missionCanvas {
   z-index: 12;
   display: none;
-  background: rgba(2, 4, 6, .92);
+  background: rgba(12, 18, 32, .93);
   touch-action: none;
   pointer-events: auto;
 }
@@ -139,7 +139,7 @@ canvas { position: absolute; inset: 0; display: block; }
   pointer-events: none;
 }
 
-.missionHud { top: 64px; }
+.missionHud { top: 12px; }
 
 .chip {
   padding: 8px 12px;

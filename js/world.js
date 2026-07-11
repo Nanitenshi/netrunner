@@ -2,6 +2,7 @@
 import { game } from "./core.js";
 import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js";
 import { openNpcDialog } from "./npc.js";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -11,7 +12,12 @@ const INTERACT_R = 110;     // world units
 const cam = { x: 0, y: 0, zoom: 0.62 };
 let focusZoom = false;
 
-const player = { x: 0, y: -40, tx: 0, ty: -40, moving: false, facing: 0 };
+const player = { x: 0, y: -40, tx: 0, ty: -40, moving: false, facing: Math.PI / 2, animT: 0, frame: 0 };
+
+const NPC_PALETTE = {
+  NYX: PALETTES.nyx, GHOST: PALETTES.ghost, "RUNNER-9": PALETTES.runner9,
+  "ICE-VOICE": PALETTES.iceVoice, RUST: PALETTES.rust, "DOC-K": PALETTES.docK, ECHO: PALETTES.echo
+};
 let pendingInteractId = null;
 let downPos = null;
 
@@ -54,12 +60,6 @@ const nodes = [];
 const citizens = [];
 const buildings = [];
 const cars = [];
-
-const CITIZEN_COLORS = {
-  neon: "rgba(0,243,255,.55)", downtown: "rgba(150,170,255,.55)",
-  corporate: "rgba(210,235,255,.55)", industrial: "rgba(255,160,70,.55)",
-  slums: "rgba(150,220,110,.55)", undercity: "rgba(200,90,255,.55)"
-};
 
 // Gebäude-Stil pro Bezirk: Höhenprofil + Neon-Farbe der Dachkanten
 const BUILD_STYLE = {
@@ -153,7 +153,8 @@ export function initWorld() {
         home, leash: d.r * 0.4,
         speed: 40 + Math.random() * 30,
         t: Math.random() * 3,
-        color: CITIZEN_COLORS[d.id] || "rgba(255,255,255,.4)"
+        facing: Math.PI / 2, animT: 0, frame: 0,
+        pal: makeCitizenPalette(d.id, i)
       });
     }
   }
@@ -297,6 +298,21 @@ function stepPlayer(dt) {
       interact(n);
     }
   }
+
+  stepWalkAnim(player, dt);
+}
+
+function stepWalkAnim(actor, dt) {
+  if (!actor.moving) {
+    actor.animT = 0;
+    actor.frame = 0;
+    return;
+  }
+  actor.animT += dt;
+  if (actor.animT >= 0.16) {
+    actor.animT = 0;
+    actor.frame = actor.frame === 0 ? 1 : 0;
+  }
 }
 
 function stepCitizens(dt) {
@@ -314,9 +330,14 @@ function stepCitizens(dt) {
     const dy = c.ty - c.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 2) {
+      c.facing = Math.atan2(dy, dx);
       c.x += (dx / dist) * c.speed * dt;
       c.y += (dy / dist) * c.speed * dt;
+      c.moving = true;
+    } else {
+      c.moving = false;
     }
+    stepWalkAnim(c, dt);
   }
 }
 
@@ -495,14 +516,16 @@ function draw() {
   drawBuildings(ctx, W, H);
   drawCars(ctx, W, H);
 
+  const charScale = 1.7 * cam.zoom;
+
   // citizens
   for (const cz of citizens) {
     const p = worldToScreen(cz.x, cz.y, W, H);
-    if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
-    ctx.fillStyle = cz.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 5 * cam.zoom, 0, Math.PI * 2);
-    ctx.fill();
+    if (p.x < -30 || p.x > W + 30 || p.y < -40 || p.y > H + 10) continue;
+
+    const { dir, mirror } = facingToDir(cz.facing);
+    const sprites = getSprites(cz.pal);
+    drawCharacterAt(ctx, p.x, p.y + 6 * cam.zoom, charScale, dir, mirror, sprites[dir][cz.frame]);
   }
 
   // nodes
@@ -522,17 +545,31 @@ function draw() {
       ctx.stroke();
     }
 
-    ctx.fillStyle = active ? "#ffffff" : (n.type === "mission" ? "rgba(0,243,255,.6)" : "rgba(255,0,124,.6)");
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, (inRange ? 20 : 16) * cam.zoom, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (inRange) {
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(255,255,255,.85)";
+    if (n.type === "npc") {
+      const pal = NPC_PALETTE[n.npc] || PALETTES.nyx;
+      const sprites = getSprites(pal);
+      if (inRange || active) {
+        ctx.save();
+        ctx.shadowColor = pal.accent;
+        ctx.shadowBlur = 12 * cam.zoom;
+        drawCharacterAt(ctx, p.x, p.y + 6 * cam.zoom, charScale * 1.15, "down", false, sprites.down[0]);
+        ctx.restore();
+      } else {
+        drawCharacterAt(ctx, p.x, p.y + 6 * cam.zoom, charScale * 1.15, "down", false, sprites.down[0]);
+      }
+    } else {
+      ctx.fillStyle = active ? "#ffffff" : "rgba(0,243,255,.6)";
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 25 * cam.zoom, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(p.x, p.y, (inRange ? 20 : 16) * cam.zoom, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (inRange) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255,255,255,.85)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 25 * cam.zoom, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     ctx.fillStyle = "rgba(255,255,255,.9)";
@@ -542,16 +579,13 @@ function draw() {
 
   // player
   const pp = worldToScreen(player.x, player.y, W, H);
+  const pDir = facingToDir(player.facing);
+  const pSprites = getSprites(PALETTES.player);
+
   ctx.save();
-  ctx.translate(pp.x, pp.y);
-  ctx.rotate(player.facing || 0);
-  ctx.fillStyle = "#fcee0a";
-  ctx.beginPath();
-  ctx.moveTo(12 * cam.zoom, 0);
-  ctx.lineTo(-8 * cam.zoom, -8 * cam.zoom);
-  ctx.lineTo(-8 * cam.zoom, 8 * cam.zoom);
-  ctx.closePath();
-  ctx.fill();
+  ctx.shadowColor = "rgba(252,238,10,.55)";
+  ctx.shadowBlur = 10 * cam.zoom;
+  drawCharacterAt(ctx, pp.x, pp.y + 6 * cam.zoom, charScale * 1.1, pDir.dir, pDir.mirror, pSprites[pDir.dir][player.frame]);
   ctx.restore();
 }
 

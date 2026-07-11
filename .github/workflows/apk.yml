@@ -1,0 +1,90 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/mobile-game-concept-yj5t0a
+    paths-ignore:
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Assemble web assets
+        run: |
+          mkdir -p www
+          cp -r index.html css js icon.svg manifest.webmanifest www/
+
+      - name: Init Capacitor project
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          cat > capacitor.config.json << 'CFG'
+          {
+            "appId": "io.github.nanitenshi.neonalley",
+            "appName": "NEON ALLEY",
+            "webDir": "www"
+          }
+          CFG
+          npx cap add android
+
+      - name: Generate app icon + splash from icon.svg
+        continue-on-error: true
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q librsvg2-bin
+          mkdir -p assets
+          rsvg-convert -w 1024 -h 1024 --background-color '#05070a' icon.svg -o assets/icon.png
+          rsvg-convert -w 2732 -h 2732 --background-color '#05070a' icon.svg -o assets/splash.png
+          cp assets/splash.png assets/splash-dark.png
+          npm install @capacitor/assets
+          npx capacitor-assets generate --android --iconBackgroundColor '#05070a' --iconBackgroundColorDark '#05070a'
+
+      - name: Build debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk neon-alley.apk
+
+      - name: Publish as release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: "NEON ALLEY — Android APK"
+          prerelease: true
+          body: |
+            Automatisch gebaute APK vom neuesten Spielstand (Debug-signiert).
+
+            **Installation auf dem Handy:**
+            1. `neon-alley.apk` unten herunterladen
+            2. Datei öffnen — Android fragt nach Erlaubnis für "Unbekannte Quellen" → erlauben
+            3. Installieren, fertig
+
+            Hinweis: Die Web-Version (nanitenshi.github.io/netrunner) aktualisiert sich
+            automatisch — die APK muss bei Updates neu heruntergeladen werden.
+          files: neon-alley.apk

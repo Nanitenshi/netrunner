@@ -99,6 +99,8 @@ export function renderStoryLog() {
 }
 
 export function openSignalPanel() {
+  // Nie beide Drawer gleichzeitig offen (mobile: würden sich überlappen)
+  $("leftPanel")?.classList.remove("open");
   $("rightPanel")?.classList.add("open");
 }
 

@@ -14,6 +14,8 @@ export function saveNow() {
       missionsDone: game.missionsDone,
       upgrades: game.upgrades,
       crew: game.crew,
+      daily: game.daily,
+      stats: game.stats,
       settings: game.settings,
       storyLog: game.storyLog
     };

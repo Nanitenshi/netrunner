@@ -1,4 +1,4 @@
-import { game } from "./core.js";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js";
 import { saveNow } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
@@ -69,9 +69,14 @@ export function initUI(_api) {
   bindFastPress($("btnPause"), () => api.togglePause?.());
   bindFastPress($("btnQuality"), () => api.toggleQuality?.());
   bindFastPress($("btnSave"), () => api.toggleAutosave?.());
+  bindFastPress($("btnMusic"), () => api.toggleMusic?.());
 
   // Result screen
   bindFastPress($("btnBackToCity"), () => api.setMode?.("WORLD"));
+
+  // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen
+  bindFastPress($("btnNodes"), () => $("leftPanel")?.classList.toggle("open"));
+  bindFastPress($("btnCloseSignal"), () => $("rightPanel")?.classList.remove("open"));
 
   // Autosave on background (nur wenn AUTO an)
   window.addEventListener("visibilitychange", () => {
@@ -92,6 +97,16 @@ export function renderStoryLog() {
     row.textContent = line;
     wrap.appendChild(row);
   }
+}
+
+export function openSignalPanel() {
+  // Nie beide Drawer gleichzeitig offen (mobile: würden sich überlappen)
+  $("leftPanel")?.classList.remove("open");
+  $("rightPanel")?.classList.add("open");
+}
+
+export function closeNodesPanel() {
+  $("leftPanel")?.classList.remove("open");
 }
 
 export function setComms(text) {
@@ -136,8 +151,8 @@ export function updateNodeList(nodes, selectedId, onPick) {
     left.appendChild(meta);
 
     const badge = document.createElement("div");
-    badge.className = "badge " + (n.type === "mission" ? "mission" : "npc");
-    badge.textContent = (n.type || "node").toUpperCase();
+    badge.className = "badge " + (n.hot ? "hot" : (n.type === "mission" ? "mission" : "npc"));
+    badge.textContent = n.hot ? "🔥 HOT" : (n.type === "mission" ? `TIER ${n.tier || 1}` : "NPC");
 
     card.appendChild(left);
     card.appendChild(badge);
@@ -177,4 +192,22 @@ export function uiTick(dt = 0) {
 
   const p = $("btnPause");
   if (p) p.textContent = game.paused ? "RESUME" : "PAUSE";
+
+  const daily = $("dailyInfo");
+  if (daily) {
+    daily.textContent = game.daily?.done
+      ? "✔ TAGESAUFTRAG erledigt — morgen gibt's einen neuen."
+      : `TAGESAUFTRAG: Jack Out aus Layer ${DAILY_GOAL_LAYER}+ → +${DAILY_REWARD} ◆`;
+  }
+
+  const snd = $("btnMusic");
+  if (snd) snd.textContent = game.settings?.music ? "SND" : "MUTE";
+
+  const stats = $("titleStats");
+  if (stats) {
+    const owned = Object.keys(game.crew?.roster || {}).length;
+    stats.textContent = game.stats?.dives > 0
+      ? `REKORD: LAYER ${game.stats.bestLayer} · DIVES: ${game.stats.dives} · CREW: ${owned}/15`
+      : "Noch keine Dives. Zeit, das zu ändern.";
+  }
 }

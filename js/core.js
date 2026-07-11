@@ -14,11 +14,12 @@ import {
   worldSetFocusToggle
 } from "./world.js";
 
-import { initUI, uiTick, toast } from "./ui.js";
+import { initUI, uiTick, toast, setComms } from "./ui.js";
 import { loadSave, saveNow, resetSave } from "./save.js";
 import { openNpcDialog, npcTick } from "./npc.js";
 import { initCrewUI, closeCrewOverlay } from "./crew.js";
 import { unlockAudio } from "./sfx.js";
+import { musicSetEnabled, musicSetIntensity } from "./music.js";
 
 import {
   startDive,
@@ -45,14 +46,18 @@ export const game = {
 
   settings: {
     quality: "perf", // perf | quality
-    autosave: true
+    autosave: true,
+    music: true
   },
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
+  daily: { date: "", done: false },
+  stats: { bestLayer: 0, dives: 0, dumps: 0 },
   selectedNodeId: null,
   selectedMissionType: null,
   selectedMissionTier: 1,
+  selectedMissionHot: false,
   storyLog: [],
 
   canvases: { three: null, world: null, mission: null },
@@ -60,6 +65,21 @@ export const game = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+/* ---------------- DAILY (Tagesauftrag) ---------------- */
+export const DAILY_GOAL_LAYER = 3;
+export const DAILY_REWARD = 30;
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+export function checkDailyReset() {
+  if (game.daily.date !== todayStr()) {
+    game.daily = { date: todayStr(), done: false };
+  }
+}
 
 /* ---------------- MODE ---------------- */
 export function setMode(next) {
@@ -98,6 +118,15 @@ export function setMode(next) {
   toggle("result", next === "RESULT");
   toggle("diveChoice", false);
   closeCrewOverlay?.();
+
+  // Musik: dichter im Dive, ruhiger in der Stadt
+  musicSetIntensity(next === "MISSION" ? 1 : 0);
+
+  // Erste-Schritte-Hinweis für frische Spieler
+  if (next === "WORLD" && game.missionsDone === 0 && !game._introShown) {
+    game._introShown = true;
+    setComms(`NYX: „Lauf zum CACHE POP TERMINAL — dein erster Dive wartet. Tipp einfach hin.“`);
+  }
 
   // no pause carryover
   setPaused(false);
@@ -196,10 +225,12 @@ function boot() {
   // load save
   const saved = loadSave();
   if (saved) {
-    const { upgrades, settings, crew, ...rest } = saved;
+    const { upgrades, settings, crew, daily, stats, ...rest } = saved;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
     if (settings) Object.assign(game.settings, settings);
+    if (daily) Object.assign(game.daily, daily);
+    if (stats) Object.assign(game.stats, stats);
     if (crew) {
       if (crew.roster) game.crew.roster = crew.roster;
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
@@ -213,12 +244,14 @@ function boot() {
     game.storyLog.unshift(`> NYX: „Ich hab dir JUNO geschickt. Und 40 Frags. Verkack's nicht.“`);
   }
 
+  checkDailyReset();
+
   // init modules
   initUI({
     setMode,
     startMission: () => {
       if (!game.selectedNodeId) {
-        toast("SELECT A NODE FIRST.");
+        toast("WÄHL ZUERST EINEN NODE.");
         return;
       }
       const type = game.selectedMissionType;
@@ -227,7 +260,7 @@ function boot() {
         return;
       }
       setMode("MISSION");
-      startDive(type, game.selectedMissionTier || 1);
+      startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot);
     },
     openNpcDialog,
     saveNow,
@@ -244,6 +277,12 @@ function boot() {
       saveNow();
       toast(game.settings.autosave ? "AUTO: ON" : "AUTO: OFF");
     },
+    toggleMusic: () => {
+      game.settings.music = !game.settings.music;
+      saveNow();
+      musicSetEnabled(game.settings.music);
+      toast(game.settings.music ? "MUSIK: ON" : "MUSIK: OFF");
+    },
     focusToggle: () => worldSetFocusToggle?.()
   });
 
@@ -259,7 +298,10 @@ function boot() {
   initCrewUI();
 
   // Audio erst nach erster User-Geste (Autoplay-Policy)
-  window.addEventListener("pointerdown", unlockAudio, { once: true });
+  window.addEventListener("pointerdown", () => {
+    unlockAudio();
+    musicSetEnabled(game.settings.music);
+  }, { once: true });
 
   // route pointers
   bindCanvasPointers(game.canvases.world, handleWorldPointer, () => (game.mode === "TITLE" || game.mode === "WORLD"));
@@ -312,8 +354,8 @@ function loop(tNow) {
     if (game.mode === "WORLD" || game.mode === "TITLE") {
       worldTick(dt);
       npcTick(dt);
-      // Heat kühlt langsam ab, solange du dich in der Stadt bewegst
-      if (game.heat > 0) game.heat = Math.max(0, game.heat - dt * 0.25);
+      // Heat kühlt nur langsam ab — die Klinik ist der schnelle Weg
+      if (game.heat > 0) game.heat = Math.max(0, game.heat - dt * 0.08);
     }
 
     if (game.mode === "MISSION") {
@@ -321,11 +363,33 @@ function loop(tNow) {
         Object.assign(game, resultData.apply(game));
         game.missionsDone += 1;
 
+        // Statistik + Tiefen-Rekord
+        game.stats.dives += 1;
+        if (!resultData.meta?.jackout) game.stats.dumps += 1;
+        let recordLine = "";
+        if ((resultData.meta?.layer || 0) > game.stats.bestLayer) {
+          game.stats.bestLayer = resultData.meta.layer;
+          if (game.stats.bestLayer >= 3) {
+            recordLine = `\n\n★ NEUER TIEFEN-REKORD: LAYER ${game.stats.bestLayer}`;
+            toast(`★ NEUER REKORD: LAYER ${game.stats.bestLayer}`);
+          }
+        }
+
+        // Tagesauftrag: 1x per Jack Out aus Layer 3+ zurückkommen
+        checkDailyReset();
+        let dailyLine = "";
+        if (!game.daily.done && resultData.meta?.jackout && resultData.meta.layer >= DAILY_GOAL_LAYER) {
+          game.daily.done = true;
+          game.frags += DAILY_REWARD;
+          dailyLine = `\n\n✔ TAGESAUFTRAG ERFÜLLT: +${DAILY_REWARD} ◆`;
+          toast(`TAGESAUFTRAG ERFÜLLT: +${DAILY_REWARD} ◆`);
+        }
+
         if (game.settings.autosave) saveNow();
 
         setMode("RESULT");
         const res = $("resText");
-        if (res) res.textContent = resultData.text || "Dive beendet.";
+        if (res) res.textContent = (resultData.text || "Dive beendet.") + recordLine + dailyLine;
       });
     }
   } else {

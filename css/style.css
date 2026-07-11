@@ -263,6 +263,8 @@ canvas { position: absolute; inset: 0; display: block; }
   gap: 8px;
   overflow: auto;
   padding-right: 4px;
+  flex: 1 1 auto;
+  min-height: 80px;
 }
 
 /* ===== Node Cards (clickable list) ===== */
@@ -367,23 +369,46 @@ canvas { position: absolute; inset: 0; display: block; }
   border-radius: 12px;
 }
 
-/* ===== Mobile Layout ===== */
+/* ===== Mobile Layout =====
+   Auf schmalen Screens sind die Panels Drawer:
+   - #leftPanel nur sichtbar mit .open (NODES-Button unten)
+   - #rightPanel nur sichtbar mit .open (öffnet bei Node-Auswahl)
+*/
 @media (max-width: 900px) {
+  .chip { min-width: 68px; padding: 6px 8px; font-size: 10px; }
+  .chip b { font-size: 12px; }
+
+  #leftPanel {
+    width: auto;
+    right: 12px;
+    top: 64px;
+    bottom: auto;
+    max-height: 62vh;
+    display: none;
+    z-index: 40;
+  }
+  #leftPanel.open { display: flex; }
+
   #rightPanel {
     top: auto;
     left: 12px;
     right: 12px;
     width: auto;
-    bottom: 70px;
-    max-height: 38vh;
+    bottom: 96px;
+    max-height: 34vh;
+    display: none;
+    z-index: 40;
+  }
+  #rightPanel.open { display: flex; }
+
+  .comms {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  #leftPanel {
-    width: auto;
-    right: 12px;
-    max-height: 42vh;
-  }
-  }
+  #storyArchive { max-height: 10vh; }
+}
 
 /* ===== Overlays (Dive Choice, Crew/Broker/Gear) ===== */
 .overlayCard {
@@ -532,3 +557,49 @@ canvas { position: absolute; inset: 0; display: block; }
 
 .gearRow .name { font-weight: 900; font-size: 13px; }
 .gearRow .meta { font-size: 11px; color: var(--muted); }
+
+/* ===== Crew-Actives (im Dive) ===== */
+.abilityBar {
+  position: absolute;
+  left: 50%;
+  bottom: 128px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.abilityBtn { pointer-events: auto; }
+
+.abilityBtn.used {
+  opacity: .35;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+/* ===== Dive-Event ===== */
+.eventBox {
+  border: 1px solid rgba(255, 0, 124, .4);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+  background: rgba(255, 0, 124, .06);
+  box-shadow: 0 0 18px rgba(255, 0, 124, .15);
+  animation: reveal 0.35s ease-out;
+}
+
+/* ===== Hot Zone Badge ===== */
+.badge.hot {
+  border-color: rgba(255, 150, 40, .7);
+  color: #ff9628;
+  box-shadow: 0 0 10px rgba(255, 150, 40, .3);
+}
+
+.dailyLine {
+  padding: 6px 8px;
+  border: 1px dashed rgba(252, 238, 10, .3);
+  border-radius: 8px;
+}

@@ -1,0 +1,47 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - claude/mobile-game-concept-yj5t0a
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache-bust CSS/JS references
+        run: |
+          V="${GITHUB_SHA::8}"
+
+          # index.html: entry script + stylesheet + manifest
+          sed -i -E \
+            -e "s#(href=\"css/style\.css)(\"|\?[^\"]*\")#\1?v=${V}\"#" \
+            -e "s#(src=\"js/core\.js)(\"|\?[^\"]*\")#\1?v=${V}\"#" \
+            -e "s#(href=\"manifest\.webmanifest)(\"|\?[^\"]*\")#\1?v=${V}\"#" \
+            index.html
+
+          # ES module graph: bust every local "./x.js" import so the browser
+          # can't keep serving a stale cached copy of an unchanged-looking URL
+          sed -i -E "s#(from \"\./[a-zA-Z0-9_.]+\.js)(\"|\?[^\"]*\")#\1?v=${V}\"#g" js/*.js
+
+          grep -E "style\.css|core\.js|manifest\.webmanifest" index.html
+          grep -h "^import" js/core.js js/world.js
+
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          exclude_assets: ".github"

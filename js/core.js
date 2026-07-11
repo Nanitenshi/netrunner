@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=e32c7eca";
+} from "./threeScene.js?v=31691361";
 
 import {
   initWorld,
@@ -12,14 +12,14 @@ import {
   handleWorldPointer,
   worldCancelPointer,
   worldSetFocusToggle
-} from "./world.js?v=e32c7eca";
+} from "./world.js?v=31691361";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=e32c7eca";
-import { loadSave, saveNow, resetSave } from "./save.js?v=e32c7eca";
-import { openNpcDialog, npcTick } from "./npc.js?v=e32c7eca";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=e32c7eca";
-import { unlockAudio } from "./sfx.js?v=e32c7eca";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=e32c7eca";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=31691361";
+import { loadSave, saveNow, resetSave } from "./save.js?v=31691361";
+import { openNpcDialog, npcTick } from "./npc.js?v=31691361";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=31691361";
+import { unlockAudio } from "./sfx.js?v=31691361";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=31691361";
 
 import {
   startDive,
@@ -28,7 +28,7 @@ import {
   diveCancelPointer,
   diveSetPaused,
   initDive
-} from "./dive.js?v=e32c7eca";
+} from "./dive.js?v=31691361";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -111,7 +111,9 @@ export function setMode(next) {
   };
 
   toggle("title", next === "TITLE");
-  toggle("hudTop", next !== "TITLE");
+  // Stadt-HUD im Dive ausblenden: verhindert Chip-Überlappung auf schmalen
+  // Screens und gibt der Spielfläche ~100px mehr Höhe
+  toggle("hudTop", next !== "TITLE" && next !== "MISSION");
   toggle("leftPanel", next === "WORLD");
   toggle("rightPanel", next === "WORLD");
   toggle("missionHud", next === "MISSION");

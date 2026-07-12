@@ -17,6 +17,7 @@ export function saveNow() {
       daily: game.daily,
       stats: game.stats,
       buffs: game.buffs,
+      storyStage: game.storyStage,
       settings: game.settings,
       storyLog: game.storyLog
     };

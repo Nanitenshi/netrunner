@@ -56,10 +56,20 @@ const NODE_DEFS = [
   { id: "M6", type: "mission", name: "Black Cache",       npc: "DOC-K",     tag: "Schnelle Beute, schneller Ausstieg.",      x: -760, y: 650,  missionType: "cache",  tier: 2 },
 
   { id: "G1", type: "npc",     name: "Ghost Signal",      npc: "ECHO",      tag: "Wenn du glaubst du steuerst das, hat dich die Stadt schon.", x: -280, y: 1600 },
-  { id: "M7", type: "mission", name: "Deep Breach",       npc: "ECHO",      tag: "Niemand hier war je wirklich hier.",       x: -180, y: 1450, missionType: "breach", tier: 3 }
+  { id: "M7", type: "mission", name: "Deep Breach",       npc: "ECHO",      tag: "Niemand hier war je wirklich hier.",       x: -180, y: 1450, missionType: "breach", tier: 3 },
+
+  // Verstecktes Finale: taucht erst auf, wenn du Layer 10 erreicht hast —
+  // ECHO hört ab dieser Tiefe ein Signal, das vorher nur Rauschen war
+  { id: "H1", type: "mission", name: "Void Signal", npc: "ECHO", tag: "Das war nie ein Echo. Das war eine Antwort.", x: -420, y: 1780, missionType: "trace", tier: 3, requires: (g) => g.stats.bestLayer >= 10 }
 ];
 
 const nodes = [];
+
+// Nodes mit unerfüllter `requires`-Bedingung sind unsichtbar und nicht antippbar
+function visibleNodes() {
+  return nodes.filter((n) => !n.requires || n.requires(game));
+}
+
 const citizens = [];
 const buildings = [];
 const cars = [];
@@ -480,7 +490,7 @@ export function initWorld() {
   nodes.length = 0;
   NODE_DEFS.forEach((n) => nodes.push({ ...n, visited: false, hot: false }));
 
-  const missionNodes = nodes.filter((n) => n.type === "mission");
+  const missionNodes = visibleNodes().filter((n) => n.type === "mission");
   if (missionNodes.length) {
     missionNodes[todaySeed() % missionNodes.length].hot = true;
   }
@@ -509,11 +519,17 @@ export function initWorld() {
   initDrones();
   initAmbient();
   initProps();
-  updateNodeList(nodes, game.selectedNodeId, goToNode);
+  updateNodeList(visibleNodes(), game.selectedNodeId, goToNode);
 }
 
 export function getNodeById(id) {
   return nodes.find((n) => n.id === id);
+}
+
+// Liste neu aufbauen (z.B. beim Öffnen des NODES-Panels) — Requires-gates wie
+// H1 können sich seit dem letzten Aufbau geändert haben (neuer Tiefen-Rekord)
+export function refreshNodeList() {
+  updateNodeList(visibleNodes(), game.selectedNodeId, goToNode);
 }
 
 export function worldSetFocusToggle() {
@@ -587,7 +603,7 @@ function interact(n) {
     toast(`TIER ${n.tier || 1} NETZ. START MISSION = DIVE.`);
   }
 
-  updateNodeList(nodes, game.selectedNodeId, goToNode);
+  updateNodeList(visibleNodes(), game.selectedNodeId, goToNode);
 }
 
 function goToNode(id) {
@@ -1036,7 +1052,7 @@ function draw() {
 
   // nodes
   const tNow = performance.now() / 1000;
-  nodes.forEach((n) => {
+  visibleNodes().forEach((n) => {
     const p = worldToScreen(n.x, n.y, W, H);
     const active = (game.selectedNodeId === n.id);
     const inRange = Math.hypot(player.x - n.x, player.y - n.y) <= INTERACT_R;
@@ -1163,7 +1179,7 @@ export function handleWorldPointer(type, e) {
 
     let hit = null;
     let bestD = 30;
-    for (const n of nodes) {
+    for (const n of visibleNodes()) {
       const sp = worldToScreen(n.x, n.y, p.w, p.h);
       const d = Math.hypot(p.x - sp.x, p.y - sp.y);
       if (d < bestD) { bestD = d; hit = n; }

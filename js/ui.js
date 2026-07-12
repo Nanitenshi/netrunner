@@ -74,8 +74,15 @@ export function initUI(_api) {
   // Result screen
   bindFastPress($("btnBackToCity"), () => api.setMode?.("WORLD"));
 
-  // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen
-  bindFastPress($("btnNodes"), () => $("leftPanel")?.classList.toggle("open"));
+  // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen —
+  // beim Öffnen die Liste neu aufbauen, falls sich Requires-Gates (z.B. ein
+  // frisch freigeschalteter Node) seit dem letzten Aufbau geändert haben
+  bindFastPress($("btnNodes"), () => {
+    const panel = $("leftPanel");
+    const opening = !panel?.classList.contains("open");
+    panel?.classList.toggle("open");
+    if (opening) api.refreshNodeList?.();
+  });
   bindFastPress($("btnCloseSignal"), () => $("rightPanel")?.classList.remove("open"));
 
   // Autosave on background (nur wenn AUTO an)

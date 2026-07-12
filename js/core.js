@@ -11,7 +11,8 @@ import {
   worldTick,
   handleWorldPointer,
   worldCancelPointer,
-  worldSetFocusToggle
+  worldSetFocusToggle,
+  refreshNodeList
 } from "./world.js";
 
 import { initUI, uiTick, toast, setComms } from "./ui.js";
@@ -53,7 +54,9 @@ export const game = {
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
   daily: { date: "", done: false, npcs: {} },
-  stats: { bestLayer: 0, dives: 0, dumps: 0 },
+  stats: { bestLayer: 0, dives: 0, dumps: 0, voidAnnounced: false },
+  // Fortschritt der NPC-Story-Arcs: welche Dialogzeile als nächstes dran ist
+  storyStage: {},
   // einmalige Boni von NPC-Besuchen, werden beim nächsten Dive verbraucht
   buffs: { traceCut: 0, lootBonus: 1, traceMultCut: 1, gearDiscount: 0 },
   selectedNodeId: null,
@@ -229,13 +232,14 @@ function boot() {
   // load save
   const saved = loadSave();
   if (saved) {
-    const { upgrades, settings, crew, daily, stats, buffs, ...rest } = saved;
+    const { upgrades, settings, crew, daily, stats, buffs, storyStage, ...rest } = saved;
     Object.assign(game, rest);
     if (upgrades) Object.assign(game.upgrades, upgrades);
     if (settings) Object.assign(game.settings, settings);
     if (daily) Object.assign(game.daily, daily);
     if (stats) Object.assign(game.stats, stats);
     if (buffs) Object.assign(game.buffs, buffs);
+    if (storyStage) Object.assign(game.storyStage, storyStage);
     if (!game.daily.npcs) game.daily.npcs = {};
     if (crew) {
       if (crew.roster) game.crew.roster = crew.roster;
@@ -255,6 +259,7 @@ function boot() {
   // init modules
   initUI({
     setMode,
+    refreshNodeList,
     startMission: () => {
       if (!game.selectedNodeId) {
         toast("WÄHL ZUERST EINEN NODE.");
@@ -379,6 +384,14 @@ function loop(tNow) {
             recordLine = `\n\n★ NEUER TIEFEN-REKORD: LAYER ${game.stats.bestLayer}`;
             toast(`★ NEUER REKORD: LAYER ${game.stats.bestLayer}`);
           }
+        }
+
+        // Verstecktes Finale schaltet frei, sobald Layer 10 je erreicht wurde
+        if (!game.stats.voidAnnounced && game.stats.bestLayer >= 10) {
+          game.stats.voidAnnounced = true;
+          game.storyLog.unshift(`> ECHO: „...du bist tief genug. Ich hör jetzt ein Signal, das vorher nur Rauschen war. Komm zu mir.“`);
+          recordLine += `\n\n👁 NEUES SIGNAL ENTDECKT — ECHO hat etwas für dich.`;
+          toast(`👁 NEUES SIGNAL — sprich mit ECHO`);
         }
 
         // Tagesauftrag: 1x per Jack Out aus Layer 3+ zurückkommen

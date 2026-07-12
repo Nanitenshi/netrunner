@@ -1,9 +1,9 @@
 // js/npc.js
-import { game, checkDailyReset } from "./core.js?v=bba082b9";
-import { toast, renderStoryLog } from "./ui.js?v=bba082b9";
-import { getNodeById } from "./world.js?v=bba082b9";
-import { crewTick } from "./crew.js?v=bba082b9";
-import { saveNow } from "./save.js?v=bba082b9";
+import { game, checkDailyReset } from "./core.js?v=61e737fe";
+import { toast, renderStoryLog } from "./ui.js?v=61e737fe";
+import { getNodeById } from "./world.js?v=61e737fe";
+import { crewTick } from "./crew.js?v=61e737fe";
+import { saveNow } from "./save.js?v=61e737fe";
 
 // Jeder NPC hat einen kleinen, festen Dialog-Arc statt zufälliger Zeilen —
 // jeder Besuch (nach dem Tagesbonus) rückt eine Stufe weiter, die letzte

@@ -1,9 +1,9 @@
 // js/music.js — generative Ambient-Musik über WebAudio, keine Audio-Assets.
 // A-Moll-Pentatonik-Arpeggio über einem langsamen Pad; MISSION-Modus spielt dichter.
 
-import { getAudioCtx } from "./sfx.js?v=bba082b9";
-import { game } from "./core.js?v=bba082b9";
-import { toast } from "./ui.js?v=bba082b9";
+import { getAudioCtx } from "./sfx.js?v=61e737fe";
+import { game } from "./core.js?v=61e737fe";
+import { toast } from "./ui.js?v=61e737fe";
 
 const SCALE = [110, 130.81, 146.83, 164.81, 196, 220, 261.63, 293.66, 329.63]; // A-Pentatonik
 const PAD_ROOTS = [110, 87.31, 130.81, 98]; // A2 → F2 → C3 → G2
@@ -38,7 +38,12 @@ let timer = null;
 function ensureGraph(ac) {
   if (master) return;
   master = ac.createGain();
-  master.gain.value = 0.11;
+  // 0.11 war auf Handylautsprechern praktisch unhörbar (Spieler-Feedback:
+  // "hört gar nichts") — Voice-Pegel (0.014-0.05) blieben bei 0.11 Master
+  // im Bereich 0.002-0.006 absolut. Reichlich Headroom vorhanden: selbst
+  // Pad+Pluck gleichzeitig summieren pre-master auf ~0.11, also weit unter
+  // Clipping (1.0) auch bei diesem höheren Master-Wert.
+  master.gain.value = 0.42;
   master.connect(ac.destination);
 }
 

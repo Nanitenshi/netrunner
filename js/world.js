@@ -1,10 +1,10 @@
 // js/world.js
-import { game } from "./core.js?v=bba082b9";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=bba082b9";
-import { openNpcDialog } from "./npc.js?v=bba082b9";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=bba082b9";
-import { sfx } from "./sfx.js?v=bba082b9";
-import { saveNow } from "./save.js?v=bba082b9";
+import { game } from "./core.js?v=61e737fe";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=61e737fe";
+import { openNpcDialog } from "./npc.js?v=61e737fe";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=61e737fe";
+import { sfx } from "./sfx.js?v=61e737fe";
+import { saveNow } from "./save.js?v=61e737fe";
 
 const $ = (id) => document.getElementById(id);
 

@@ -1,8 +1,8 @@
 // js/world.js
-import { game } from "./core.js?v=a392ba06";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=a392ba06";
-import { openNpcDialog } from "./npc.js?v=a392ba06";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=a392ba06";
+import { game } from "./core.js?v=ba37fd3d";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=ba37fd3d";
+import { openNpcDialog } from "./npc.js?v=ba37fd3d";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=ba37fd3d";
 
 const $ = (id) => document.getElementById(id);
 
@@ -65,6 +65,9 @@ const buildings = [];
 const cars = [];
 const lamps = [];
 const drones = [];
+const props = [];
+const steamVents = [];
+const puffs = [];
 
 // deterministischer Pseudozufall pro Gebäude (für stabile Fenster-Muster)
 function hashRnd(seed, i) {
@@ -81,6 +84,29 @@ const BUILD_STYLE = {
   slums:      { h: 0.5, neon: "140,220,110", count: 18 },
   undercity:  { h: 0.8, neon: "190,90,255",  count: 13 }
 };
+
+// Graffiti-Wahrscheinlichkeit pro Bezirk — das ist es, was Slums/Industrie
+// nach gelebter Stadt statt Beton-Kulisse aussehen lässt
+const GRAFFITI_CHANCE = { neon: 0.1, downtown: 0.06, corporate: 0, industrial: 0.32, slums: 0.4, undercity: 0.22 };
+
+// Requisiten pro Bezirk: welcher Typ wie oft vorkommt — gibt jedem Viertel
+// einen eigenen Charakter statt austauschbarer Klötze
+const PROP_WEIGHTS = {
+  neon:       { bench: 2, planter: 3, stall: 3, vending: 2, puddle: 2, dumpster: 1 },
+  downtown:   { bench: 3, planter: 2, stall: 1, vending: 3, puddle: 1, dumpster: 1 },
+  corporate:  { bench: 2, planter: 4, vending: 1 },
+  industrial: { crate: 4, dumpster: 3, vent: 3, puddle: 2 },
+  slums:      { crate: 2, dumpster: 3, stall: 1, puddle: 3, vent: 1, bench: 1 },
+  undercity:  { crate: 1, dumpster: 1, vending: 1, puddle: 3, vent: 2 }
+};
+
+function weightedPick(weights) {
+  const entries = Object.entries(weights);
+  const total = entries.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * total;
+  for (const [k, w] of entries) { r -= w; if (r <= 0) return k; }
+  return entries[0][0];
+}
 
 function distToSegment(px, py, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay;
@@ -121,6 +147,7 @@ function initBuildings() {
           hasAntenna: Math.random() < 0.4,
           hasSign: Math.random() < 0.35,
           hasBillboard: height > 0.9 && Math.random() < 0.3,
+          hasGraffiti: Math.random() < (GRAFFITI_CHANCE[d.id] || 0),
           district: d.id,
           landmark: false
         });
@@ -237,6 +264,212 @@ function initDrones() {
   }
 }
 
+// Requisiten: Bänke, Marktstände, Pflanzen, Mülltonnen, Kisten, Automaten,
+// Dampfschlote, Pfützen — geben jedem Bezirk gelebte Details statt leerer Fläche
+function initProps() {
+  props.length = 0;
+  steamVents.length = 0;
+  const hub = DISTRICTS[0];
+
+  for (const d of DISTRICTS) {
+    const weights = PROP_WEIGHTS[d.id];
+    if (!weights) continue;
+
+    for (let i = 0; i < 15; i++) {
+      let placed = false;
+      for (let tries = 0; tries < 20 && !placed; tries++) {
+        const ang = Math.random() * Math.PI * 2;
+        const rr = d.r * (0.15 + Math.random() * 0.75);
+        const x = d.cx + Math.cos(ang) * rr;
+        const y = d.cy + Math.sin(ang) * rr;
+
+        if (NODE_DEFS.some((n) => Math.hypot(n.x - x, n.y - y) < 100)) continue;
+        if (DISTRICTS.slice(1).some((dd) => distToSegment(x, y, hub.cx, hub.cy, dd.cx, dd.cy) < 50)) continue;
+        if (buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 26 && Math.abs(b.y - y) < b.h / 2 + 26)) continue;
+        if (props.some((pr) => Math.hypot(pr.x - x, pr.y - y) < 60)) continue;
+
+        const type = weightedPick(weights);
+        const prop = { type, x, y, seed: Math.random() * 1000 };
+        props.push(prop);
+        if (type === "vent") steamVents.push(prop);
+        placed = true;
+      }
+    }
+  }
+}
+
+/* ---- Requisiten-Zeichenfunktionen: eine pro Prop-Typ ---- */
+function drawBench(ctx, p, s) {
+  ctx.fillStyle = "rgba(20,26,38,.9)";
+  ctx.fillRect(p.x - 14 * s, p.y - 6 * s, 28 * s, 5 * s);
+  ctx.fillRect(p.x - 12 * s, p.y - 1 * s, 3 * s, 8 * s);
+  ctx.fillRect(p.x + 9 * s, p.y - 1 * s, 3 * s, 8 * s);
+  ctx.strokeStyle = "rgba(0,243,255,.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(p.x - 14 * s, p.y - 6 * s, 28 * s, 5 * s);
+}
+
+function drawDumpster(ctx, p, s, seed) {
+  ctx.fillStyle = "rgba(38,44,30,.95)";
+  ctx.fillRect(p.x - 13 * s, p.y - 14 * s, 26 * s, 14 * s);
+  ctx.fillStyle = "rgba(55,64,42,.95)";
+  ctx.fillRect(p.x - 13 * s, p.y - 16 * s, 26 * s, 4 * s);
+  if (hashRnd(seed, 3) < 0.5) {
+    ctx.fillStyle = `hsla(${Math.floor(hashRnd(seed, 7) * 360)},80%,55%,.55)`;
+    ctx.beginPath();
+    ctx.moveTo(p.x - 10 * s, p.y - 10 * s);
+    ctx.quadraticCurveTo(p.x - 4 * s, p.y - 14 * s, p.x + 2 * s, p.y - 8 * s);
+    ctx.quadraticCurveTo(p.x + 6 * s, p.y - 4 * s, p.x - 2 * s, p.y - 3 * s);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawPlanter(ctx, p, s, seed) {
+  ctx.fillStyle = "rgba(40,32,26,.95)";
+  ctx.fillRect(p.x - 10 * s, p.y - 8 * s, 20 * s, 8 * s);
+  const hue = 140 + hashRnd(seed, 1) * 40;
+  for (let i = 0; i < 4; i++) {
+    const a = hashRnd(seed, i * 11) * Math.PI * 2;
+    const len = (10 + hashRnd(seed, i * 17) * 8) * s;
+    ctx.strokeStyle = `hsla(${hue},85%,60%,.8)`;
+    ctx.lineWidth = 1.6 * s;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - 8 * s);
+    ctx.quadraticCurveTo(p.x + Math.cos(a) * len * 0.5, p.y - 8 * s - len * 0.6, p.x + Math.cos(a) * len, p.y - 8 * s - len);
+    ctx.stroke();
+  }
+  ctx.fillStyle = `hsla(${hue},90%,65%,.9)`;
+  ctx.beginPath(); ctx.arc(p.x, p.y - 8 * s, 2.4 * s, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawStall(ctx, p, s, seed) {
+  const accent = hashRnd(seed, 2) < 0.5 ? "255,60,140" : "0,220,255";
+  ctx.fillStyle = "rgba(20,26,38,.95)";
+  ctx.fillRect(p.x - 16 * s, p.y - 4 * s, 32 * s, 6 * s);
+  ctx.fillRect(p.x - 15 * s, p.y - 18 * s, 2 * s, 14 * s);
+  ctx.fillRect(p.x + 13 * s, p.y - 18 * s, 2 * s, 14 * s);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(p.x - 17 * s, p.y - 18 * s);
+  ctx.lineTo(p.x + 17 * s, p.y - 18 * s);
+  ctx.lineTo(p.x + 12 * s, p.y - 8 * s);
+  ctx.lineTo(p.x - 12 * s, p.y - 8 * s);
+  ctx.closePath();
+  ctx.clip();
+  for (let i = -2; i < 6; i++) {
+    ctx.fillStyle = i % 2 === 0 ? `rgba(${accent},.85)` : "rgba(230,230,230,.85)";
+    ctx.fillRect(p.x - 20 * s + i * 7 * s, p.y - 20 * s, 7 * s, 14 * s);
+  }
+  ctx.restore();
+}
+
+function drawCrate(ctx, p, s, seed) {
+  ctx.fillStyle = "rgba(70,54,34,.95)";
+  ctx.fillRect(p.x - 10 * s, p.y - 10 * s, 20 * s, 10 * s);
+  ctx.strokeStyle = "rgba(30,20,10,.6)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(p.x - 10 * s, p.y - 10 * s, 20 * s, 10 * s);
+  if (hashRnd(seed, 4) > 0.4) {
+    ctx.fillStyle = "rgba(90,70,45,.95)";
+    ctx.fillRect(p.x - 6 * s, p.y - 18 * s, 13 * s, 9 * s);
+    ctx.strokeRect(p.x - 6 * s, p.y - 18 * s, 13 * s, 9 * s);
+  }
+}
+
+function drawVending(ctx, p, s, seed) {
+  ctx.fillStyle = "rgba(24,30,44,.96)";
+  ctx.fillRect(p.x - 9 * s, p.y - 30 * s, 18 * s, 30 * s);
+  const hue = hashRnd(seed, 9) < 0.5 ? 190 : 320;
+  ctx.fillStyle = `hsla(${hue},90%,60%,.5)`;
+  ctx.fillRect(p.x - 7 * s, p.y - 27 * s, 14 * s, 18 * s);
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 2; c++) {
+      ctx.fillStyle = `hsla(${hue},95%,${70 + hashRnd(seed, r * 3 + c) * 15}%,.85)`;
+      ctx.fillRect(p.x - 6 * s + c * 7 * s, p.y - 26 * s + r * 6 * s, 5 * s, 4 * s);
+    }
+  }
+}
+
+function drawVent(ctx, p, s) {
+  ctx.fillStyle = "rgba(15,18,24,.9)";
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, 11 * s, 5 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(255,150,60,.4)";
+  ctx.lineWidth = 1;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(p.x + i * 3.5 * s, p.y - 3 * s);
+    ctx.lineTo(p.x + i * 3.5 * s, p.y + 3 * s);
+    ctx.stroke();
+  }
+}
+
+function drawPuddle(ctx, p, s, seed, tNow) {
+  const shimmer = 0.15 + 0.1 * Math.sin(tNow * 1.4 + seed);
+  ctx.fillStyle = `rgba(10,16,26,${(0.45 + shimmer).toFixed(2)})`;
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, 16 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
+  const color = hashRnd(seed, 5) < 0.5 ? "0,243,255" : "255,0,124";
+  ctx.fillStyle = `rgba(${color},${(0.18 + shimmer).toFixed(2)})`;
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, 10 * s, 3.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawProps(ctx, W, H) {
+  const tNow = performance.now() / 1000;
+
+  const vis = [];
+  for (const pr of props) {
+    const p = worldToScreen(pr.x, pr.y, W, H);
+    const m = 60 * cam.zoom;
+    if (p.x < -m || p.x > W + m || p.y < -m || p.y > H + m) continue;
+    vis.push({ pr, p, d: Math.hypot(p.x - W / 2, p.y - H / 2) });
+  }
+  vis.sort((a, b) => b.d - a.d);
+
+  const s = cam.zoom;
+  for (const { pr, p } of vis) {
+    switch (pr.type) {
+      case "bench": drawBench(ctx, p, s); break;
+      case "dumpster": drawDumpster(ctx, p, s, pr.seed); break;
+      case "planter": drawPlanter(ctx, p, s, pr.seed); break;
+      case "stall": drawStall(ctx, p, s, pr.seed); break;
+      case "crate": drawCrate(ctx, p, s, pr.seed); break;
+      case "vending": drawVending(ctx, p, s, pr.seed); break;
+      case "vent": drawVent(ctx, p, s); break;
+      case "puddle": drawPuddle(ctx, p, s, pr.seed, tNow); break;
+    }
+  }
+}
+
+// Dampfschlote: kleine aufsteigende Partikel, die aus Lüftungsgittern quellen
+function stepPuffs(dt) {
+  for (const v of steamVents) {
+    v.spawnT = (v.spawnT ?? Math.random() * 2) - dt;
+    if (v.spawnT <= 0) {
+      v.spawnT = 1.2 + Math.random() * 1.4;
+      puffs.push({ x: v.x, y: v.y, vx: (Math.random() - 0.5) * 6, vy: -14 - Math.random() * 8, age: 0, life: 2 + Math.random() });
+    }
+  }
+  for (let i = puffs.length - 1; i >= 0; i--) {
+    const pf = puffs[i];
+    pf.age += dt;
+    pf.x += pf.vx * dt;
+    pf.y += pf.vy * dt;
+    if (pf.age >= pf.life) puffs.splice(i, 1);
+  }
+}
+
+function drawPuffs(ctx, W, H) {
+  for (const pf of puffs) {
+    const p = worldToScreen(pf.x, pf.y, W, H);
+    if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
+    const t = pf.age / pf.life;
+    const r = (3 + t * 7) * cam.zoom;
+    ctx.fillStyle = `rgba(200,210,220,${(0.22 * (1 - t)).toFixed(2)})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 // Hot Zone: rotiert täglich über die Mission-Nodes (+1 Tier, +50% Loot)
 function todaySeed() {
   const d = new Date();
@@ -275,6 +508,7 @@ export function initWorld() {
   initLamps();
   initDrones();
   initAmbient();
+  initProps();
   updateNodeList(nodes, game.selectedNodeId, goToNode);
 }
 
@@ -598,6 +832,31 @@ function drawBuildings(ctx, W, H) {
         ctx.lineWidth = 1;
         ctx.stroke();
       }
+
+      // Graffiti-Tag: prozedurale Kritzel-Form nahe dem Boden — macht
+      // Slums/Industrie nach gelebter Stadt statt Beton-Kulisse (bewusst
+      // nicht an !perf gekoppelt: billig genug, um immer sichtbar zu sein)
+      if (b.hasGraffiti) {
+        const wallPt = (u, v) => {
+          const lx0 = base[i].x + (top[i].x - base[i].x) * v;
+          const ly0 = base[i].y + (top[i].y - base[i].y) * v;
+          const lx1 = base[j].x + (top[j].x - base[j].x) * v;
+          const ly1 = base[j].y + (top[j].y - base[j].y) * v;
+          return { x: lx0 + (lx1 - lx0) * u, y: ly0 + (ly1 - ly0) * u };
+        };
+        const gu = 0.2 + hashRnd(b.seed, i * 53 + 700) * 0.5;
+        const gc = wallPt(gu, 0.85);
+        const ghue = hashRnd(b.seed, i * 61 + 800) < 0.5 ? "255,0,124" : "0,243,255";
+        const gs = (10 + hashRnd(b.seed, i * 29 + 900) * 8) * cam.zoom;
+
+        ctx.strokeStyle = `rgba(${ghue},.55)`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(gc.x - gs, gc.y + gs * 0.3);
+        ctx.quadraticCurveTo(gc.x - gs * 0.3, gc.y - gs * 0.5, gc.x, gc.y);
+        ctx.quadraticCurveTo(gc.x + gs * 0.4, gc.y + gs * 0.4, gc.x + gs, gc.y - gs * 0.2);
+        ctx.stroke();
+      }
     }
 
     // Dach
@@ -760,6 +1019,8 @@ function draw() {
   // Gebäude (Fake-3D) + Verkehr
   drawBuildings(ctx, W, H);
   drawCars(ctx, W, H);
+  drawProps(ctx, W, H);
+  drawPuffs(ctx, W, H);
 
   const charScale = 1.7 * cam.zoom;
 
@@ -862,6 +1123,7 @@ export function worldTick(dt = 0) {
   stepCitizens(dt);
   stepCars(dt);
   stepAmbient(dt);
+  stepPuffs(dt);
   stepCamera(dt);
   draw();
 }

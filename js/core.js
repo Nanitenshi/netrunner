@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=a392ba06";
+} from "./threeScene.js?v=ba37fd3d";
 
 import {
   initWorld,
@@ -12,14 +12,14 @@ import {
   handleWorldPointer,
   worldCancelPointer,
   worldSetFocusToggle
-} from "./world.js?v=a392ba06";
+} from "./world.js?v=ba37fd3d";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=a392ba06";
-import { loadSave, saveNow, resetSave } from "./save.js?v=a392ba06";
-import { openNpcDialog, npcTick } from "./npc.js?v=a392ba06";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=a392ba06";
-import { unlockAudio } from "./sfx.js?v=a392ba06";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=a392ba06";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=ba37fd3d";
+import { loadSave, saveNow, resetSave } from "./save.js?v=ba37fd3d";
+import { openNpcDialog, npcTick } from "./npc.js?v=ba37fd3d";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=ba37fd3d";
+import { unlockAudio } from "./sfx.js?v=ba37fd3d";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=ba37fd3d";
 
 import {
   startDive,
@@ -28,7 +28,7 @@ import {
   diveCancelPointer,
   diveSetPaused,
   initDive
-} from "./dive.js?v=a392ba06";
+} from "./dive.js?v=ba37fd3d";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 

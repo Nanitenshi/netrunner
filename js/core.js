@@ -15,7 +15,9 @@ import {
   refreshNodeList,
   currentGoal,
   routeGoal,
-  nearMissionNode
+  nearMissionNode,
+  worldIsManualPan,
+  worldRecenterCamera
 } from "./world.js";
 
 import { initUI, uiTick, toast, setComms } from "./ui.js";
@@ -405,7 +407,9 @@ function boot() {
     toggleMusic,
     focusToggle: () => worldSetFocusToggle?.(),
     getGoal: currentGoal,
-    routeGoal
+    routeGoal,
+    isManualPan: () => worldIsManualPan?.(),
+    recenterCamera: () => worldRecenterCamera?.()
   });
 
   // Tutorial-Button

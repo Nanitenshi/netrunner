@@ -13,6 +13,8 @@ const INTERACT_R = 110;     // world units
 
 const cam = { x: 0, y: 0, zoom: 0.62 };
 let focusZoom = false;
+const ZOOM_MIN = 0.32;
+const ZOOM_MAX = 1.7;
 
 const player = { x: 0, y: -40, tx: 0, ty: -40, moving: false, facing: Math.PI / 2, animT: 0, frame: 0 };
 
@@ -25,6 +27,13 @@ let downPos = null;
 let dragLast = null;
 let dragging = false;
 let manualPan = false;
+
+// Zwei-Finger-Pinch: aktive Touches nach pointerId, Basis-Distanz/-Zoom bei
+// Pinch-Start. Vorher gab es keinerlei Zoom-Steuerung außer dem festen
+// FOCUS-Toggle (gemeldetes Problem: "es gibt kein Zoom")
+const activeTouches = new Map();
+let pinchStartDist = null;
+let pinchStartZoom = null;
 
 const keys = new Set();
 window.addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
@@ -635,6 +644,19 @@ export function initWorld() {
   initStreetLoot();
   updateNodeList(visibleNodes(), game.selectedNodeId, goToNode);
 
+  // Maus-Zoom (Desktop) — Pendant zum Pinch-Zoom auf Touch-Geräten
+  const worldCanvas = game.canvases.world;
+  if (worldCanvas && !worldCanvas.dataset.wheelBound) {
+    worldCanvas.dataset.wheelBound = "1";
+    worldCanvas.addEventListener("wheel", (e) => {
+      if (game.mode !== "WORLD") return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      cam.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cam.zoom * factor));
+      manualPan = true;
+    }, { passive: false });
+  }
+
   // Debug-/Test-Zugriff
   window.__NEON_CAM = () => cam;
 }
@@ -761,6 +783,20 @@ export function worldSetFocusToggle() {
 export function worldCancelPointer() {
   downPos = null;
   dragging = false;
+  activeTouches.clear();
+  pinchStartDist = null;
+  pinchStartZoom = null;
+}
+
+// Expliziter "zurück zum Charakter"-Weg — vorher gab es nach einem
+// Kamera-Wisch nur den Umweg über einen Tap-zum-Hinlaufen, der ungewollt
+// den Spieler losschickt (gemeldetes Problem: "keine Zentrierung")
+export function worldIsManualPan() {
+  return manualPan;
+}
+
+export function worldRecenterCamera() {
+  manualPan = false;
 }
 
 function localPos(e) {
@@ -1715,23 +1751,49 @@ export function worldTick(dt = 0) {
   draw();
 }
 
+function pinchDist() {
+  const pts = [...activeTouches.values()];
+  return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+}
+
 export function handleWorldPointer(type, e) {
   if (game.mode !== "WORLD") return;
 
   if (type === "down") {
-    downPos = localPos(e);
-    dragLast = downPos;
-    dragging = true;
+    activeTouches.set(e.pointerId, localPos(e));
+
+    if (activeTouches.size >= 2) {
+      // Zweiter Finger: laufenden Ein-Finger-Drag verwerfen, sonst zählt
+      // das Loslassen später fälschlich als Tap-zum-Hinlaufen
+      downPos = null;
+      dragging = false;
+      pinchStartDist = pinchDist();
+      pinchStartZoom = cam.zoom;
+    } else {
+      downPos = localPos(e);
+      dragLast = downPos;
+      dragging = true;
+    }
     return;
   }
 
   if (type === "move") {
+    if (activeTouches.has(e.pointerId)) activeTouches.set(e.pointerId, localPos(e));
+
+    // Pinch-Zoom: zwei aktive Finger überschreiben die Ein-Finger-Logik
+    if (activeTouches.size >= 2 && pinchStartDist) {
+      const dist = pinchDist();
+      cam.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, pinchStartZoom * (dist / pinchStartDist)));
+      manualPan = true;
+      return;
+    }
+
     if (!dragging || !downPos) return;
     const p = localPos(e);
 
     // erst ab einer kleinen Schwelle als Kamera-Wisch werten (sonst zittern Taps)
     if (manualPan || Math.hypot(p.x - downPos.x, p.y - downPos.y) > 14) {
-      if (!manualPan) toast("KAMERA FREI — Tippen zum Hinlaufen kehrt zurück.");
+      if (!manualPan) toast("KAMERA FREI — 📍 ZENTRIEREN tippen kehrt zurück.");
       manualPan = true;
       cam.x -= (p.x - dragLast.x) / cam.zoom;
       cam.y -= (p.y - dragLast.y) / cam.zoom;
@@ -1740,7 +1802,12 @@ export function handleWorldPointer(type, e) {
     return;
   }
 
-  if (type === "up") {
+  if (type === "up" || type === "cancel") {
+    activeTouches.delete(e.pointerId);
+    if (activeTouches.size < 2) { pinchStartDist = null; pinchStartZoom = null; }
+
+    if (type === "cancel") { downPos = null; dragging = false; return; }
+
     dragging = false;
     if (!downPos) return;
     const p = localPos(e);
@@ -1768,6 +1835,4 @@ export function handleWorldPointer(type, e) {
     }
     return;
   }
-
-  if (type === "cancel") { downPos = null; dragging = false; }
 }

@@ -238,6 +238,14 @@
         ▶ DIVE STARTEN
       </button>
 
+      <!-- ZENTRIEREN: erscheint, sobald die Kamera manuell weggezogen wurde
+           (Wisch-Pan oder Pinch-Zoom) — sonst gibt es keinen Weg zurück zum
+           Charakter außer einem Tap-zum-Hinlaufen, der ungewollt losläuft. -->
+      <button type="button" id="btnRecenter" class="btn yellow hidden"
+        style="position:absolute; right:16px; bottom:96px; z-index:30">
+        📍 ZENTRIEREN
+      </button>
+
       <!-- PAUSE MENU -->
       <section id="pauseMenu" class="centerWrap hidden" style="z-index:60">
         <div class="panel card">

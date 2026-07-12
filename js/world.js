@@ -532,6 +532,36 @@ export function refreshNodeList() {
   updateNodeList(visibleNodes(), game.selectedNodeId, goToNode);
 }
 
+// Auftrags-Leiter: sagt dem Spieler immer, was als Nächstes dran ist UND
+// warum — gemeldetes Problem: "man versteht nicht, was man machen muss"
+export function currentGoal() {
+  const g = game;
+  const crewOwned = Object.keys(g.crew?.roster || {}).length;
+
+  if (g.missionsDone === 0)
+    return { text: "ERSTER DIVE: Geh zum Cache Pop Terminal", nodeId: "M1" };
+  if (g.stats.bestLayer < 3)
+    return { text: "Schaff Layer 3 — GO DEEPER gibt mehr Loot", nodeId: "M1" };
+  if (crewOwned < 2 && g.frags >= 20)
+    return { text: "Rekrutiere Crew: CREW ◆ Menü (Frags einlösen)", nodeId: null };
+  if (g.stats.bestLayer < 5)
+    return { text: "Erreiche Layer 5 — der Boss dort senkt deinen Trace", nodeId: "M3" };
+  if (g.stats.bestLayer < 10)
+    return { text: "ECHO hört etwas: erreiche Layer 10 (Tier 2-3 hilft)", nodeId: "M7" };
+  if (g.stats.voidAnnounced && !g.stats.voidCompleted)
+    return { text: "👁 Folge dem VOID SIGNAL in der Undercity", nodeId: "H1" };
+
+  const hot = nodes.find((n) => n.hot);
+  return { text: `HOT ZONE heute: +1 Tier, +50% Loot`, nodeId: hot ? hot.id : null };
+}
+
+// Ein Tap auf den Auftrag routet direkt hin — löst "der Weg ist unübersichtlich"
+export function routeGoal() {
+  const goal = currentGoal();
+  if (goal.nodeId) goToNode(goal.nodeId);
+  else toast(goal.text);
+}
+
 export function worldSetFocusToggle() {
   focusZoom = !focusZoom;
   cam.zoom = focusZoom ? 1.05 : 0.62;
@@ -1111,6 +1141,51 @@ function draw() {
   ctx.shadowBlur = 10 * cam.zoom;
   drawCharacterAt(ctx, pp.x, pp.y + 6 * cam.zoom, charScale * 1.1, pDir.dir, pDir.mirror, pSprites[pDir.dir][player.frame]);
   ctx.restore();
+
+  // Wegpunkt: zeigt immer zum aktuellen Ziel (ausgewählter Node oder Auftrag).
+  // On-Screen: pulsierender Pfeil überm Node; Off-Screen: Randpfeil + Distanz
+  const goal = currentGoal();
+  const wpId = game.selectedNodeId || goal.nodeId;
+  const wpNode = wpId ? visibleNodes().find((n) => n.id === wpId) : null;
+  if (wpNode && Math.hypot(player.x - wpNode.x, player.y - wpNode.y) > INTERACT_R) {
+    const p = worldToScreen(wpNode.x, wpNode.y, W, H);
+    const pulse = Math.sin(tNow * 5) * 4;
+    const onScreen = p.x > 30 && p.x < W - 30 && p.y > 90 && p.y < H - 120;
+
+    ctx.fillStyle = "rgba(252,238,10,.95)";
+    if (onScreen) {
+      const ay = p.y - 34 * cam.zoom - 14 + pulse;
+      ctx.beginPath();
+      ctx.moveTo(p.x, ay + 10);
+      ctx.lineTo(p.x - 8, ay);
+      ctx.lineTo(p.x + 8, ay);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // an den Bildschirmrand geklemmt, Pfeil zeigt Richtung Ziel
+      const cxS = W / 2, cyS = H / 2;
+      const ang = Math.atan2(p.y - cyS, p.x - cxS);
+      const ex = Math.max(34, Math.min(W - 34, cxS + Math.cos(ang) * 10000));
+      const ey = Math.max(96, Math.min(H - 130, cyS + Math.sin(ang) * 10000));
+
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.rotate(ang);
+      ctx.beginPath();
+      ctx.moveTo(12 + pulse * 0.5, 0);
+      ctx.lineTo(-6, -8);
+      ctx.lineTo(-6, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      const dist = Math.round(Math.hypot(player.x - wpNode.x, player.y - wpNode.y) / 10);
+      ctx.font = "bold 11px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`${wpNode.name} · ${dist}m`, ex, ey + 22);
+      ctx.textAlign = "start";
+    }
+  }
 
   // Drohnen: über allem, mit Bodenschatten und Blinklicht
   for (const d of drones) {

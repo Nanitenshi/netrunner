@@ -38,7 +38,10 @@ html, body {
 #canvas-container { position: absolute; inset: 0; }
 
 /* ===== Canvases ===== */
-canvas { position: absolute; inset: 0; display: block; }
+/* width/height 100% ist Pflicht: die Backing-Store-Größe ist innerWidth*DPR —
+   ohne CSS-Pinning rendert der Browser das Canvas in Pixelgröße, und bei
+   DPR-Cap 1.5 (SHARP) erscheint alles 1.5x gezoomt (gemeldeter Bug) */
+canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 
 #threeCanvas { z-index: 1; }
 
@@ -140,6 +143,10 @@ canvas { position: absolute; inset: 0; display: block; }
 }
 
 .missionHud { top: 12px; }
+
+/* Der AUFTRAG-Chip ist als einziger HUD-Chip interaktiv (Tap = hinrouten) —
+   .hud selbst hat pointer-events:none, damit Taps die Welt erreichen */
+#hudGoal { pointer-events: auto; z-index: 20; position: relative; }
 
 .chip {
   padding: 8px 12px;

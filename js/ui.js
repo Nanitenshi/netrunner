@@ -74,6 +74,9 @@ export function initUI(_api) {
   // Result screen
   bindFastPress($("btnBackToCity"), () => api.setMode?.("WORLD"));
 
+  // AUFTRAG-Chip: Tap routet direkt zum Ziel-Node
+  bindFastPress($("hudGoal"), () => api.routeGoal?.());
+
   // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen —
   // beim Öffnen die Liste neu aufbauen, falls sich Requires-Gates (z.B. ein
   // frisch freigeschalteter Node) seit dem letzten Aufbau geändert haben
@@ -189,6 +192,12 @@ export function uiTick(dt = 0) {
     rk.textContent = game.stats?.voidCompleted
       ? "VOID WALKER"
       : RANKS[Math.min(RANKS.length - 1, Math.floor(game.missionsDone / 3))];
+  }
+
+  const goalText = $("hudGoalText");
+  if (goalText) {
+    const goal = api?.getGoal?.();
+    if (goal && goal.text !== goalText.textContent) goalText.textContent = goal.text;
   }
 
   const t = $("hudTime");

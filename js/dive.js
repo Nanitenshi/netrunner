@@ -9,9 +9,25 @@ const $ = (id) => document.getElementById(id);
 
 let paused = false;
 let dive = null;
+// Kurze Eingabesperre nach Layer-Start/Unpause: der Finger, der gerade noch
+// GO DEEPER / RESUME gedrückt hat, darf nicht als Spiel-Tap durchschlagen
+// (gemeldeter Bug: "random Berührung, die ich nicht getätigt habe")
+let inputGraceUntil = 0;
 
-export function diveSetPaused(p) { paused = !!p; }
+export function diveSetPaused(p) {
+  paused = !!p;
+  if (!paused) inputGraceUntil = performance.now() + 300;
+}
 export function diveCancelPointer() {}
+
+// Harter Abbruch aus dem Pausenmenü: Dive verwerfen ohne Reward-Pipeline.
+// Buffer ist bewusst weg — der Button sagt das ehrlich dazu.
+export function diveAbort() {
+  if (!dive) return;
+  dive = null;
+  hideAbilityBar();
+  clearParticles();
+}
 
 /* ---------------- Layer-Modifikatoren ---------------- */
 const LAYER_MODS = [
@@ -248,6 +264,7 @@ function startLayer(spec) {
     corrupt: !!spec.corrupt
   });
   dive.phase = "play";
+  inputGraceUntil = performance.now() + 300;
   showChoice(false);
 
   // HUD erst mit echten Texten füllen, DANN platzieren —
@@ -558,6 +575,7 @@ function shakeScreen() {
 /* ---------------- Public API ---------------- */
 export function handleDivePointer(type, e) {
   if (!dive || paused || dive.phase !== "play") return;
+  if (type === "down" && performance.now() < inputGraceUntil) return;
   dive.mg.pointer(type, e);
 }
 

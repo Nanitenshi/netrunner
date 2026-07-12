@@ -12,7 +12,9 @@ import {
   handleWorldPointer,
   worldCancelPointer,
   worldSetFocusToggle,
-  refreshNodeList
+  refreshNodeList,
+  currentGoal,
+  routeGoal
 } from "./world.js";
 
 import { initUI, uiTick, toast, setComms } from "./ui.js";
@@ -28,6 +30,7 @@ import {
   handleDivePointer,
   diveCancelPointer,
   diveSetPaused,
+  diveAbort,
   initDive
 } from "./dive.js";
 
@@ -164,11 +167,38 @@ export function setPaused(p) {
   const btnPause = $("btnPause");
   if (btnPause) btnPause.textContent = game.paused ? "RESUME" : "PAUSE";
 
+  // Echtes Pausenmenü statt eingefrorenem Bildschirm
+  const menu = $("pauseMenu");
+  if (menu) menu.classList.toggle("hidden", !game.paused);
+  if (game.paused) {
+    const snd = $("btnPmSound");
+    if (snd) snd.textContent = `SOUND: ${game.settings.music ? "AN" : "AUS"}`;
+    const q = $("btnPmQuality");
+    if (q) q.textContent = `GRAFIK: ${game.settings.quality === "perf" ? "PERF (schnell)" : "SHARP (schön)"}`;
+    const abort = $("btnPmAbort");
+    if (abort) abort.classList.toggle("hidden", game.mode !== "MISSION");
+  }
+
   toast(game.paused ? "PAUSED." : "RESUMED.");
 }
 
 export function togglePause() {
   setPaused(!game.paused);
+}
+
+// Als benannte Funktionen, damit Bottom-Bar UND Pausenmenü sie teilen
+function toggleQuality() {
+  game.settings.quality = (game.settings.quality === "perf") ? "quality" : "perf";
+  saveNow();
+  resizeAll();
+  toast(game.settings.quality === "perf" ? "QUALITY: PERF" : "QUALITY: SHARP");
+}
+
+function toggleMusic() {
+  game.settings.music = !game.settings.music;
+  saveNow();
+  musicSetEnabled(game.settings.music);
+  toast(game.settings.music ? "MUSIK: ON" : "MUSIK: OFF");
 }
 
 /* ---------------- QUALITY / DPR ---------------- */
@@ -242,8 +272,11 @@ function boot() {
   game.canvases.world = $("worldCanvas");
   game.canvases.mission = $("missionCanvas");
 
-  if (game.canvases.world) game.ctx.world = game.canvases.world.getContext("2d", { alpha: true, desynchronized: true });
-  if (game.canvases.mission) game.ctx.mission = game.canvases.mission.getContext("2d", { alpha: true, desynchronized: true });
+  // KEIN desynchronized:true — auf Android-WebViews bleibt so ein Canvas nach
+  // App-Background/Resume gern dauerhaft weiß (bekannter Chromium-Bug, deckt
+  // sich mit dem gemeldeten White Screen nach Bildschirm-Aus)
+  if (game.canvases.world) game.ctx.world = game.canvases.world.getContext("2d", { alpha: true });
+  if (game.canvases.mission) game.ctx.mission = game.canvases.mission.getContext("2d", { alpha: true });
 
   // load save
   const saved = loadSave();
@@ -294,24 +327,27 @@ function boot() {
     saveNow,
     resetSave,
     togglePause,
-    toggleQuality: () => {
-      game.settings.quality = (game.settings.quality === "perf") ? "quality" : "perf";
-      saveNow();
-      resizeAll();
-      toast(game.settings.quality === "perf" ? "QUALITY: PERF" : "QUALITY: SHARP");
-    },
+    toggleQuality,
     toggleAutosave: () => {
       game.settings.autosave = !game.settings.autosave;
       saveNow();
       toast(game.settings.autosave ? "AUTO: ON" : "AUTO: OFF");
     },
-    toggleMusic: () => {
-      game.settings.music = !game.settings.music;
-      saveNow();
-      musicSetEnabled(game.settings.music);
-      toast(game.settings.music ? "MUSIK: ON" : "MUSIK: OFF");
-    },
-    focusToggle: () => worldSetFocusToggle?.()
+    toggleMusic,
+    focusToggle: () => worldSetFocusToggle?.(),
+    getGoal: currentGoal,
+    routeGoal
+  });
+
+  // Pausenmenü-Buttons
+  $("btnResume")?.addEventListener("click", () => setPaused(false));
+  $("btnPmSound")?.addEventListener("click", () => { toggleMusic(); setPaused(true); });
+  $("btnPmQuality")?.addEventListener("click", () => { toggleQuality(); setPaused(true); });
+  $("btnPmAbort")?.addEventListener("click", () => {
+    diveAbort?.();
+    setPaused(false);
+    setMode("WORLD");
+    toast("DIVE ABGEBROCHEN — Buffer verworfen.");
   });
 
   // three background
@@ -358,6 +394,19 @@ function boot() {
 
   resizeAll();
   window.addEventListener("resize", resizeAll);
+
+  // Nach App-Resume (Bildschirm war aus / App im Hintergrund): Backing-Stores
+  // neu anlegen und Audio aufwecken — zweite Verteidigungslinie gegen den
+  // White Screen, zusätzlich zum entfernten desynchronized-Flag
+  const onResume = () => {
+    if (document.hidden) return;
+    resizeAll();
+    lastTime = performance.now();
+    unlockAudio();
+    musicSetEnabled(game.settings.music);
+  };
+  document.addEventListener("visibilitychange", onResume);
+  window.addEventListener("pageshow", onResume);
 
   toast("SYSTEM READY.");
   setMode("TITLE");

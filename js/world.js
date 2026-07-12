@@ -5,6 +5,7 @@ import { openNpcDialog } from "./npc.js";
 import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js";
 import { sfx } from "./sfx.js";
 import { saveNow } from "./save.js";
+import { encounterTick } from "./encounters.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1748,6 +1749,7 @@ export function worldTick(dt = 0) {
   stepPuffs(dt);
   stepStreetLoot();
   stepCamera(dt);
+  if (game.mode === "WORLD") encounterTick(dt, nodeDistrict(player).id);
   draw();
 }
 

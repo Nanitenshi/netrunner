@@ -24,6 +24,7 @@ import { initUI, uiTick, toast, setComms } from "./ui.js";
 import { loadSave, saveNow, resetSave } from "./save.js";
 import { openNpcDialog, npcTick } from "./npc.js";
 import { initCrewUI, closeCrewOverlay } from "./crew.js";
+import { initEncounters } from "./encounters.js";
 import { unlockAudio } from "./sfx.js";
 import { musicSetEnabled, musicSetIntensity } from "./music.js";
 
@@ -436,6 +437,7 @@ function boot() {
 
   initDive();
   initCrewUI();
+  initEncounters();
 
   // Audio erst nach erster User-Geste (Autoplay-Policy)
   window.addEventListener("pointerdown", () => {

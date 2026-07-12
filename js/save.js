@@ -1,4 +1,4 @@
-import { game } from "./core.js?v=6316f110";
+import { game } from "./core.js?v=f36e00dc";
 
 const KEY = "neonAlley_save_v1";
 
@@ -11,6 +11,7 @@ export function saveNow() {
       frags: game.frags,
       psychosis: game.psychosis,
       build: game.build,
+      programsOwned: game.programsOwned,
       district: game.district,
       dayClock: game.dayClock,
       missionsDone: game.missionsDone,

@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=6316f110";
-import { sfx } from "./sfx.js?v=6316f110";
+import { game } from "./core.js?v=f36e00dc";
+import { sfx } from "./sfx.js?v=f36e00dc";
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,12 +21,14 @@ function playRect() {
     top = Math.max(120, hud.getBoundingClientRect().bottom + 34);
   }
 
-  // ...und endet über der Crew-Ability-Leiste, falls sichtbar (sonst fangen
-  // ihre Buttons Taps ab, bevor sie die Canvas erreichen)
+  // ...und endet über Ability- und Programm-Leiste, falls sichtbar (sonst
+  // fangen ihre Buttons Taps ab, bevor sie die Canvas erreichen)
   let bottomMargin = 150;
-  const bar = $("abilityBar");
-  if (bar && !bar.classList.contains("hidden") && bar.children.length) {
-    bottomMargin = Math.max(bottomMargin, (H - bar.getBoundingClientRect().top) + 16);
+  for (const barId of ["abilityBar", "programBar"]) {
+    const bar = $(barId);
+    if (bar && !bar.classList.contains("hidden") && bar.children.length) {
+      bottomMargin = Math.max(bottomMargin, (H - bar.getBoundingClientRect().top) + 16);
+    }
   }
 
   const margin = W < 600 ? 20 : 60;

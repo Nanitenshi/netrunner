@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=6316f110";
+} from "./threeScene.js?v=f36e00dc";
 
 import {
   initWorld,
@@ -16,14 +16,14 @@ import {
   currentGoal,
   routeGoal,
   nearMissionNode
-} from "./world.js?v=6316f110";
+} from "./world.js?v=f36e00dc";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=6316f110";
-import { loadSave, saveNow, resetSave } from "./save.js?v=6316f110";
-import { openNpcDialog, npcTick } from "./npc.js?v=6316f110";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=6316f110";
-import { unlockAudio } from "./sfx.js?v=6316f110";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=6316f110";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=f36e00dc";
+import { loadSave, saveNow, resetSave } from "./save.js?v=f36e00dc";
+import { openNpcDialog, npcTick } from "./npc.js?v=f36e00dc";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=f36e00dc";
+import { unlockAudio } from "./sfx.js?v=f36e00dc";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=f36e00dc";
 
 import {
   startDive,
@@ -33,7 +33,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=6316f110";
+} from "./dive.js?v=f36e00dc";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -65,6 +65,8 @@ export const game = {
   // Hacker-Build: permanente, jederzeit wechselbare Spielstil-Wahl
   // (GHOST RUNNER / COMBAT RUNNER / DATA THIEF) — siehe builds.js
   build: null,
+  // Programme: verbrauchbare Dive-Items, mit E$ gekauft, im Dive verbraucht
+  programsOwned: { panic: 0, boost: 0, decoy: 0 },
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },

@@ -1,8 +1,9 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game } from "./core.js?v=6316f110";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=6316f110";
-import { saveNow } from "./save.js?v=6316f110";
-import { BUILDS, getBuild } from "./builds.js?v=6316f110";
+import { game } from "./core.js?v=f36e00dc";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=f36e00dc";
+import { saveNow } from "./save.js?v=f36e00dc";
+import { BUILDS, getBuild } from "./builds.js?v=f36e00dc";
+import { PROGRAMS } from "./programs.js?v=f36e00dc";
 
 const $ = (id) => document.getElementById(id);
 
@@ -532,6 +533,7 @@ export function openCrewOverlay() {
   renderBroker();
   renderCrewGrid();
   renderGear();
+  renderPrograms();
 }
 
 export function closeCrewOverlay() {
@@ -705,6 +707,51 @@ function renderGear() {
     const verb = overclocked ? "⚡ÜBERTAKTEN" : "KAUFEN";
     btn.textContent = discount > 0 ? `${verb} ${price} E$ (RUST -${Math.round(discount * 100)}%)` : `${verb} ${price} E$`;
     bindFastPress(btn, () => buyGear(g.id));
+
+    row.append(body, btn);
+    wrap.appendChild(row);
+  }
+}
+
+/* ---------------- PROGRAMME (Verbrauchsgüter) ---------------- */
+function buyProgram(pid) {
+  const p = PROGRAMS[pid];
+  if (game.money < p.cost) return toast(`ZU WENIG EDDIES (${p.cost} E$).`);
+
+  game.money -= p.cost;
+  game.programsOwned[pid] = (game.programsOwned[pid] || 0) + 1;
+  saveNow();
+  toast(`${p.icon} ${p.name} GEKAUFT (${game.programsOwned[pid]}x im Inventar)`);
+  renderPrograms();
+}
+
+function renderPrograms() {
+  const wrap = $("programList");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  for (const p of Object.values(PROGRAMS)) {
+    const owned = game.programsOwned?.[p.id] || 0;
+
+    const row = document.createElement("div");
+    row.className = "gearRow";
+
+    const body = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = `${p.icon} ${p.name} · IM INVENTAR: ${owned}`;
+
+    const desc = document.createElement("div");
+    desc.className = "meta";
+    desc.textContent = p.desc;
+
+    body.append(name, desc);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn small yellow";
+    btn.textContent = `KAUFEN ${p.cost} E$`;
+    bindFastPress(btn, () => buyProgram(p.id));
 
     row.append(body, btn);
     wrap.appendChild(row);

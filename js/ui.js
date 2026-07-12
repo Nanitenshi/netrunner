@@ -1,6 +1,6 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=6316f110";
-import { saveNow } from "./save.js?v=6316f110";
-import { BUILDS } from "./builds.js?v=6316f110";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=f36e00dc";
+import { saveNow } from "./save.js?v=f36e00dc";
+import { BUILDS } from "./builds.js?v=f36e00dc";
 
 const $ = (id) => document.getElementById(id);
 

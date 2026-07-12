@@ -1,6 +1,6 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=759d9107";
-import { saveNow } from "./save.js?v=759d9107";
-import { BUILDS } from "./builds.js?v=759d9107";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=ea10dd0d";
+import { saveNow } from "./save.js?v=ea10dd0d";
+import { BUILDS } from "./builds.js?v=ea10dd0d";
 
 const $ = (id) => document.getElementById(id);
 
@@ -83,6 +83,10 @@ export function initUI(_api) {
     const n = api.nearMission?.();
     if (n) api.quickStart?.(n);
   });
+
+  // Zentrieren: Kamera kehrt zum Charakter zurück, ohne dass man dafür
+  // (ungewollt) irgendwo hinlaufen muss
+  bindFastPress($("btnRecenter"), () => api.recenterCamera?.());
 
   // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen —
   // beim Öffnen die Liste neu aufbauen, falls sich Requires-Gates (z.B. ein
@@ -239,6 +243,18 @@ export function uiTick(dt = 0) {
       const hudBottom = hud ? hud.getBoundingClientRect().bottom : 100;
       diveBtn.style.top = `${Math.round(hudBottom + 14)}px`;
     }
+  }
+
+  // Zentrieren-Button: nur sichtbar, wenn die Kamera manuell weggezogen
+  // wurde (Wisch-Pan/Pinch) — vorher gab es dafür keinen dedizierten Weg
+  // zurück, nur einen Tap-zum-Hinlaufen, der ungewollt losläuft
+  const recenterBtn = $("btnRecenter");
+  if (recenterBtn) {
+    const overlayOpen = !$("crewOverlay")?.classList.contains("hidden")
+      || !$("pauseMenu")?.classList.contains("hidden")
+      || !$("tutorial")?.classList.contains("hidden");
+    const show = game.mode === "WORLD" && !overlayOpen && !!api?.isManualPan?.();
+    recenterBtn.classList.toggle("hidden", !show);
   }
 
   const t = $("hudTime");

@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#05070a"/>
   <title>NEON ALLEY — Netrunner</title>
 
-  <link rel="manifest" href="manifest.webmanifest?v=759d9107">
+  <link rel="manifest" href="manifest.webmanifest?v=ea10dd0d">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=759d9107">
-  <script type="module" src="js/core.js?v=759d9107"></script>
+  <link rel="stylesheet" href="css/style.css?v=ea10dd0d">
+  <script type="module" src="js/core.js?v=ea10dd0d"></script>
 </head>
 
 <body>
@@ -236,6 +236,14 @@
       <button type="button" id="btnDiveNow" class="btn yellow hidden"
         style="position:absolute; left:50%; transform:translateX(-50%); z-index:30">
         ▶ DIVE STARTEN
+      </button>
+
+      <!-- ZENTRIEREN: erscheint, sobald die Kamera manuell weggezogen wurde
+           (Wisch-Pan oder Pinch-Zoom) — sonst gibt es keinen Weg zurück zum
+           Charakter außer einem Tap-zum-Hinlaufen, der ungewollt losläuft. -->
+      <button type="button" id="btnRecenter" class="btn yellow hidden"
+        style="position:absolute; right:16px; bottom:96px; z-index:30">
+        📍 ZENTRIEREN
       </button>
 
       <!-- PAUSE MENU -->

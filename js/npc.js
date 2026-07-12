@@ -1,40 +1,56 @@
 // js/npc.js
-import { game, checkDailyReset } from "./core.js?v=e986ddcb";
-import { toast, renderStoryLog } from "./ui.js?v=e986ddcb";
-import { getNodeById } from "./world.js?v=e986ddcb";
-import { crewTick } from "./crew.js?v=e986ddcb";
-import { saveNow } from "./save.js?v=e986ddcb";
+import { game, checkDailyReset } from "./core.js?v=93f41227";
+import { toast, renderStoryLog } from "./ui.js?v=93f41227";
+import { getNodeById } from "./world.js?v=93f41227";
+import { crewTick } from "./crew.js?v=93f41227";
+import { saveNow } from "./save.js?v=93f41227";
 
-const LINES = {
+// Jeder NPC hat einen kleinen, festen Dialog-Arc statt zufälliger Zeilen —
+// jeder Besuch (nach dem Tagesbonus) rückt eine Stufe weiter, die letzte
+// Zeile wiederholt sich danach. So erzählt wiederholtes Ansprechen wirklich
+// eine Geschichte statt nur Flavor-Rauschen.
+const STORY_ARC = {
   NYX: [
     "Wir starten sauber. Aber die Stadt bleibt nie sauber.",
     "Arasaka lächelt am Tag. Nachts fressen sie.",
-    "Halt deinen Buffer voll und deinen Mund leer."
+    "Halt deinen Buffer voll und deinen Mund leer.",
+    "Ich hab auch mal gedivt. Bis ich einen Freund im Buffer gelassen hab. Seitdem sitz ich lieber am Schreibtisch."
   ],
   GHOST: [
     "Wenn du glaubst du steuerst das, hat dich die Stadt schon.",
     "Ich hab was für dich. Frag nicht, woher.",
-    "Heat runter, Eddies rauf. So einfach ist das nicht, aber tu so."
+    "Heat runter, Eddies rauf. So einfach ist das nicht, aber tu so.",
+    "Ich handle mit allem außer Namen. Meiner ist auch nicht echt, GHOST tut's."
   ],
   "RUNNER-9": [
     "Der Kaffee hier ist schlechter als meine Firewall. Beides hält trotzdem.",
-    "Konzerne merken sich alles. Merk dir das."
+    "Konzerne merken sich alles. Merk dir das.",
+    "Ich war mal Konzern-Analystin. Jetzt verkauf ich, was sie mir beigebracht haben — an alle, die zahlen.",
+    "Frag mich nicht, was ich vorher war. Frag, was du als Nächstes brauchst."
   ],
   "ICE-VOICE": [
     "Willkommen im Lobby-Bereich. Ihre Daten gehören jetzt uns.",
-    "Sicherheitsstufe steigt mit jedem Ihrer Schritte."
+    "Sicherheitsstufe steigt mit jedem Ihrer Schritte.",
+    "Ich bin nicht hier, um zu urteilen. Nur um zu protokollieren.",
+    "Jeder Zugang, den Sie öffnen, öffnet auch einen für mich. Danke für die Zusammenarbeit."
   ],
   RUST: [
     "Schrott ist nur Metall, das noch nicht verkauft wurde.",
-    "Die Leitungen hier lügen nicht. Menschen schon."
+    "Die Leitungen hier lügen nicht. Menschen schon.",
+    "Ich hab mal für Militech geschraubt. Dann hab ich angefangen, selbst zu zählen, was übrig bleibt.",
+    "Jedes Teil hier hat mal wem gehört, der nicht mehr fragt, wo's ist."
   ],
   "DOC-K": [
     "Ich flick dich. Frag nicht wie.",
-    "Heat zu hoch, und ich seh dich nicht wieder."
+    "Heat zu hoch, und ich seh dich nicht wieder.",
+    "Ich hab keine Lizenz mehr. Dafür bessere Hände.",
+    "Jeder, den ich patch, ist einer weniger, den die Stadt behält. Das reicht mir als Grund."
   ],
   ECHO: [
     "Niemand hier war je wirklich hier.",
-    "Signale sterben nie. Sie warten nur."
+    "Signale sterben nie. Sie warten nur.",
+    "Ich hör Dinge tief unten, die keinen Sender haben sollten.",
+    "Je tiefer du gehst, desto lauter wird's. Irgendwann antwortet es dir."
   ],
   default: ["...Verbindung instabil..."]
 };
@@ -96,13 +112,16 @@ export function openNpcDialog(nodeId) {
     return;
   }
 
-  const pool = LINES[npcName] || LINES.default;
-  const line = pool[Math.floor(Math.random() * pool.length)];
+  const arc = STORY_ARC[npcName] || STORY_ARC.default;
+  const stage = Math.min(game.storyStage[npcName] || 0, arc.length - 1);
+  const line = arc[stage];
+  game.storyStage[npcName] = Math.min(stage + 1, arc.length - 1);
 
   game.storyLog.unshift(`> ${npcName || "SIGNAL"}: "${line}"`);
   if (game.storyLog.length > 60) game.storyLog.length = 60;
 
   renderStoryLog();
+  saveNow();
   toast("COMMS RECEIVED.");
 }
 

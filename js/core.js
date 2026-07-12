@@ -84,6 +84,7 @@ export const game = {
   selectedMissionType: null,
   selectedMissionTier: 1,
   selectedMissionHot: false,
+  selectedMissionArchetype: null,
   storyLog: [],
 
   canvases: { three: null, world: null, mission: null },
@@ -375,7 +376,7 @@ function boot() {
     }
     setMode("MISSION");
     const special = game.selectedNodeId === "H1" ? "void" : null;
-    startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot, special);
+    startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot, special, game.selectedMissionArchetype);
   };
 
   // init modules
@@ -388,6 +389,7 @@ function boot() {
       game.selectedMissionType = n.missionType || null;
       game.selectedMissionTier = n.tier || 1;
       game.selectedMissionHot = !!n.hot;
+      game.selectedMissionArchetype = n.archetype || null;
       startMissionNow();
     },
     nearMission: nearMissionNode,

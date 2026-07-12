@@ -6,6 +6,7 @@ import { computeMods, banter, banterLine, getChar } from "./crew.js";
 import { getBuild } from "./builds.js";
 import { ICE_CLASSES, iceLabel } from "./ice.js";
 import { PROGRAMS } from "./programs.js";
+import { getArchetype } from "./archetypes.js";
 import { saveNow } from "./save.js";
 import { sfx } from "./sfx.js";
 
@@ -179,6 +180,9 @@ function traceGainRange(d, mod) {
 function setDiveHud() {
   if (!dive) return;
 
+  const ar = $("mHudArchetype");
+  if (ar) ar.textContent = dive.archetype && dive.archetype.id !== "infiltration" ? `${dive.archetype.icon} ${dive.archetype.name} · ` : "";
+
   const t = $("mHudType");
   if (t) t.textContent = dive.spec ? iceLabel(dive.spec.type, dive.tier, dive.layer) : (dive.mg?.name || "—");
 
@@ -309,6 +313,17 @@ function hideProgramBar() {
 }
 
 /* ---------------- Layer-Lifecycle ---------------- */
+// INTEL-Missionen: Signal-Relais (trace-Minigame) tauchen häufiger auf —
+// passt zum "Daten sammeln"-Auftrag, ohne den Zufalls-Pool für alle anderen
+// Archetypen anzufassen
+function pickMgType() {
+  const bias = dive.archetype?.traceTypeBias;
+  if (!bias) return MG_TYPES[Math.floor(Math.random() * MG_TYPES.length)];
+  const weighted = [...MG_TYPES];
+  for (let i = 0; i < bias; i++) weighted.push("trace");
+  return weighted[Math.floor(Math.random() * weighted.length)];
+}
+
 function rollNextLayer(layerNum) {
   // Bosse haben Vorrang: alle 10 Layer der große, alle 5 der kleine
   if (layerNum % 10 === 0) {
@@ -328,7 +343,7 @@ function rollNextLayer(layerNum) {
   const rookie = game.missionsDone < 3;
 
   const spec = {
-    type: MG_TYPES[Math.floor(Math.random() * MG_TYPES.length)],
+    type: pickMgType(),
     mod: rollLayerMod(),
     // 40% der Modifikatoren bleiben verdeckt — Restrisiko
     hidden: !rookie && Math.random() < 0.4,
@@ -381,9 +396,10 @@ function startLayer(spec) {
   }
 }
 
-export function startDive(firstType, tier = 1, hot = false, special = null) {
+export function startDive(firstType, tier = 1, hot = false, special = null, archetypeId = null) {
   const mods = computeMods();
   clearParticles();
+  const archetype = getArchetype(archetypeId);
 
   // Tagesboni von NPC-Besuchen: einmalig, werden hier verbraucht
   const buffs = game.buffs;
@@ -399,6 +415,7 @@ export function startDive(firstType, tier = 1, hot = false, special = null) {
     tier: tier + (hot ? 1 : 0),
     hot,
     special,
+    archetype,
     layer: 1,
     bufferE: 0,
     bufferF: 0,
@@ -417,6 +434,13 @@ export function startDive(firstType, tier = 1, hot = false, special = null) {
 
   if (hot) dive.mods = { ...mods, lootMult: mods.lootMult * 1.5 };
 
+  // Mission-Archetyp: parametrisiert den bestehenden Dive-Loop statt ihn zu
+  // ersetzen — gibt jeder Mission eine eigene Identität (HEIST/SABOTAGE/
+  // ESCORT/INTEL/INFILTRATION), siehe archetypes.js
+  if (archetype.lootMult) dive.mods.lootMult *= archetype.lootMult;
+  if (archetype.traceMult) dive.mods.traceMult *= archetype.traceMult;
+  if (archetype.fragsPerLayerBonus) dive.mods.fragsPerLayer += archetype.fragsPerLayerBonus;
+
   // verbraucht — erst nach dem Kopieren in dive.mods zurücksetzen
   game.buffs.traceCut = 0;
   game.buffs.lootBonus = 1;
@@ -427,7 +451,9 @@ export function startDive(firstType, tier = 1, hot = false, special = null) {
   renderProgramBar();
   startLayer({ type: firstType, mod: LAYER_MODS[0], hidden: false });
   banter("start", true);
-  toast(hot ? `HOT ZONE DIVE — TIER ${dive.tier} · +50% LOOT` : `DIVE START — TIER ${dive.tier}`);
+
+  const archetypeTag = archetype.id !== "infiltration" ? ` · ${archetype.icon} ${archetype.name}` : "";
+  toast(hot ? `HOT ZONE DIVE — TIER ${dive.tier} · +50% LOOT${archetypeTag}` : `DIVE START — TIER ${dive.tier}${archetypeTag}`);
 }
 
 /* ---------------- Choice / Event UI ---------------- */
@@ -537,35 +563,48 @@ function onReport(res) {
   const mod = dive.layerMod;
   const mult = depthMult(dive.layer);
 
-  // Sonder-Multiplikatoren: korrumpiert x1.8, geheim x2, Bosse x2.5 / x4
+  // Perfekter Layer: kein einziger Fehltritt — belohnt präzises Spiel
+  // zusätzlich zum reinen Tempo/Score
+  const perfect = res.misses === 0;
+
+  // Sonder-Multiplikatoren: korrumpiert x1.8, geheim x2, Bosse x2.5 / x4, perfekt x1.12
   let special = 1;
   if (spec.corrupt) special *= 1.8;
   if (spec.secret) special *= 2;
   if (spec.boss === "mini") special *= 2.5;
   if (spec.boss === "big") special *= 4;
+  if (perfect) special *= 1.12;
 
   const e = Math.round(res.score * 3 * mult * dive.mods.lootMult * mod.loot * special);
-  const f = Math.round((res.score * 0.8 + dive.mods.fragsPerLayer) * (1 + 0.25 * (dive.layer - 1)) * (spec.boss ? 1.5 : 1));
+  let f = Math.round((res.score * 0.8 + dive.mods.fragsPerLayer) * (1 + 0.25 * (dive.layer - 1)) * (spec.boss ? 1.5 : 1));
+  if (dive.archetype?.fragMult) f = Math.round(f * dive.archetype.fragMult);
   dive.bufferE += e;
   dive.bufferF += f;
 
   // Trace mit Varianz: gleiche Basis, aber ±Zufall — man weiß nie genau
   const base = (10 + dive.tier * 3 + res.misses * 3) * dive.mods.traceMult * mod.trace;
   dive.trace += base * (0.75 + Math.random() * 0.6);
+  if (perfect) dive.trace = Math.max(0, dive.trace - 3);
 
   // Boss zerstört = Verbindung bereinigt: Trace sinkt deutlich
   // (Werte per Simulation kalibriert: -30/-50 macht Layer 10+ erreichbar,
   //  ohne dass Neulinge endlos loopen können)
   const bossBonus = dive.mods.bossTraceBonus || 0;
+  const sabBonusF = dive.archetype?.bossBonusFrags || 0;
+  const sabBonusE = dive.archetype?.bossBonusMoney || 0;
   if (spec.boss === "mini") {
     dive.trace = Math.max(0, dive.trace - 30 - bossBonus);
-    toast(`WÄCHTER ZERSTÖRT — TRACE -${30 + bossBonus}.`);
+    if (sabBonusF || sabBonusE) { dive.bufferF += sabBonusF; dive.bufferE += sabBonusE; }
+    toast(`WÄCHTER ZERSTÖRT — TRACE -${30 + bossBonus}.${sabBonusF ? ` SABOTAGE-BONUS +${sabBonusF} ◆` : ""}`);
     sfx.jackout();
   } else if (spec.boss === "big") {
     dive.trace = Math.max(0, dive.trace - 50 - bossBonus);
     dive.bufferF += 40;
-    toast(`ICE-KERN VERNICHTET — TRACE -${50 + bossBonus}, +40 ◆!`);
+    if (sabBonusF || sabBonusE) { dive.bufferF += sabBonusF; dive.bufferE += sabBonusE; }
+    toast(`ICE-KERN VERNICHTET — TRACE -${50 + bossBonus}, +40 ◆!${sabBonusF ? ` SABOTAGE-BONUS +${sabBonusF} ◆` : ""}`);
     sfx.jackout();
+  } else if (perfect) {
+    toast("✨ PERFEKT — kein Fehler. +12% Loot, Trace -3.");
   }
 
   if (dive.trace >= 100) {
@@ -627,6 +666,14 @@ function dumped(reason) {
 
 function jackOut() {
   if (!dive || dive.phase !== "choice" || dive.event) return;
+
+  // ESCORT: die Fracht muss erst eine Mindesttiefe erreichen, bevor ein
+  // sauberer Ausstieg überhaupt möglich ist
+  const minLayer = dive.archetype?.minJackoutLayer;
+  if (minLayer && dive.layer < minLayer) {
+    toast(`📦 FRACHT NOCH NICHT STABIL — mind. Layer ${minLayer} nötig.`);
+    return;
+  }
 
   const heatAdd = Math.ceil(dive.trace / 12);
   const e = dive.bufferE, f = dive.bufferF, layer = dive.layer;

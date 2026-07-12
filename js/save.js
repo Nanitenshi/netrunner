@@ -9,6 +9,7 @@ export function saveNow() {
       money: game.money,
       heat: game.heat,
       frags: game.frags,
+      psychosis: game.psychosis,
       district: game.district,
       dayClock: game.dayClock,
       missionsDone: game.missionsDone,

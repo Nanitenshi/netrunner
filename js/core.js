@@ -44,6 +44,10 @@ export const game = {
   dayClock: 0,
   dayRatio: 0,
   missionsDone: 0,
+  // Cyberpsychose: steigt bei gescheiterten Dives (Dump), sinkt langsam von
+  // allein und deutlicher bei einem sauberen, tiefen Jack Out. Bewusst ohne
+  // HUD-Anzeige — man soll es hören, nicht ablesen.
+  psychosis: 0,
 
   settings: {
     quality: "perf", // perf | quality
@@ -54,7 +58,7 @@ export const game = {
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
   daily: { date: "", done: false, npcs: {} },
-  stats: { bestLayer: 0, dives: 0, dumps: 0, voidAnnounced: false },
+  stats: { bestLayer: 0, dives: 0, dumps: 0, voidAnnounced: false, voidCompleted: false, psychosisWarned: false },
   // Fortschritt der NPC-Story-Arcs: welche Dialogzeile als nächstes dran ist
   storyStage: {},
   // einmalige Boni von NPC-Besuchen, werden beim nächsten Dive verbraucht
@@ -271,7 +275,8 @@ function boot() {
         return;
       }
       setMode("MISSION");
-      startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot);
+      const special = game.selectedNodeId === "H1" ? "void" : null;
+      startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot, special);
     },
     openNpcDialog,
     saveNow,
@@ -367,6 +372,8 @@ function loop(tNow) {
       npcTick(dt);
       // Heat kühlt nur langsam ab — die Klinik ist der schnelle Weg
       if (game.heat > 0) game.heat = Math.max(0, game.heat - dt * 0.08);
+      // Psychose klingt noch langsamer ab als Heat — schwerer abzuschütteln
+      if (game.psychosis > 0) game.psychosis = Math.max(0, game.psychosis - dt * 0.03);
     }
 
     if (game.mode === "MISSION") {
@@ -376,7 +383,33 @@ function loop(tNow) {
 
         // Statistik + Tiefen-Rekord
         game.stats.dives += 1;
-        if (!resultData.meta?.jackout) game.stats.dumps += 1;
+
+        // Hauptstory Beat: Gerücht über verschwundene Runner (einmalig)
+        if (game.missionsDone === 5) {
+          game.storyLog.unshift(`> GHOST: „Läuft da draußen ein Gerücht rum. Manche Runner kommen nicht zurück. Nicht tot. Einfach... nicht zurück.“`);
+        }
+
+        if (!resultData.meta?.jackout) {
+          game.stats.dumps += 1;
+          // Cyberpsychose: ein gescheiterter Dive (Dump) nagt am Kopf
+          game.psychosis = Math.min(100, game.psychosis + 18 + Math.random() * 10);
+
+          // Hauptstory Beat: Reaktion auf den ersten je erlittenen Dump
+          if (game.stats.dumps === 1) {
+            game.storyLog.unshift(`> NYX: „Du hast gerade gefühlt, wie sich ein Verlust im Buffer anfühlt. Ich hab dir gesagt, halt den Mund leer. Jetzt halt auch den Kopf ruhig.“`);
+          }
+        } else if (resultData.meta.layer >= 5) {
+          // ein sauberer, tiefer Jack Out beruhigt spürbar
+          game.psychosis = Math.max(0, game.psychosis - 10);
+        }
+
+        // Hauptstory Beat: das erste Mal, dass die Psychose spürbar wird
+        if (!game.stats.psychosisWarned && game.psychosis >= 50) {
+          game.stats.psychosisWarned = true;
+          game.storyLog.unshift(`> ??? : „...du hörst es jetzt auch, oder? Die Stadt nennt das Cyberpsychose. Die, die es hören, nennen es anders.“`);
+          toast(`⚠ Du hörst Dinge, die nicht da sein sollten.`);
+        }
+
         let recordLine = "";
         if ((resultData.meta?.layer || 0) > game.stats.bestLayer) {
           game.stats.bestLayer = resultData.meta.layer;

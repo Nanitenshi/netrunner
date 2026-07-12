@@ -584,13 +584,15 @@ function interact(n) {
   if (n.type === "npc") {
     openNpcDialog(n.id);
 
-    // Clinic: Heat gegen Eddies löschen
-    if (n.id === "F1" && game.heat >= 5) {
-      const cost = Math.ceil(game.heat * 2);
+    // Clinic: Heat und (falls vorhanden) Cyberpsychose gegen Eddies löschen
+    if (n.id === "F1" && (game.heat >= 5 || game.psychosis >= 10)) {
+      const cost = Math.ceil(Math.max(game.heat, 8) * 2);
       if (game.money >= cost) {
         game.money -= cost;
+        const hadPsychosis = game.psychosis >= 10;
         game.heat = 0;
-        toast(`DOC-K: SYSTEM CLEAN. -${cost} E$`);
+        game.psychosis = Math.max(0, game.psychosis - 30);
+        toast(`DOC-K: SYSTEM CLEAN. -${cost} E$${hadPsychosis ? " · Kopf ist wieder ruhig." : ""}`);
       } else {
         toast(`DOC-K will ${cost} E$ für den Clean.`);
       }

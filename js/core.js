@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=65ef8709";
+} from "./threeScene.js?v=9252658c";
 
 import {
   initWorld,
@@ -13,14 +13,14 @@ import {
   worldCancelPointer,
   worldSetFocusToggle,
   refreshNodeList
-} from "./world.js?v=65ef8709";
+} from "./world.js?v=9252658c";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=65ef8709";
-import { loadSave, saveNow, resetSave } from "./save.js?v=65ef8709";
-import { openNpcDialog, npcTick } from "./npc.js?v=65ef8709";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=65ef8709";
-import { unlockAudio } from "./sfx.js?v=65ef8709";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=65ef8709";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=9252658c";
+import { loadSave, saveNow, resetSave } from "./save.js?v=9252658c";
+import { openNpcDialog, npcTick } from "./npc.js?v=9252658c";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=9252658c";
+import { unlockAudio } from "./sfx.js?v=9252658c";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=9252658c";
 
 import {
   startDive,
@@ -29,7 +29,7 @@ import {
   diveCancelPointer,
   diveSetPaused,
   initDive
-} from "./dive.js?v=65ef8709";
+} from "./dive.js?v=9252658c";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -48,6 +48,9 @@ export const game = {
   // allein und deutlicher bei einem sauberen, tiefen Jack Out. Bewusst ohne
   // HUD-Anzeige — man soll es hören, nicht ablesen.
   psychosis: 0,
+  // Timestamp (performance.now()), bis zu dem der Welt-Canvas glitchen soll —
+  // rein transient, wird nie gespeichert
+  glitchUntil: 0,
 
   settings: {
     quality: "perf", // perf | quality

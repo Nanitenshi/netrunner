@@ -1,9 +1,9 @@
 // js/music.js — generative Ambient-Musik über WebAudio, keine Audio-Assets.
 // A-Moll-Pentatonik-Arpeggio über einem langsamen Pad; MISSION-Modus spielt dichter.
 
-import { getAudioCtx } from "./sfx.js?v=65ef8709";
-import { game } from "./core.js?v=65ef8709";
-import { toast } from "./ui.js?v=65ef8709";
+import { getAudioCtx } from "./sfx.js?v=9252658c";
+import { game } from "./core.js?v=9252658c";
+import { toast } from "./ui.js?v=9252658c";
 
 const SCALE = [110, 130.81, 146.83, 164.81, 196, 220, 261.63, 293.66, 329.63]; // A-Pentatonik
 const PAD_ROOTS = [110, 87.31, 130.81, 98]; // A2 → F2 → C3 → G2
@@ -136,6 +136,9 @@ function maybeScheduleWhisper(ac, now) {
 
   const t0 = Math.max(nextWhisperAt, now + 0.5);
   whisper(ac, t0);
+  // Bildstörung im Weltcanvas fällt (grob) mit dem hörbaren Moment zusammen —
+  // world.js pollt performance.now() gegen glitchUntil, kein extra Timer nötig
+  setTimeout(() => { game.glitchUntil = performance.now() + 700 + Math.random() * 400; }, 500);
   if (Math.random() < 0.4) {
     const line = WHISPER_LINES[Math.floor(Math.random() * WHISPER_LINES.length)];
     toast(`▓▓ ${line} ▓▓`);

@@ -38,13 +38,24 @@ let timer = null;
 function ensureGraph(ac) {
   if (master) return;
   master = ac.createGain();
-  // 0.11 war auf Handylautsprechern praktisch unhörbar (Spieler-Feedback:
-  // "hört gar nichts") — Voice-Pegel (0.014-0.05) blieben bei 0.11 Master
-  // im Bereich 0.002-0.006 absolut. Reichlich Headroom vorhanden: selbst
-  // Pad+Pluck gleichzeitig summieren pre-master auf ~0.11, also weit unter
-  // Clipping (1.0) auch bei diesem höheren Master-Wert.
-  master.gain.value = 0.42;
-  master.connect(ac.destination);
+  // Zweite Runde Spieler-Feedback nach 0.11 -> 0.42: immer noch "kaum
+  // hörbar". Reines Hochdrehen des Gains stößt hier an eine andere Grenze:
+  // die Plucks sind kurze, sparse Transienten (nur 22-42% Trefferchance pro
+  // Achtel, ~0.7s Decay) mit viel Stille dazwischen — das bleibt dünn, egal
+  // wie laut die Spitzen sind. Deshalb zusätzlich ein Kompressor: der hebt
+  // die gefühlte Lautheit (RMS) an, statt nur die ohnehin seltenen Peaks
+  // größer zu machen, und schützt gleichzeitig vor Clipping bei master=1.
+  master.gain.value = 1.0;
+
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -28;
+  comp.knee.value = 12;
+  comp.ratio.value = 6;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.25;
+
+  master.connect(comp);
+  comp.connect(ac.destination);
 }
 
 function pluck(ac, t, freq, vol) {
@@ -167,7 +178,10 @@ function schedule() {
   // Arpeggio-Steps im 0.35s-Lookahead-Fenster planen
   while (nextStep < now + 0.35) {
     stepCount += 1;
-    const density = intensity === 1 ? 0.42 : 0.22;
+    // Dichter als vorher — bei niedriger Trefferchance blieben zu große
+    // stille Lücken zwischen den Plucks, was leise wirkt, egal wie laut
+    // die einzelne Note ist
+    const density = intensity === 1 ? 0.6 : 0.34;
 
     if (Math.random() < density) {
       // Random Walk über die Skala, bleibt melodisch statt chaotisch

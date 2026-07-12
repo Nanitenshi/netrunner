@@ -1,9 +1,9 @@
 // js/npc.js
-import { game, checkDailyReset } from "./core.js?v=ba37fd3d";
-import { toast, renderStoryLog } from "./ui.js?v=ba37fd3d";
-import { getNodeById } from "./world.js?v=ba37fd3d";
-import { crewTick } from "./crew.js?v=ba37fd3d";
-import { saveNow } from "./save.js?v=ba37fd3d";
+import { game, checkDailyReset } from "./core.js?v=e986ddcb";
+import { toast, renderStoryLog } from "./ui.js?v=e986ddcb";
+import { getNodeById } from "./world.js?v=e986ddcb";
+import { crewTick } from "./crew.js?v=e986ddcb";
+import { saveNow } from "./save.js?v=e986ddcb";
 
 const LINES = {
   NYX: [

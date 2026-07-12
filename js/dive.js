@@ -1,9 +1,9 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=ba37fd3d";
-import { toast, bindFastPress } from "./ui.js?v=ba37fd3d";
-import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=ba37fd3d";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=ba37fd3d";
-import { sfx } from "./sfx.js?v=ba37fd3d";
+import { game } from "./core.js?v=e986ddcb";
+import { toast, bindFastPress } from "./ui.js?v=e986ddcb";
+import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=e986ddcb";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=e986ddcb";
+import { sfx } from "./sfx.js?v=e986ddcb";
 
 const $ = (id) => document.getElementById(id);
 
@@ -324,7 +324,7 @@ function renderChoice() {
   // Vorschau auf den nächsten Layer — Modifikator evtl. verdeckt
   const n = dive.next;
   const range = traceGainRange(dive, n.hidden ? null : n.mod);
-  const iceNames = { cache: "CACHE POP", wires: "WIRE MATCH", breach: "BREACH", pulse: "PULSE LOCK" };
+  const iceNames = { cache: "CACHE POP", wires: "WIRE MATCH", breach: "BREACH", pulse: "PULSE LOCK", trace: "SIGNAL TRACE" };
 
   const dcN = $("dcNext");
   if (dcN) {

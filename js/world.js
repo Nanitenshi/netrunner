@@ -1,8 +1,8 @@
 // js/world.js
-import { game } from "./core.js?v=93f41227";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=93f41227";
-import { openNpcDialog } from "./npc.js?v=93f41227";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=93f41227";
+import { game } from "./core.js?v=65ef8709";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=65ef8709";
+import { openNpcDialog } from "./npc.js?v=65ef8709";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=65ef8709";
 
 const $ = (id) => document.getElementById(id);
 
@@ -584,13 +584,15 @@ function interact(n) {
   if (n.type === "npc") {
     openNpcDialog(n.id);
 
-    // Clinic: Heat gegen Eddies löschen
-    if (n.id === "F1" && game.heat >= 5) {
-      const cost = Math.ceil(game.heat * 2);
+    // Clinic: Heat und (falls vorhanden) Cyberpsychose gegen Eddies löschen
+    if (n.id === "F1" && (game.heat >= 5 || game.psychosis >= 10)) {
+      const cost = Math.ceil(Math.max(game.heat, 8) * 2);
       if (game.money >= cost) {
         game.money -= cost;
+        const hadPsychosis = game.psychosis >= 10;
         game.heat = 0;
-        toast(`DOC-K: SYSTEM CLEAN. -${cost} E$`);
+        game.psychosis = Math.max(0, game.psychosis - 30);
+        toast(`DOC-K: SYSTEM CLEAN. -${cost} E$${hadPsychosis ? " · Kopf ist wieder ruhig." : ""}`);
       } else {
         toast(`DOC-K will ${cost} E$ für den Clean.`);
       }

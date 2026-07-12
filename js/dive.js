@@ -1,9 +1,9 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=93f41227";
-import { toast, bindFastPress } from "./ui.js?v=93f41227";
-import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=93f41227";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=93f41227";
-import { sfx } from "./sfx.js?v=93f41227";
+import { game } from "./core.js?v=65ef8709";
+import { toast, bindFastPress } from "./ui.js?v=65ef8709";
+import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=65ef8709";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=65ef8709";
+import { sfx } from "./sfx.js?v=65ef8709";
 
 const $ = (id) => document.getElementById(id);
 
@@ -263,7 +263,7 @@ function startLayer(spec) {
   else if (spec.mod.id !== "none") toast(`LAYER-MOD: ${spec.mod.name} — ${spec.mod.desc}`);
 }
 
-export function startDive(firstType, tier = 1, hot = false) {
+export function startDive(firstType, tier = 1, hot = false, special = null) {
   const mods = computeMods();
   clearParticles();
 
@@ -280,6 +280,7 @@ export function startDive(firstType, tier = 1, hot = false) {
   dive = {
     tier: tier + (hot ? 1 : 0),
     hot,
+    special,
     layer: 1,
     bufferE: 0,
     bufferF: 0,
@@ -504,18 +505,31 @@ function jackOut() {
   const heatAdd = Math.ceil(dive.trace / 12);
   const e = dive.bufferE, f = dive.bufferF, layer = dive.layer;
 
+  // Finale des Void-Signal-Dives: einmalige Auflösung der Hauptstory
+  let finaleText = "";
+  if (dive.special === "void" && !game.stats.voidCompleted) {
+    game.stats.voidCompleted = true;
+    game.psychosis = Math.max(0, game.psychosis - 40);
+    game.storyLog.unshift(`> ECHO: „Du hast sie gehört. Alle, die im Buffer geblieben sind. Sie wollten nur, dass jemand zurückkommt und es sagt. Jetzt weißt du's.“`);
+    finaleText =
+      `\n\n— — —\n\n` +
+      `Das Signal war kein Fremdes. Es waren die Stimmen der Runner, die nie zurückkamen — ` +
+      `im Buffer gefangen, seit Jahren. Kein Countdown, kein Boss. Nur ein letztes „hier“.\n\n` +
+      `Du jackst aus. Diesmal hören sie es auch.`;
+  }
+
   dive.pending = {
     apply: (g) => ({
       money: g.money + e,
       frags: g.frags + f,
       heat: Math.min(100, g.heat + heatAdd)
     }),
-    meta: { layer, jackout: true },
+    meta: { layer, jackout: true, special: dive.special },
     text:
       `JACK OUT ERFOLGREICH.\n\n` +
       `Gesichert: ${e} E$ · ${f} ◆\n` +
       `Heat +${heatAdd}\n\n` +
-      `Tiefster Layer: ${layer}`
+      `Tiefster Layer: ${layer}` + finaleText
   };
   dive.phase = "done";
   showChoice(false);

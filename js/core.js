@@ -383,10 +383,14 @@ function boot() {
     resetSave,
     togglePause,
     toggleQuality,
-    toggleAutosave: () => {
-      game.settings.autosave = !game.settings.autosave;
+    // Speichern läuft immer automatisch (nach jedem Dive, Kauf, NPC-Besuch,
+    // Loot-Pickup, beim Wechsel in den Hintergrund). Der Button ist jetzt
+    // ein echtes manuelles Speichern für Sicherheitsgefühl, kein Schalter,
+    // der Autosave abschalten könnte — genau das war der Bug: MANUAL hatte
+    // keine Alternative zum Speichern.
+    manualSave: () => {
       saveNow();
-      toast(game.settings.autosave ? "AUTO: ON" : "AUTO: OFF");
+      toast("💾 GESPEICHERT.");
     },
     toggleMusic,
     focusToggle: () => worldSetFocusToggle?.(),
@@ -571,7 +575,12 @@ function loop(tNow) {
           toast(`TAGESAUFTRAG ERFÜLLT: +${DAILY_REWARD} ◆`);
         }
 
-        if (game.settings.autosave) saveNow();
+        // Speichern nach jedem Dive ist NICHT optional — Loot/Fortschritt
+        // darf nie an einer Einstellung hängen, die man aus Versehen
+        // umgelegt hat (gemeldetes Problem: Speicher-Zuverlässigkeit auf
+        // Mobile). Der frühere AUTO/MANUAL-Schalter tat ohnehin nichts
+        // anderes mehr, seit Gacha/Gear/NPC/Loot schon immer ungated speichern.
+        saveNow();
 
         setMode("RESULT");
         const res = $("resText");

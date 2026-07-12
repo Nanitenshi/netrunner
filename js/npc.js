@@ -5,6 +5,8 @@ import { getNodeById } from "./world.js";
 import { crewTick } from "./crew.js";
 import { saveNow } from "./save.js";
 
+const $ = (id) => document.getElementById(id);
+
 // Jeder NPC hat einen kleinen, festen Dialog-Arc statt zufälliger Zeilen —
 // jeder Besuch (nach dem Tagesbonus) rückt eine Stufe weiter, die letzte
 // Zeile wiederholt sich danach. So erzählt wiederholtes Ansprechen wirklich
@@ -106,6 +108,13 @@ export function openNpcDialog(nodeId) {
     game.storyLog.unshift(`> ${npcName}: ${line}`);
     if (game.storyLog.length > 60) game.storyLog.length = 60;
 
+    // Antwort direkt im offenen Signal-Panel zeigen, nicht nur im Story-Log
+    // (das man extra über NODES aufklappen müsste) — gemeldetes Problem:
+    // "kann mit NPCs nicht wirklich interagieren", weil TALK sichtbar
+    // nichts tat außer einem kurz aufblitzenden Toast.
+    const dlg = $("dialogText");
+    if (dlg) dlg.textContent = `⚡ ${line}`;
+
     renderStoryLog();
     saveNow();
     toast(`⚡ TAGESBONUS: ${npcName}`);
@@ -119,6 +128,9 @@ export function openNpcDialog(nodeId) {
 
   game.storyLog.unshift(`> ${npcName || "SIGNAL"}: "${line}"`);
   if (game.storyLog.length > 60) game.storyLog.length = 60;
+
+  const dlg = $("dialogText");
+  if (dlg) dlg.textContent = `„${line}“`;
 
   renderStoryLog();
   saveNow();

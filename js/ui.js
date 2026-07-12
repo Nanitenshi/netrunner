@@ -185,7 +185,7 @@ export function uiTick(dt = 0) {
   if (d) d.textContent = `Sector-${String(game.district).padStart(2, "0")}`;
 
   const m = $("hudMoney");
-  if (m) m.textContent = `E$ ${game.money}`;
+  if (m) m.textContent = `${game.money} E$`;
 
   const h = $("hudHeat");
   if (h) h.textContent = `${Math.round(game.heat)}%`;

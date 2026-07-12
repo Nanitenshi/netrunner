@@ -78,6 +78,15 @@ export const game = {
 
 const $ = (id) => document.getElementById(id);
 
+// Prestige jenseits des Void Signal: feste Meilensteine für 15/20/25/30,
+// danach alle 10 Layer eine generische Zeile (siehe Aufrufstelle)
+const DEPTH_MILESTONES = {
+  15: "Layer 15. Die Stadt kennt jetzt deinen Namen. Sie mag ihn nicht.",
+  20: "Layer 20. ECHO sagt, so tief war noch niemand, den sie kennt.",
+  25: "Layer 25. Selbst KURO hat aufgehört, das für Zufall zu halten.",
+  30: "Layer 30. Du bist tiefer, als das Netz je gebaut wurde. Es merkt das."
+};
+
 /* ---------------- DAILY (Tagesauftrag) ---------------- */
 export const DAILY_GOAL_LAYER = 3;
 export const DAILY_REWARD = 30;
@@ -428,6 +437,21 @@ function loop(tNow) {
           game.storyLog.unshift(`> ECHO: „...du bist tief genug. Ich hör jetzt ein Signal, das vorher nur Rauschen war. Komm zu mir.“`);
           recordLine += `\n\n👁 NEUES SIGNAL ENTDECKT — ECHO hat etwas für dich.`;
           toast(`👁 NEUES SIGNAL — sprich mit ECHO`);
+        }
+
+        // Tiefen-Meilensteine jenseits des Void Signal: kein neuer Loot-/
+        // Balance-Eingriff nötig, depthMult() belohnt Tiefe schon unbegrenzt —
+        // das hier ist reine Anerkennung fürs Weitermachen, nachdem "das Ende"
+        // längst erreicht ist
+        const milestoneLine = DEPTH_MILESTONES[game.stats.bestLayer]
+          || (game.stats.bestLayer > 30 && game.stats.bestLayer % 10 === 0
+            ? "Es gibt kein Wort mehr dafür, was du gerade tust."
+            : null);
+        if (milestoneLine) {
+          game.storyLog.unshift(`> SYSTEM: ${milestoneLine}`);
+          game.frags += 20;
+          recordLine += `\n\n🏆 TIEFEN-MEILENSTEIN: LAYER ${game.stats.bestLayer} · +20 ◆`;
+          toast(`🏆 MEILENSTEIN: LAYER ${game.stats.bestLayer}`);
         }
 
         // Tagesauftrag: 1x per Jack Out aus Layer 3+ zurückkommen

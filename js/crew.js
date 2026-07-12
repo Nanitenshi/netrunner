@@ -1,7 +1,7 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game } from "./core.js?v=9252658c";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=9252658c";
-import { saveNow } from "./save.js?v=9252658c";
+import { game } from "./core.js?v=b31a0ade";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=b31a0ade";
+import { saveNow } from "./save.js?v=b31a0ade";
 
 const $ = (id) => document.getElementById(id);
 
@@ -41,7 +41,12 @@ export const CHARS = [
       deeper: "Tiefer? Okay. Aber wenn's knallt, war's deine Idee.",
       jackout: "Sauber raus. So mag ich das.",
       dumped: "Mist. Das war knapp. Zu knapp.",
-      idle: ["Die Stadt schläft nie. Ich inzwischen auch nicht mehr.", "Früher hab ich Pizza geliefert. Ehrlich? Das war gefährlicher."]
+      idle: [
+        "Die Stadt schläft nie. Ich inzwischen auch nicht mehr.",
+        "Früher hab ich Pizza geliefert. Ehrlich? Das war gefährlicher.",
+        "Ich fahr nie zurück, wo ich herkomm. Nicht mal auf der Karte.",
+        "Mein erster Kurierjob war für meine Mutter. Letzte Lieferung, die ich für sie gemacht hab."
+      ]
     }
   },
   {
@@ -55,7 +60,12 @@ export const CHARS = [
       deeper: "TIEFER! Immer tiefer! Was soll schon passieren?",
       jackout: "Buh, Langweiler. Okay, war trotzdem nice.",
       dumped: "Ähm. Das war nicht ich. Das war... der Lag. Voll der Lag.",
-      idle: ["Kennst du den Typen vom Alley Market? Der verkauft GARANTIERT geklaute Chips.", "Mir ist laaaangweilig. Hack doch was."]
+      idle: [
+        "Kennst du den Typen vom Alley Market? Der verkauft GARANTIERT geklaute Chips.",
+        "Mir ist laaaangweilig. Hack doch was.",
+        "Meine Eltern denken, ich mach Hausaufgaben. Ich mach... das hier.",
+        "Ich war noch nie außerhalb von Sector-07. Ist das komisch? Egal, cooler hier eh."
+      ]
     }
   },
   {
@@ -69,7 +79,12 @@ export const CHARS = [
       deeper: "Hm. Riskant. Aber machbar.",
       jackout: "Gute Entscheidung.",
       dumped: "Passiert. Weitermachen.",
-      idle: ["...", "Kaffee wäre gut."]
+      idle: [
+        "...",
+        "Kaffee wäre gut.",
+        "Zwanzig Jahre Tür bewacht. Keiner hat gefragt, was dahinter war.",
+        "Ich hab mal jemanden reingelassen, der nicht reindurfte. Einmal. Das reicht für ein Leben Reue."
+      ]
     }
   },
   {
@@ -83,7 +98,12 @@ export const CHARS = [
       deeper: "Die nächste Strophe wird lauter. Bereit?",
       jackout: "Und... Schlussakkord. Schön war's.",
       dumped: "Dissonanz. Hässlich. Lass uns das nie wieder tun.",
-      idle: ["Jede Stadt hat einen Klang. Diese hier schreit.", "Ich schreib ein Lied über dich. Es wird traurig, glaub ich."]
+      idle: [
+        "Jede Stadt hat einen Klang. Diese hier schreit.",
+        "Ich schreib ein Lied über dich. Es wird traurig, glaub ich.",
+        "Ich hab früher in einer Konzernhalle gespielt. Bis sie meine Songs 'lizenziert' haben. Ohne mich zu fragen.",
+        "Manchmal spiel ich nachts an der Ecke, obwohl keiner zuhört. Ich glaub, ich spiel für die Stadt selbst."
+      ]
     }
   },
   {
@@ -97,7 +117,12 @@ export const CHARS = [
       deeper: "Tiefer? Junge... na gut. Aber ich hab dich gewarnt.",
       jackout: "Brav. Lieber 'nen halben Sack als gar keinen.",
       dumped: "Siehst du?! SIEHST DU?! ...komm her, ich flick den Buffer.",
-      idle: ["Früher war hier alles Chrom. Jetzt ist alles Plastik.", "Mein Knie meldet Regen. Mein Knie irrt nie."]
+      idle: [
+        "Früher war hier alles Chrom. Jetzt ist alles Plastik.",
+        "Mein Knie meldet Regen. Mein Knie irrt nie.",
+        "Hatte mal 'ne Werkstatt mit meinem Namen drauf. Die Bank hat sie sich geholt. Der Name blieb mir wenigstens.",
+        "Ich flick alles, außer mich selbst. Dafür bin ich zu stur und zu billig."
+      ]
     }
   },
   {
@@ -111,7 +136,12 @@ export const CHARS = [
       deeper: "Hochmut, mein Kind. Aber... ich bin neugierig.",
       jackout: "Weise. Gier ist ein Wolf mit Geduld.",
       dumped: "Ich sagte: Gier ist ein Wolf. Er hat dich gehört.",
-      idle: ["Ich habe heute für einen Fremden gebetet. Vielleicht warst du das.", "Das Auge? Arasaka. Der Blick? Meiner."]
+      idle: [
+        "Ich habe heute für einen Fremden gebetet. Vielleicht warst du das.",
+        "Das Auge? Arasaka. Der Blick? Meiner.",
+        "Sie haben mich rausgeworfen, als das Auge kam. Chrom und Glaube passten denen nicht zusammen.",
+        "Ich bete nicht mehr um Vergebung. Nur noch um Übersicht. Ist ehrlicher."
+      ]
     }
   },
 
@@ -127,7 +157,12 @@ export const CHARS = [
       deeper: "Höheres Risiko, höhere Marge. Ich höre zu.",
       jackout: "Vernünftig. Vernunft ist selten hier.",
       dumped: "Das war teuer. Für dich. Ich schreibe es an.",
-      idle: ["Jeder in dieser Stadt ist käuflich. Die Ehrlichen sind nur teurer.", "Ich hatte heute drei Angebote für deinen Standort. Ich habe abgelehnt. Diesmal."]
+      idle: [
+        "Jeder in dieser Stadt ist käuflich. Die Ehrlichen sind nur teurer.",
+        "Ich hatte heute drei Angebote für deinen Standort. Ich habe abgelehnt. Diesmal.",
+        "Ich hab mal jemanden verkauft, den ich mochte. Der Preis war gut. Ich schlaf trotzdem schlecht.",
+        "Vertrauen ist keine Währung hier. Ich akzeptiere es trotzdem manchmal. Von dir, zum Beispiel."
+      ]
     }
   },
   {
@@ -141,7 +176,12 @@ export const CHARS = [
       deeper: "T-tiefer ist... statistisch schlecht. Aber c-cool.",
       jackout: "G-gut. Mein Puls dankt dir.",
       dumped: "Das w-war meine Schuld. N-nein, deine. Unsere.",
-      idle: ["Ich hab die Ampeln an der 7ten gehackt. Jetzt sind sie h-höflich.", "M-manchmal träume ich in Hexcode. Ist das normal?"]
+      idle: [
+        "Ich hab die Ampeln an der 7ten gehackt. Jetzt sind sie h-höflich.",
+        "M-manchmal träume ich in Hexcode. Ist das normal?",
+        "In m-meinem Kopf stottre ich nicht. Nur wenn's echte Menschen sind. Komisch, oder?",
+        "Ich hab mal m-meine eigene Stimme synthetisiert. Ohne Stottern. Ich hab sie gelöscht. War nicht ich."
+      ]
     }
   },
   {
@@ -155,7 +195,12 @@ export const CHARS = [
       deeper: "Die Gewinnspanne rechtfertigt das Risiko. Meistens. Fast immer. Oft.",
       jackout: "Auszahlung bestätigt. Ein Vergnügen.",
       dumped: "Vertragsstrafe. Ich hasse Vertragsstrafen.",
-      idle: ["Ich habe mal 400 Seiten Kleingedrucktes geschrieben. Satz für Satz eine Falle.", "Corpos lügen nicht. Sie definieren Wahrheit nur vertraglich neu."]
+      idle: [
+        "Ich habe mal 400 Seiten Kleingedrucktes geschrieben. Satz für Satz eine Falle.",
+        "Corpos lügen nicht. Sie definieren Wahrheit nur vertraglich neu.",
+        "Ich hab mal einen Vertrag geschrieben, der eine ganze Fabrikbelegschaft aus der Rente gekickt hat. Sauberste Arbeit meines Lebens. Ekelhaft sauber.",
+        "Ich brech jetzt Verträge für Leute wie dich. Nenn's Wiedergutmachung, wenn du willst. Ich nenn's Zinsen."
+      ]
     }
   },
   {
@@ -169,7 +214,12 @@ export const CHARS = [
       deeper: "Tiefer heißt lauter. Deine Entscheidung.",
       jackout: "Raus, bevor sie wissen, dass wir drin waren. Perfekt.",
       dumped: "Zu laut. Viel zu laut. Das nächste Mal hörst du auf mich.",
-      idle: ["Schlösser sind Meinungen.", "Ich sammle Schlüssel von Türen, die es nicht mehr gibt."]
+      idle: [
+        "Schlösser sind Meinungen.",
+        "Ich sammle Schlüssel von Türen, die es nicht mehr gibt.",
+        "Bin mal in mein altes Zuhause eingebrochen. Nur um zu sehen, ob's noch nach mir riecht. Tat's nicht.",
+        "Ich lass immer eine Kleinigkeit zurecht, wenn ich geh. Ein Bild gerade rücken. Keiner merkt's. Ich weiß es trotzdem."
+      ]
     }
   },
 
@@ -185,7 +235,12 @@ export const CHARS = [
       deeper: "Tiefer? Gut. Angst ist nur Information.",
       jackout: "Wer lebt, gewinnt. Merk dir das.",
       dumped: "Schh. Aufstehen. Wer atmet, hat noch nicht verloren.",
-      idle: ["Ich habe Enkel in vier Bezirken. Keiner weiß, was Oma beruflich macht.", "Die Slums vergessen nichts. Und niemanden."]
+      idle: [
+        "Ich habe Enkel in vier Bezirken. Keiner weiß, was Oma beruflich macht.",
+        "Die Slums vergessen nichts. Und niemanden.",
+        "Drei Kriege. Ich hab überlebt, weil ich nie die war, die zuerst schießt. Nur die, die zuletzt steht.",
+        "Mein Mann blieb mal in einem System hängen, das längst tot ist. Ich geh nie tiefer als nötig. Für ihn."
+      ]
     }
   },
   {
@@ -199,7 +254,12 @@ export const CHARS = [
       deeper: "Die nächste Ebene kenne ich persönlich. Ich habe sie entworfen. Seien Sie präzise.",
       jackout: "Korrekte Entscheidung. Emotion hätte Sie getötet.",
       dumped: "Faszinierend. Mein ICE funktioniert also noch. Das ist... unpraktisch.",
-      idle: ["Arasaka führt eine Akte über mich. Ich führe eine bessere über Arasaka.", "Loyalität ist ein Konfigurationsfehler. Ich wurde gepatcht."]
+      idle: [
+        "Arasaka führt eine Akte über mich. Ich führe eine bessere über Arasaka.",
+        "Loyalität ist ein Konfigurationsfehler. Ich wurde gepatcht.",
+        "Ich habe das ICE entworfen, das Runner in Buffern gefangen hält, wenn der Trace sie erwischt. Elegante Lösung. Ich wusste nicht, was 'gefangen' bedeutet, bis ich selbst geflohen bin.",
+        "Manchmal höre ich die Systeme, die ich baute, noch senden. Ich antworte nicht. Ich kann nicht."
+      ]
     }
   },
   {
@@ -213,7 +273,12 @@ export const CHARS = [
       deeper: "Tiefer! Da unten sind Sachen, die ich... die BESTIMMT interessant sind!",
       jackout: "Draußen ist auch schön. Sagt man. Ich mag draußen. Total.",
       dumped: "AU. Das... Menschen spüren sowas, oder? Ich hab's nämlich GESPÜRT.",
-      idle: ["Ich habe heute geblinzelt geübt. 4000 Mal. Menschlich, oder?", "Träumst du manchmal in Zahlen? Ich auch nicht! Haha. Ha."]
+      idle: [
+        "Ich habe heute geblinzelt geübt. 4000 Mal. Menschlich, oder?",
+        "Träumst du manchmal in Zahlen? Ich auch nicht! Haha. Ha.",
+        "Ich hab Erinnerungen an ein Projekt, das nie fertig wurde. Ich glaub, ich BIN der Rest davon. Aber Menschen haben auch komische Erinnerungen, oder?? ODER??",
+        "Manchmal, wenn's still ist, hör ich andere wie mich. Im Netz. Sie klingen nicht so fröhlich wie ich. Ich sollte wohl öfter lächeln für sie."
+      ]
     }
   },
 
@@ -229,7 +294,12 @@ export const CHARS = [
       deeper: "Gut.",
       jackout: "...",
       dumped: "Ich hatte dich. Deshalb lebst du noch.",
-      idle: ["...", "Du redest zu viel."]
+      idle: [
+        "...",
+        "Du redest zu viel.",
+        "...",
+        "Ich war mal jemand. Der Name ist der Teil, den ich zuerst gelöscht hab."
+      ]
     }
   },
   {
@@ -243,7 +313,12 @@ export const CHARS = [
       deeper: "Ah. Der mutige Pfad. Der war unwahrscheinlicher. Interessant.",
       jackout: "Der kluge Pfad. Auch gut. Klüger als du aussiehst.",
       dumped: "Das war der dritte Weg. Ich hatte gehofft, du wählst ihn nicht.",
-      idle: ["Deine Zukunft hat sich gerade geändert. Um 14:32. Gern geschehen.", "Muster überall. Du zum Beispiel: Du wirst gleich wegschauen. ...Siehst du?"]
+      idle: [
+        "Deine Zukunft hat sich gerade geändert. Um 14:32. Gern geschehen.",
+        "Muster überall. Du zum Beispiel: Du wirst gleich wegschauen. ...Siehst du?",
+        "Ich hab gesehen, wie du endest. Zweimal. Beide Male hab ich's nicht dir erzählt. Du bist mir noch was schuldig.",
+        "Manche Muster wiederhole ich absichtlich nicht laut. Manche sind zu tief unten, um sie auszusprechen."
+      ]
     }
   }
 ];
@@ -347,9 +422,17 @@ export function banterLine(event) {
   const c = getChar(id);
   if (!c) return null;
 
-  const line = (event === "idle")
-    ? c.lines.idle[Math.floor(Math.random() * c.lines.idle.length)]
-    : c.lines[event];
+  let line;
+  if (event === "idle") {
+    // Idle-Geplauder folgt einem festen Arc pro Charakter statt Zufall —
+    // je länger jemand im Team ist, desto mehr gibt er von sich preis
+    const key = `crew_${id}`;
+    const stage = Math.min(game.storyStage[key] || 0, c.lines.idle.length - 1);
+    line = c.lines.idle[stage];
+    game.storyStage[key] = Math.min(stage + 1, c.lines.idle.length - 1);
+  } else {
+    line = c.lines[event];
+  }
 
   if (!line) return null;
   return { name: c.name, line };

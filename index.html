@@ -32,7 +32,7 @@
           <span class="stat">🔥 <b id="hudHeat">0%</b></span>
           <span class="stat pinkText">◆ <b id="hudFrags">0</b></span>
           <span class="hudMeta">
-            <span id="hudDistrict">Sector-07</span> · <span id="hudTime">DAY</span> · <span id="hudRank">ROOKIE</span>
+            <span id="hudDistrict">Sector-07</span> · <span id="hudTime">DAY</span> · <span id="hudRank">ROOKIE</span><span id="hudBuild"></span>
           </span>
         </div>
         <div class="banner" id="hudGoal" role="button">
@@ -160,10 +160,20 @@
       <section id="crewOverlay" class="centerWrap hidden">
         <div class="panel card overlayCard tall">
           <div class="tabRow">
+            <button type="button" class="btn small tabBtn" data-tab="build">BUILD</button>
             <button type="button" class="btn small tabBtn active" data-tab="broker">BROKER</button>
             <button type="button" class="btn small tabBtn" data-tab="crew">CREW</button>
             <button type="button" class="btn small tabBtn" data-tab="gear">GEAR</button>
             <button type="button" id="btnCloseCrew" class="btn small pink closeBtn">✕</button>
+          </div>
+
+          <div id="tabBuild" class="tabPage hidden">
+            <p class="muted small">
+              Dein Hacker-Build: eine dauerhafte Spielstil-Wahl, unabhängig von Crew und Gear.
+              Gibt einen festen Bonus in jedem Dive und eine exklusive Signature-Fähigkeit
+              in der Ability-Leiste. Jederzeit wechselbar.
+            </p>
+            <div id="buildGrid" class="crewGrid"></div>
           </div>
 
           <div id="tabBroker" class="tabPage">

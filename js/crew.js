@@ -2,6 +2,7 @@
 import { game } from "./core.js";
 import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js";
 import { saveNow } from "./save.js";
+import { BUILDS, getBuild } from "./builds.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -346,7 +347,9 @@ export function computeMods() {
   const m = {
     lootMult: 1, traceMult: 1, timeBonus: 0, peekBonus: 0, ringScale: 1,
     // 10% Grundrettung bei Dump für alle — Buffer Guard und Crew stapeln darauf
-    salvage: 0.10, fragsPerLayer: 0, startTrace: 0, forgive: 0, revive: 0
+    salvage: 0.10, fragsPerLayer: 0, startTrace: 0, forgive: 0, revive: 0,
+    // Extra Trace-Abbau beim ICE-Kill — nur vom COMBAT-Build befüllt
+    bossTraceBonus: 0
   };
 
   for (const id of game.crew.equipped) {
@@ -374,6 +377,17 @@ export function computeMods() {
   m.lootMult += 0.12 * gearEff(game.upgrades.amplifier || 0);
   m.traceMult -= 0.08 * gearEff(game.upgrades.pulse || 0);
   m.salvage += 0.15 * gearEff(game.upgrades.buffer || 0);
+
+  // Hacker-Build: permanente Spielstil-Wahl, oben drauf auf Crew + Gear
+  const build = getBuild(game.build);
+  if (build) {
+    const bm = build.mods;
+    if (bm.lootMult) m.lootMult += bm.lootMult;
+    if (bm.traceCut) m.traceMult -= bm.traceCut;
+    if (bm.fragsPerLayer) m.fragsPerLayer += bm.fragsPerLayer;
+    if (bm.forgive) m.forgive += bm.forgive;
+    if (bm.bossTraceBonus) m.bossTraceBonus += bm.bossTraceBonus;
+  }
 
   m.traceMult = Math.max(0.35, m.traceMult);
   m.salvage = Math.min(0.9, m.salvage);
@@ -514,6 +528,7 @@ export function openCrewOverlay() {
   if (!el) return;
   overlayOpen = true;
   el.classList.remove("hidden");
+  renderBuildTab();
   renderBroker();
   renderCrewGrid();
   renderGear();
@@ -526,7 +541,7 @@ export function closeCrewOverlay() {
 }
 
 function switchTab(tab) {
-  for (const t of ["broker", "crew", "gear"]) {
+  for (const t of ["build", "broker", "crew", "gear"]) {
     const page = $("tab" + t.charAt(0).toUpperCase() + t.slice(1));
     if (page) page.classList.toggle("hidden", t !== tab);
   }
@@ -693,6 +708,64 @@ function renderGear() {
 
     row.append(body, btn);
     wrap.appendChild(row);
+  }
+}
+
+/* ---------------- HACKER-BUILD ---------------- */
+function selectBuild(id) {
+  if (game.build === id) return;
+  game.build = id;
+  saveNow();
+  const b = BUILDS[id];
+  toast(`BUILD: ${b.name} — ${b.passiveText}`);
+  renderBuildTab();
+}
+
+function renderBuildTab() {
+  const wrap = $("buildGrid");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  for (const b of Object.values(BUILDS)) {
+    const active = game.build === b.id;
+
+    const card = document.createElement("div");
+    card.className = "charCard" + (active ? " equipped" : "");
+
+    const mono = document.createElement("div");
+    mono.className = "monogram";
+    mono.textContent = b.name.charAt(0);
+
+    const body = document.createElement("div");
+    body.className = "charBody";
+
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = b.name;
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = b.tag;
+
+    const perk = document.createElement("div");
+    perk.className = "perkText";
+    perk.textContent = b.passiveText;
+
+    const bio = document.createElement("div");
+    bio.className = "meta bio";
+    bio.textContent = `${b.desc} Signature: ${b.active.name} — ${b.active.desc}`;
+
+    body.append(name, meta, perk, bio);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn small" + (active ? " pink" : " yellow");
+    btn.textContent = active ? "AKTIV" : "WÄHLEN";
+    if (!active) bindFastPress(btn, () => selectBuild(b.id));
+    body.appendChild(btn);
+
+    card.append(mono, body);
+    wrap.appendChild(card);
   }
 }
 

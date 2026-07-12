@@ -62,6 +62,10 @@ export const game = {
     music: true
   },
 
+  // Hacker-Build: permanente, jederzeit wechselbare Spielstil-Wahl
+  // (GHOST RUNNER / COMBAT RUNNER / DATA THIEF) — siehe builds.js
+  build: null,
+
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
   daily: { date: "", done: false, npcs: {}, lootTaken: {} },
@@ -173,6 +177,10 @@ const TUT_STEPS = [
   {
     title: "CREW & STADT",
     text: "Mit Frags (◆) rekrutierst du im CREW-Menü Verbündete — sie geben Boni und reden mit dir.\n\nNPCs in der Stadt geben 1x täglich echte Boni. Gelbe Shards auf der Straße = Gratis-Loot. Und hör auf die Musik … sie sagt dir, wie es dir geht."
+  },
+  {
+    title: "DEIN HACKER-BUILD",
+    text: "Im CREW-Menü unter BUILD wählst du deinen Spielstil: GHOST RUNNER (Tarnung, wenig Trace), COMBAT RUNNER (bricht ICE mit Gewalt) oder DATA THIEF (maximaler Loot).\n\nJeder Build gibt dir eine eigene Signature-Fähigkeit im Dive. Jederzeit wechselbar — probier alle drei."
   }
 ];
 

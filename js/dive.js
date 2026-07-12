@@ -3,6 +3,7 @@ import { game } from "./core.js";
 import { toast, bindFastPress } from "./ui.js";
 import { createMinigame, MG_TYPES, clearParticles } from "./missions.js";
 import { computeMods, banter, banterLine, getChar } from "./crew.js";
+import { getBuild } from "./builds.js";
 import { sfx } from "./sfx.js";
 
 const $ = (id) => document.getElementById(id);
@@ -180,6 +181,30 @@ function showChoice(show) {
 }
 
 /* ---------------- Ability-Bar ---------------- */
+function addAbilitySlot(bar, label, prefix, active, lvl) {
+  const slot = { used: false, active, lvl };
+  dive.abilities.push(slot);
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn small yellow abilityBtn";
+  btn.textContent = `${prefix} ${label}: ${active.name}`;
+  btn.title = active.desc;
+
+  bindFastPress(btn, () => {
+    if (!dive || slot.used || dive.phase !== "play" || paused) return;
+    slot.used = true;
+    btn.classList.add("used");
+    btn.disabled = true;
+
+    const msg = active.use(dive, slot.lvl);
+    sfx.good();
+    toast(`${prefix} ${label}: ${msg}`);
+  });
+
+  bar.appendChild(btn);
+}
+
 function buildAbilityBar() {
   const bar = $("abilityBar");
   if (!bar) return;
@@ -194,27 +219,14 @@ function buildAbilityBar() {
     const active = ACTIVES[c.perk.type];
     if (!active) continue;
 
-    const slot = { charId: id, used: false, active, lvl };
-    dive.abilities.push(slot);
+    addAbilitySlot(bar, c.name, "⚡", active, lvl);
+  }
 
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn small yellow abilityBtn";
-    btn.textContent = `⚡ ${c.name}: ${active.name}`;
-    btn.title = active.desc;
-
-    bindFastPress(btn, () => {
-      if (!dive || slot.used || dive.phase !== "play" || paused) return;
-      slot.used = true;
-      btn.classList.add("used");
-      btn.disabled = true;
-
-      const msg = active.use(dive, slot.lvl);
-      sfx.good();
-      toast(`⚡ ${c.name}: ${msg}`);
-    });
-
-    bar.appendChild(btn);
+  // Build-Signature-Fähigkeit: unabhängig von der Crew, immer verfügbar,
+  // solange ein Hacker-Build gewählt ist
+  const build = getBuild(game.build);
+  if (build?.active) {
+    addAbilitySlot(bar, build.name, "🔧", build.active, 1);
   }
 
   bar.classList.toggle("hidden", dive.abilities.length === 0);
@@ -455,14 +467,15 @@ function onReport(res) {
   // Boss zerstört = Verbindung bereinigt: Trace sinkt deutlich
   // (Werte per Simulation kalibriert: -30/-50 macht Layer 10+ erreichbar,
   //  ohne dass Neulinge endlos loopen können)
+  const bossBonus = dive.mods.bossTraceBonus || 0;
   if (spec.boss === "mini") {
-    dive.trace = Math.max(0, dive.trace - 30);
-    toast("WÄCHTER ZERSTÖRT — TRACE -30.");
+    dive.trace = Math.max(0, dive.trace - 30 - bossBonus);
+    toast(`WÄCHTER ZERSTÖRT — TRACE -${30 + bossBonus}.`);
     sfx.jackout();
   } else if (spec.boss === "big") {
-    dive.trace = Math.max(0, dive.trace - 50);
+    dive.trace = Math.max(0, dive.trace - 50 - bossBonus);
     dive.bufferF += 40;
-    toast("ICE-KERN VERNICHTET — TRACE -50, +40 ◆!");
+    toast(`ICE-KERN VERNICHTET — TRACE -${50 + bossBonus}, +40 ◆!`);
     sfx.jackout();
   }
 

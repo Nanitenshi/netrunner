@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=40a4aaa4";
+} from "./threeScene.js?v=c4c034c0";
 
 import {
   initWorld,
@@ -16,14 +16,14 @@ import {
   currentGoal,
   routeGoal,
   nearMissionNode
-} from "./world.js?v=40a4aaa4";
+} from "./world.js?v=c4c034c0";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=40a4aaa4";
-import { loadSave, saveNow, resetSave } from "./save.js?v=40a4aaa4";
-import { openNpcDialog, npcTick } from "./npc.js?v=40a4aaa4";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=40a4aaa4";
-import { unlockAudio } from "./sfx.js?v=40a4aaa4";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=40a4aaa4";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=c4c034c0";
+import { loadSave, saveNow, resetSave } from "./save.js?v=c4c034c0";
+import { openNpcDialog, npcTick } from "./npc.js?v=c4c034c0";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=c4c034c0";
+import { unlockAudio } from "./sfx.js?v=c4c034c0";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=c4c034c0";
 
 import {
   startDive,
@@ -33,7 +33,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=40a4aaa4";
+} from "./dive.js?v=c4c034c0";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -383,10 +383,14 @@ function boot() {
     resetSave,
     togglePause,
     toggleQuality,
-    toggleAutosave: () => {
-      game.settings.autosave = !game.settings.autosave;
+    // Speichern läuft immer automatisch (nach jedem Dive, Kauf, NPC-Besuch,
+    // Loot-Pickup, beim Wechsel in den Hintergrund). Der Button ist jetzt
+    // ein echtes manuelles Speichern für Sicherheitsgefühl, kein Schalter,
+    // der Autosave abschalten könnte — genau das war der Bug: MANUAL hatte
+    // keine Alternative zum Speichern.
+    manualSave: () => {
       saveNow();
-      toast(game.settings.autosave ? "AUTO: ON" : "AUTO: OFF");
+      toast("💾 GESPEICHERT.");
     },
     toggleMusic,
     focusToggle: () => worldSetFocusToggle?.(),
@@ -571,7 +575,12 @@ function loop(tNow) {
           toast(`TAGESAUFTRAG ERFÜLLT: +${DAILY_REWARD} ◆`);
         }
 
-        if (game.settings.autosave) saveNow();
+        // Speichern nach jedem Dive ist NICHT optional — Loot/Fortschritt
+        // darf nie an einer Einstellung hängen, die man aus Versehen
+        // umgelegt hat (gemeldetes Problem: Speicher-Zuverlässigkeit auf
+        // Mobile). Der frühere AUTO/MANUAL-Schalter tat ohnehin nichts
+        // anderes mehr, seit Gacha/Gear/NPC/Loot schon immer ungated speichern.
+        saveNow();
 
         setMode("RESULT");
         const res = $("resText");

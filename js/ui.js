@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=40a4aaa4";
-import { saveNow } from "./save.js?v=40a4aaa4";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=c4c034c0";
+import { saveNow } from "./save.js?v=c4c034c0";
 
 const $ = (id) => document.getElementById(id);
 
@@ -68,7 +68,7 @@ export function initUI(_api) {
   // BOTTOM BAR
   bindFastPress($("btnPause"), () => api.togglePause?.());
   bindFastPress($("btnQuality"), () => api.toggleQuality?.());
-  bindFastPress($("btnSave"), () => api.toggleAutosave?.());
+  bindFastPress($("btnSave"), () => api.manualSave?.());
   bindFastPress($("btnMusic"), () => api.toggleMusic?.());
 
   // Result screen
@@ -94,10 +94,14 @@ export function initUI(_api) {
   });
   bindFastPress($("btnCloseSignal"), () => $("rightPanel")?.classList.remove("open"));
 
-  // Autosave on background (nur wenn AUTO an)
+  // Immer speichern, wenn die App in den Hintergrund geht oder die Seite
+  // verlassen wird — auf Mobile kann das OS den Tab jederzeit ohne
+  // Vorwarnung beenden. visibilitychange UND pagehide, da mobile Browser
+  // das eine manchmal auslassen, das andere aber zuverlässiger feuert.
   window.addEventListener("visibilitychange", () => {
-    if (document.hidden && game.settings?.autosave) saveNow();
+    if (document.hidden) saveNow();
   });
+  window.addEventListener("pagehide", () => saveNow());
 
   renderStoryLog();
 }
@@ -237,8 +241,9 @@ export function uiTick(dt = 0) {
   const q = $("btnQuality");
   if (q) q.textContent = (game.settings?.quality === "perf") ? "PERF" : "SHARP";
 
-  const a = $("btnSave");
-  if (a) a.textContent = game.settings?.autosave ? "AUTO" : "MANUAL";
+  // Speichern läuft immer automatisch im Hintergrund; der Button ist ein
+  // reines "Jetzt speichern"-Kommando, kein Zustands-Schalter mehr —
+  // deshalb hier keine dynamische Label-Zuordnung mehr nötig.
 
   const p = $("btnPause");
   if (p) p.textContent = game.paused ? "RESUME" : "PAUSE";

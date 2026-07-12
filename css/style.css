@@ -658,6 +658,11 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
   pointer-events: none;
 }
 
+/* Programme: eigene Leiste über den Crew-Actives, sonst überlappen sich
+   beide Reihen auf schmalen Screens */
+.programBar { bottom: 186px; }
+.programBtn { pointer-events: auto; }
+
 /* ===== Dive-Event ===== */
 .eventBox {
   border: 1px solid rgba(255, 0, 124, .4);

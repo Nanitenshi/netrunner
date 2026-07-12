@@ -11,6 +11,7 @@ export function saveNow() {
       frags: game.frags,
       psychosis: game.psychosis,
       build: game.build,
+      programsOwned: game.programsOwned,
       district: game.district,
       dayClock: game.dayClock,
       missionsDone: game.missionsDone,

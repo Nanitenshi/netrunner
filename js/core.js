@@ -65,6 +65,8 @@ export const game = {
   // Hacker-Build: permanente, jederzeit wechselbare Spielstil-Wahl
   // (GHOST RUNNER / COMBAT RUNNER / DATA THIEF) — siehe builds.js
   build: null,
+  // Programme: verbrauchbare Dive-Items, mit E$ gekauft, im Dive verbraucht
+  programsOwned: { panic: 0, boost: 0, decoy: 0 },
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },

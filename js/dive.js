@@ -4,6 +4,9 @@ import { toast, bindFastPress } from "./ui.js";
 import { createMinigame, MG_TYPES, clearParticles } from "./missions.js";
 import { computeMods, banter, banterLine, getChar } from "./crew.js";
 import { getBuild } from "./builds.js";
+import { ICE_CLASSES, iceLabel } from "./ice.js";
+import { PROGRAMS } from "./programs.js";
+import { saveNow } from "./save.js";
 import { sfx } from "./sfx.js";
 
 const $ = (id) => document.getElementById(id);
@@ -27,6 +30,7 @@ export function diveAbort() {
   if (!dive) return;
   dive = null;
   hideAbilityBar();
+  hideProgramBar();
   clearParticles();
 }
 
@@ -119,6 +123,30 @@ const EVENTS = [
   }
 ];
 
+/* ---------------- Firewall (angekündigte Zahlwand vor dem Layer) ---------------- */
+function makeFirewallEvent(fw) {
+  return {
+    id: "firewall",
+    name: "FIREWALL ERKANNT",
+    desc: `Der nächste Layer ist gesichert. Bezahl ${fw.fee} E$ aus dem Buffer für einen sauberen Durchgang — oder brich mit Gewalt durch (kostenlos, aber Trace +18 sofort).`,
+    a: {
+      label: `BEZAHLEN (-${fw.fee} E$)`,
+      fn: (d) => {
+        const pay = Math.min(d.bufferE, fw.fee);
+        d.bufferE -= pay;
+        return `Firewall bezahlt: -${pay} E$. Sauberer Durchgang.`;
+      }
+    },
+    b: {
+      label: "DURCHBRECHEN (Trace +18)",
+      fn: (d) => {
+        d.trace = Math.min(99, d.trace + 18);
+        return "Firewall durchbrochen — Trace +18.";
+      }
+    }
+  };
+}
+
 /* ---------------- Crew-Actives (1x pro Dive pro Charakter) ---------------- */
 const ACTIVES = {
   loot:       { name: "SIPHON",       desc: "+E$ sofort in den Buffer", use: (d, lvl) => { const e = 30 + 20 * lvl; d.bufferE += e; return `+${e} E$ gezapft`; } },
@@ -152,7 +180,7 @@ function setDiveHud() {
   if (!dive) return;
 
   const t = $("mHudType");
-  if (t) t.textContent = dive.mg?.name || "—";
+  if (t) t.textContent = dive.spec ? iceLabel(dive.spec.type, dive.tier, dive.layer) : (dive.mg?.name || "—");
 
   const l = $("mHudLayer");
   if (l) l.textContent = `${dive.layer} (x${depthMult(dive.layer).toFixed(1)})`;
@@ -237,6 +265,49 @@ function hideAbilityBar() {
   if (bar) bar.classList.add("hidden");
 }
 
+/* ---------------- Programm-Leiste (Verbrauchsgüter) ---------------- */
+// Anders als Crew-/Build-Actives: begrenzter, dive-übergreifender Vorrat
+// (game.programsOwned) statt "1x pro Dive" — deshalb eigene Leiste + eigene
+// Render-Logik statt addAbilitySlot().
+function renderProgramBar() {
+  const bar = $("programBar");
+  if (!bar) return;
+  bar.innerHTML = "";
+
+  let any = false;
+  for (const p of Object.values(PROGRAMS)) {
+    const count = game.programsOwned?.[p.id] || 0;
+    if (count <= 0) continue;
+    any = true;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn small programBtn";
+    btn.textContent = `${p.icon} ${p.name} ×${count}`;
+    btn.title = p.desc;
+
+    bindFastPress(btn, () => {
+      if (!dive || dive.phase !== "play" || paused) return;
+      if ((game.programsOwned[p.id] || 0) <= 0) return;
+      game.programsOwned[p.id] -= 1;
+      const msg = p.use(dive);
+      sfx.good();
+      toast(`${p.icon} ${p.name}: ${msg}`);
+      saveNow();
+      renderProgramBar();
+    });
+
+    bar.appendChild(btn);
+  }
+
+  bar.classList.toggle("hidden", !any);
+}
+
+function hideProgramBar() {
+  const bar = $("programBar");
+  if (bar) bar.classList.add("hidden");
+}
+
 /* ---------------- Layer-Lifecycle ---------------- */
 function rollNextLayer(layerNum) {
   // Bosse haben Vorrang: alle 10 Layer der große, alle 5 der kleine
@@ -256,7 +327,7 @@ function rollNextLayer(layerNum) {
   // verdeckte Modifikatoren — erst das Grundspiel lernen, dann das Risiko
   const rookie = game.missionsDone < 3;
 
-  return {
+  const spec = {
     type: MG_TYPES[Math.floor(Math.random() * MG_TYPES.length)],
     mod: rollLayerMod(),
     // 40% der Modifikatoren bleiben verdeckt — Restrisiko
@@ -264,6 +335,16 @@ function rollNextLayer(layerNum) {
     // 15%: der Layer ist korrumpiert — deutlich härter, Loot x1.8
     corrupt: !rookie && Math.random() < 0.15
   };
+
+  // Firewall: eine im Voraus sichtbare Zahlwand vor dem Layer — bezahlen
+  // (E$ aus dem Buffer) für einen sauberen Durchgang, oder mit Gewalt
+  // durchbrechen (kostet stattdessen Trace). Nie zusätzlich zu Korruption,
+  // sonst kumulieren sich zwei harte Layer zu einem unfairen.
+  if (!rookie && !spec.corrupt && Math.random() < 0.18) {
+    spec.firewall = { fee: Math.round(30 + dive.tier * 6 + layerNum * 2.5) };
+  }
+
+  return spec;
 }
 
 function startLayer(spec) {
@@ -288,8 +369,16 @@ function startLayer(spec) {
   if (spec.boss === "big") toast("⚠⚠ ICE-KERN PRIME — 3 PHASEN. ALLES ODER NICHTS.");
   else if (spec.boss === "mini") toast("⚠ ICE-WÄCHTER ERKANNT — ZERSTÖREN SENKT TRACE.");
   else if (spec.secret) toast("??? GEHEIMES SIGNAL — LOOT x2.");
-  else if (spec.corrupt) toast("⚠ LAYER KORRUMPIERT — HÄRTER, ABER LOOT x1.8.");
-  else if (spec.mod.id !== "none") toast(`LAYER-MOD: ${spec.mod.name} — ${spec.mod.desc}`);
+  else if (spec.corrupt) toast(`⚠ ${iceLabel(spec.type, dive.tier, dive.layer)} KORRUMPIERT — HÄRTER, ABER LOOT x1.8.`);
+  else {
+    // jede reguläre Begegnung nennt ihr ICE beim Namen — das war vorher
+    // komplett stumm (gemeldetes Problem: "alles fühlt sich gleich an")
+    const label = iceLabel(spec.type, dive.tier, dive.layer);
+    const c = ICE_CLASSES[spec.type];
+    toast(spec.mod.id !== "none"
+      ? `${label} — ${spec.mod.name}: ${spec.mod.desc}`
+      : `${label} erkannt${c ? " — " + c.threat : ""}`);
+  }
 }
 
 export function startDive(firstType, tier = 1, hot = false, special = null) {
@@ -335,6 +424,7 @@ export function startDive(firstType, tier = 1, hot = false, special = null) {
   if (buffLines.length) toast(`AKTIVE BONI: ${buffLines.join(" · ")}`);
 
   buildAbilityBar();
+  renderProgramBar();
   startLayer({ type: firstType, mod: LAYER_MODS[0], hidden: false });
   banter("start", true);
   toast(hot ? `HOT ZONE DIVE — TIER ${dive.tier} · +50% LOOT` : `DIVE START — TIER ${dive.tier}`);
@@ -354,21 +444,20 @@ function renderChoice() {
   // Vorschau auf den nächsten Layer — Modifikator evtl. verdeckt
   const n = dive.next;
   const range = traceGainRange(dive, n.hidden ? null : n.mod);
-  const iceNames = { cache: "CACHE POP", wires: "WIRE MATCH", breach: "BREACH", pulse: "PULSE LOCK", trace: "SIGNAL TRACE" };
 
   const dcN = $("dcNext");
   if (dcN) {
     if (n.boss === "big") dcN.textContent = "⚠⚠ BOSS: ICE-KERN PRIME";
     else if (n.boss === "mini") dcN.textContent = "⚠ BOSS: ICE-WÄCHTER";
     else if (n.secret) dcN.textContent = "??? UNBEKANNTES SIGNAL";
-    else dcN.textContent = `${iceNames[n.type] || n.type}${n.corrupt && !n.hidden ? " · ⚠ KORRUMPIERT" : ""} · ${n.hidden ? "??? (VERDECKT)" : n.mod.name}`;
+    else dcN.textContent = `${iceLabel(n.type, dive.tier, dive.layer + 1)}${n.corrupt && !n.hidden ? " · ⚠ KORRUMPIERT" : ""} · ${n.hidden ? "??? (VERDECKT)" : n.mod.name}`;
   }
 
   const dcN2 = $("dcNext2");
   if (dcN2) {
     if (n.boss === "big") dcN2.textContent = "LOOT x4 · Sieg: TRACE -50, +40 ◆ · Niederlage: alles weg";
     else if (n.boss === "mini") dcN2.textContent = "LOOT x2.5 · Sieg: TRACE -30 · Niederlage: alles weg";
-    else dcN2.textContent = `LOOT x${depthMult(dive.layer + 1).toFixed(1)}${n.hidden ? "" : (n.mod.loot !== 1 ? ` ·x${n.mod.loot}` : "")}${n.corrupt && !n.hidden ? " ·x1.8" : ""} · TRACE ≈ +${range.lo}–${range.hi}${n.hidden ? "+?" : ""}`;
+    else dcN2.textContent = `LOOT x${depthMult(dive.layer + 1).toFixed(1)}${n.hidden ? "" : (n.mod.loot !== 1 ? ` ·x${n.mod.loot}` : "")}${n.corrupt && !n.hidden ? " ·x1.8" : ""} · TRACE ≈ +${range.lo}–${range.hi}${n.hidden ? "+?" : ""}${n.firewall ? " · ⚠ FIREWALL" : ""}`;
   }
 
   // Countdown zum nächsten Boss als Anreiz
@@ -487,11 +576,17 @@ function onReport(res) {
   dive.phase = "choice";
   dive.next = rollNextLayer(dive.layer + 1);
 
-  // Ab Layer 2: 35% Chance auf ein Event (Testhook: __NEON_FORCE_EVENT)
-  const evtChance = window.__NEON_FORCE_EVENT ? 1 : 0.35;
-  dive.event = (dive.layer >= 2 && Math.random() < evtChance)
-    ? EVENTS[Math.floor(Math.random() * EVENTS.length)]
-    : null;
+  // Firewall hat Vorrang vor dem normalen Zufalls-Event — beide gleichzeitig
+  // wäre unfair und würde den einen an den anderen "verschwenden"
+  if (dive.next.firewall) {
+    dive.event = makeFirewallEvent(dive.next.firewall);
+  } else {
+    // Ab Layer 2: 35% Chance auf ein Event (Testhook: __NEON_FORCE_EVENT)
+    const evtChance = window.__NEON_FORCE_EVENT ? 1 : 0.35;
+    dive.event = (dive.layer >= 2 && Math.random() < evtChance)
+      ? EVENTS[Math.floor(Math.random() * EVENTS.length)]
+      : null;
+  }
 
   sfx.clear();
   banter("clear");
@@ -524,6 +619,7 @@ function dumped(reason) {
   dive.phase = "done";
   showChoice(false);
   hideAbilityBar();
+  hideProgramBar();
   sfx.dumped();
   banter("dumped", true);
   shakeScreen();
@@ -564,6 +660,7 @@ function jackOut() {
   dive.phase = "done";
   showChoice(false);
   hideAbilityBar();
+  hideProgramBar();
   sfx.jackout();
   banter("jackout", true);
 }
@@ -605,6 +702,7 @@ export function diveTick(dt, onFinish) {
     const p = dive.pending;
     dive = null;
     hideAbilityBar();
+    hideProgramBar();
     onFinish(p);
   }
 }

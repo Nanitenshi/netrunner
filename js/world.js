@@ -1110,10 +1110,11 @@ function draw() {
     ctx.fill();
   }
 
-  // roads: echte Straßenbänder mit Mittelstreifen statt dünner Linien.
-  // Die Route zum aktuellen Auftragsziel wird gelb hervorgehoben — der
-  // Spieler soll den Weg SEHEN können, statt nur Autowalk zu nutzen
-  // (Idee: "Straßen zu Missionen sollen sich von reiner Deko abheben").
+  // roads: echte Straßenbänder mit Bordstein-Kanten statt einer nackten
+  // dicken Linie, und pro Bezirk in dessen eigener Neonfarbe getönt (statt
+  // überall demselben Cyan) — Kritik "sieht optisch nicht gut aus" /
+  // "alles derselbe Neon-Style, nichts hebt sich ab". Die Route zum
+  // aktuellen Auftragsziel bleibt gelb hervorgehoben on top.
   const hub = DISTRICTS[0];
   const hp = worldToScreen(hub.cx, hub.cy, W, H);
   const goalNode = (() => {
@@ -1121,15 +1122,35 @@ function draw() {
     return gid ? visibleNodes().find((n) => n.id === gid) : null;
   })();
   const goalDistrictId = goalNode ? nodeDistrict(goalNode).id : null;
+  const roadW = 34 * cam.zoom;
 
   for (let i = 1; i < DISTRICTS.length; i++) {
     const d = DISTRICTS[i];
     const bp = worldToScreen(d.cx, d.cy, W, H);
     const isGoalRoute = d.id === goalDistrictId;
+    const tint = BUILD_STYLE[d.id]?.neon || "0,243,255";
 
-    ctx.strokeStyle = "rgba(14,20,34,.9)";
-    ctx.lineWidth = 34 * cam.zoom;
+    // Fahrbahn: dunkel, aber mit leichtem Bezirks-Farbstich statt reinem Grau
+    ctx.strokeStyle = `rgba(14,20,34,.92)`;
+    ctx.lineWidth = roadW;
     ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+    ctx.strokeStyle = `rgba(${tint},.05)`;
+    ctx.lineWidth = roadW;
+    ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+
+    // Bordstein-Kanten: zwei helle Linien am Rand geben der Fahrbahn Kontur
+    const dx = bp.x - hp.x, dy = bp.y - hp.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const half = roadW / 2;
+    for (const side of [-1, 1]) {
+      ctx.strokeStyle = `rgba(${tint},.35)`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(hp.x + nx * half * side, hp.y + ny * half * side);
+      ctx.lineTo(bp.x + nx * half * side, bp.y + ny * half * side);
+      ctx.stroke();
+    }
 
     if (isGoalRoute) {
       // breiter, hell pulsierender Lichtstreifen mittig auf der Route
@@ -1146,13 +1167,28 @@ function draw() {
       ctx.setLineDash([]);
       ctx.lineDashOffset = 0;
     } else {
-      ctx.strokeStyle = "rgba(0,243,255,.30)";
+      ctx.strokeStyle = `rgba(${tint},.32)`;
       ctx.lineWidth = 2;
       ctx.setLineDash([12 * cam.zoom, 16 * cam.zoom]);
       ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
       ctx.setLineDash([]);
     }
   }
+
+  // Kreuzungs-Plaza: sauberer runder Abschluss am Konvergenzpunkt, statt
+  // dass sich alle Straßenbänder unordentlich in einem Pixel überlagern
+  const plaza = ctx.createRadialGradient(hp.x, hp.y, 2, hp.x, hp.y, roadW * 0.9);
+  plaza.addColorStop(0, "rgba(20,28,44,.95)");
+  plaza.addColorStop(1, "rgba(20,28,44,0)");
+  ctx.fillStyle = plaza;
+  ctx.beginPath();
+  ctx.arc(hp.x, hp.y, roadW * 0.9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,243,255,.4)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(hp.x, hp.y, roadW * 0.55, 0, Math.PI * 2);
+  ctx.stroke();
 
   // grid
   ctx.strokeStyle = "rgba(0,243,255,.12)";

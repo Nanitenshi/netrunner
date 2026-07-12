@@ -1,5 +1,6 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=c4c034c0";
-import { saveNow } from "./save.js?v=c4c034c0";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=6316f110";
+import { saveNow } from "./save.js?v=6316f110";
+import { BUILDS } from "./builds.js?v=6316f110";
 
 const $ = (id) => document.getElementById(id);
 
@@ -202,6 +203,12 @@ export function uiTick(dt = 0) {
     rk.textContent = game.stats?.voidCompleted
       ? "VOID WALKER"
       : RANKS[Math.min(RANKS.length - 1, Math.floor(game.missionsDone / 3))];
+  }
+
+  const hb = $("hudBuild");
+  if (hb) {
+    const b = BUILDS[game.build];
+    hb.textContent = b ? ` · ${b.name}` : "";
   }
 
   const goalText = $("hudGoalText");

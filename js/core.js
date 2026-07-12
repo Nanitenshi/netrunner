@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=c4c034c0";
+} from "./threeScene.js?v=6316f110";
 
 import {
   initWorld,
@@ -16,14 +16,14 @@ import {
   currentGoal,
   routeGoal,
   nearMissionNode
-} from "./world.js?v=c4c034c0";
+} from "./world.js?v=6316f110";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=c4c034c0";
-import { loadSave, saveNow, resetSave } from "./save.js?v=c4c034c0";
-import { openNpcDialog, npcTick } from "./npc.js?v=c4c034c0";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=c4c034c0";
-import { unlockAudio } from "./sfx.js?v=c4c034c0";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=c4c034c0";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=6316f110";
+import { loadSave, saveNow, resetSave } from "./save.js?v=6316f110";
+import { openNpcDialog, npcTick } from "./npc.js?v=6316f110";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=6316f110";
+import { unlockAudio } from "./sfx.js?v=6316f110";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=6316f110";
 
 import {
   startDive,
@@ -33,7 +33,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=c4c034c0";
+} from "./dive.js?v=6316f110";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -61,6 +61,10 @@ export const game = {
     autosave: true,
     music: true
   },
+
+  // Hacker-Build: permanente, jederzeit wechselbare Spielstil-Wahl
+  // (GHOST RUNNER / COMBAT RUNNER / DATA THIEF) — siehe builds.js
+  build: null,
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
@@ -173,6 +177,10 @@ const TUT_STEPS = [
   {
     title: "CREW & STADT",
     text: "Mit Frags (◆) rekrutierst du im CREW-Menü Verbündete — sie geben Boni und reden mit dir.\n\nNPCs in der Stadt geben 1x täglich echte Boni. Gelbe Shards auf der Straße = Gratis-Loot. Und hör auf die Musik … sie sagt dir, wie es dir geht."
+  },
+  {
+    title: "DEIN HACKER-BUILD",
+    text: "Im CREW-Menü unter BUILD wählst du deinen Spielstil: GHOST RUNNER (Tarnung, wenig Trace), COMBAT RUNNER (bricht ICE mit Gewalt) oder DATA THIEF (maximaler Loot).\n\nJeder Build gibt dir eine eigene Signature-Fähigkeit im Dive. Jederzeit wechselbar — probier alle drei."
   }
 ];
 

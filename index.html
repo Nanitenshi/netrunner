@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#05070a"/>
   <title>NEON ALLEY — Netrunner</title>
 
-  <link rel="manifest" href="manifest.webmanifest?v=83390461">
+  <link rel="manifest" href="manifest.webmanifest?v=4fbfa88c">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=83390461">
-  <script type="module" src="js/core.js?v=83390461"></script>
+  <link rel="stylesheet" href="css/style.css?v=4fbfa88c">
+  <script type="module" src="js/core.js?v=4fbfa88c"></script>
 </head>
 
 <body>
@@ -30,6 +30,7 @@
         <div class="chip panel">HEAT <b id="hudHeat">0%</b></div>
         <div class="chip panel pink">FRAGS <b id="hudFrags">0</b></div>
         <div class="chip panel yellow">RANK <b id="hudRank">ROOKIE</b></div>
+        <div class="chip panel yellow" id="hudGoal" role="button" style="cursor:pointer">AUFTRAG <b id="hudGoalText">—</b></div>
       </header>
 
       <!-- TITLE -->
@@ -179,6 +180,20 @@
           <div class="dialog" id="resText">—</div>
           <div class="row">
             <button type="button" id="btnBackToCity" class="btn yellow">Back to City</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAUSE MENU -->
+      <section id="pauseMenu" class="centerWrap hidden" style="z-index:60">
+        <div class="panel card">
+          <h2 class="sub" style="margin-top:0">PAUSE</h2>
+          <div class="dialog" id="pauseHint">Das Spiel ist angehalten.</div>
+          <div class="row" style="flex-direction:column; gap:10px; align-items:stretch">
+            <button type="button" id="btnResume" class="btn yellow">▶ WEITER SPIELEN</button>
+            <button type="button" id="btnPmSound" class="btn small">SOUND: AN</button>
+            <button type="button" id="btnPmQuality" class="btn small">GRAFIK: PERF</button>
+            <button type="button" id="btnPmAbort" class="btn small pink hidden">DIVE ABBRECHEN (Buffer verloren)</button>
           </div>
         </div>
       </section>

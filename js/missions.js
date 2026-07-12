@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=83390461";
-import { sfx } from "./sfx.js?v=83390461";
+import { game } from "./core.js?v=4fbfa88c";
+import { sfx } from "./sfx.js?v=4fbfa88c";
 
 const $ = (id) => document.getElementById(id);
 
@@ -197,6 +197,10 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
       vx: Math.cos(driftAng) * driftSpeed,
       vy: Math.sin(driftAng) * driftSpeed,
       trap,
+      // Fallen laufen ab und machen Platz für neue Ringe — sonst verstopfen
+      // sie das Feld dauerhaft, weil nur angetippte Ringe je despawnen
+      // (gemeldeter Bug: 3 Bomben bleiben stehen, nur 1 echtes Ziel übrig)
+      expireAt: trap ? timer + 3.5 + Math.random() * 2 : Infinity,
       alive: true
     };
   }
@@ -243,7 +247,10 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
       for (const c of caches) {
         if (!c.alive) continue;
         const d = Math.hypot(p.x - c.x, p.y - c.y);
-        if (d >= (c.rInner - 14) * mag && d <= (c.rOuter + 14) * mag && d < bestD) { bestD = d; best = c; }
+        // Magnet weitet die Trefferzone in BEIDE Richtungen: außen größer,
+        // innen kleiner (vorher wuchs auch der innere Rand mit — Taps mitten
+        // im Ring gingen ausgerechnet mit Magnet daneben)
+        if (d >= (c.rInner - 14) / mag && d <= (c.rOuter + 14) * mag && d < bestD) { bestD = d; best = c; }
       }
       if (!best) { sfx.tap(); return; }
 
@@ -312,6 +319,24 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
       if (paused || finished) return;
 
       timer += dt;
+
+      // abgelaufene Fallen einsammeln und ersetzen (nach der Zeichenschleife,
+      // damit wir das Array nicht während der Iteration verändern)
+      const expired = caches.filter((c) => c.alive && c.trap && timer >= c.expireAt);
+      for (const c of expired) {
+        c.alive = false;
+        burst(c.x, c.y, "#5a6a80", 6, 120);
+        caches.push(spawn());
+      }
+
+      // tote Einträge regelmäßig entsorgen — bei langen Layern wächst das
+      // Array sonst unbegrenzt (jeder Pop/Expire pusht einen neuen Ring)
+      if (caches.length > 30) {
+        const live = caches.filter((c) => c.alive);
+        caches.length = 0;
+        caches.push(...live);
+      }
+
       if (popped >= objective) {
         finished = true;
         report({ success: true, score: popped, misses });

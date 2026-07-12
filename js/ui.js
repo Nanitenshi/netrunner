@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=83390461";
-import { saveNow } from "./save.js?v=83390461";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=4fbfa88c";
+import { saveNow } from "./save.js?v=4fbfa88c";
 
 const $ = (id) => document.getElementById(id);
 
@@ -73,6 +73,9 @@ export function initUI(_api) {
 
   // Result screen
   bindFastPress($("btnBackToCity"), () => api.setMode?.("WORLD"));
+
+  // AUFTRAG-Chip: Tap routet direkt zum Ziel-Node
+  bindFastPress($("hudGoal"), () => api.routeGoal?.());
 
   // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen —
   // beim Öffnen die Liste neu aufbauen, falls sich Requires-Gates (z.B. ein
@@ -189,6 +192,12 @@ export function uiTick(dt = 0) {
     rk.textContent = game.stats?.voidCompleted
       ? "VOID WALKER"
       : RANKS[Math.min(RANKS.length - 1, Math.floor(game.missionsDone / 3))];
+  }
+
+  const goalText = $("hudGoalText");
+  if (goalText) {
+    const goal = api?.getGoal?.();
+    if (goal && goal.text !== goalText.textContent) goalText.textContent = goal.text;
   }
 
   const t = $("hudTime");

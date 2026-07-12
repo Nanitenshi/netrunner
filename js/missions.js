@@ -757,6 +757,209 @@ function makePulseLock({ diff, mods, timeMult = 1, corrupt = false }) {
   };
 }
 
+/* ---------------- SIGNAL TRACE (Drag: Relais der Reihe nach verbinden, ICE meiden) ---------------- */
+function makeSignalTrace({ diff, mods, timeMult = 1, corrupt = false }) {
+  const total = 5 + Math.round(diff * 3);
+  const hazardCount = 2 + Math.round(diff * 4) + (corrupt ? 2 : 0);
+  let timeLimit = (Math.max(10, 17 - diff * 3) + mods.timeBonus) * timeMult;
+
+  const relays = [];
+  const hazards = [];
+  let timer = 0, next = 1, misses = 0, finished = false;
+  let forgiveLeft = mods.forgive;
+  let hintUntil = -1, magnetUntil = -1;
+  let dragging = false;
+  let anchor = null;
+  let cursor = null;
+
+  // ab mittlerer Schwierigkeit patrouilliert das ICE, statt still zu stehen —
+  // reines Auswendiglernen der sicheren Route reicht dann nicht mehr
+  const patrolling = diff > 0.45;
+
+  function place() {
+    const r = playRect();
+    const radius = fitRadius(total, r, baseRadius() * 0.82) * mods.ringScale;
+    relays.length = 0;
+    const pts = placeSpread(total, radius, r);
+    for (let i = 1; i <= total; i++) {
+      relays.push({ n: i, x: pts[i - 1].x, y: pts[i - 1].y, radius, done: false });
+    }
+
+    hazards.length = 0;
+    for (let i = 0; i < hazardCount; i++) {
+      let best = null, bestScore = -Infinity;
+      for (let tries = 0; tries < 16; tries++) {
+        const x = r.x0 + 30 + Math.random() * Math.max(1, r.x1 - r.x0 - 60);
+        const y = r.y0 + 30 + Math.random() * Math.max(1, r.y1 - r.y0 - 60);
+        let minGap = Infinity;
+        for (const rl of relays) minGap = Math.min(minGap, Math.hypot(x - rl.x, y - rl.y) - rl.radius - 20);
+        for (const hz of hazards) minGap = Math.min(minGap, Math.hypot(x - hz.x, y - hz.y) - 40);
+        if (minGap > bestScore) { bestScore = minGap; best = { x, y }; }
+        if (minGap >= 8) break;
+      }
+      const ang = Math.random() * Math.PI * 2;
+      hazards.push({
+        x: best.x, y: best.y, r: 22,
+        vx: patrolling ? Math.cos(ang) * (18 + Math.random() * 14) : 0,
+        vy: patrolling ? Math.sin(ang) * (18 + Math.random() * 14) : 0
+      });
+    }
+
+    anchor = { x: relays[0].x, y: relays[0].y };
+  }
+
+  function zap() {
+    if (forgiveLeft > 0) { forgiveLeft -= 1; return; }
+    misses += 1;
+    sfx.bad();
+    dragging = false;
+    cursor = null;
+  }
+
+  function checkPoint(p) {
+    const target = relays[next - 1];
+    if (target && !target.done) {
+      const rad = target.radius * (timer < magnetUntil ? 1.6 : 1);
+      if (Math.hypot(p.x - target.x, p.y - target.y) <= rad) {
+        target.done = true;
+        anchor = { x: target.x, y: target.y };
+        next += 1;
+        burst(target.x, target.y, "#7dff8a", 10);
+        sfx.pop();
+      }
+    }
+    if (next > relays.length) return;
+    for (const hz of hazards) {
+      if (Math.hypot(p.x - hz.x, p.y - hz.y) <= hz.r) { zap(); break; }
+    }
+  }
+
+  const debug = { type: "trace", relays, hazards, get next() { return next; } };
+
+  return {
+    name: "SIGNAL TRACE",
+    debug,
+    addTime(s) { timeLimit += s; },
+    assist(kind) {
+      if (kind === "reveal") { hintUntil = timer + 2.5; return true; }
+      if (kind === "magnet") { magnetUntil = timer + 6; return true; }
+      if (kind === "forgive") { forgiveLeft += 1; return true; }
+      return false;
+    },
+    start() { place(); },
+    pointer(type, e) {
+      if (finished) return;
+      if (type === "down") {
+        dragging = true;
+        cursor = localPos(e);
+        checkPoint(cursor);
+        return;
+      }
+      if (type === "move") {
+        if (!dragging) return;
+        cursor = localPos(e);
+        checkPoint(cursor);
+        return;
+      }
+      if (type === "up" || type === "cancel") {
+        dragging = false;
+        cursor = null;
+      }
+    },
+    tick(dt, paused, report) {
+      const ctx = game.ctx.mission;
+      const r = playRect();
+
+      ctx.clearRect(0, 0, r.W, r.H);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, 0, r.W, r.H);
+
+      const hinting = timer < hintUntil;
+
+      if (!paused) {
+        timer += dt;
+        if (patrolling) {
+          for (const hz of hazards) {
+            hz.x += hz.vx * dt; hz.y += hz.vy * dt;
+            if (hz.x < r.x0 + 20 || hz.x > r.x1 - 20) hz.vx *= -1;
+            if (hz.y < r.y0 + 20 || hz.y > r.y1 - 20) hz.vy *= -1;
+          }
+          if (dragging && cursor) checkPoint(cursor);
+        }
+      }
+
+      // feste Route bis zum letzten erreichten Relais
+      ctx.strokeStyle = "rgba(0,243,255,.7)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      let started = false;
+      for (const rl of relays) {
+        if (!rl.done) break;
+        if (!started) { ctx.moveTo(rl.x, rl.y); started = true; }
+        else ctx.lineTo(rl.x, rl.y);
+      }
+      if (started) ctx.stroke();
+
+      // live Zugspur vom letzten Relais zum Finger
+      if (dragging && cursor && anchor) {
+        ctx.strokeStyle = "rgba(255,255,255,.55)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(anchor.x, anchor.y);
+        ctx.lineTo(cursor.x, cursor.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      for (const hz of hazards) {
+        ctx.beginPath();
+        ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,0,60,.28)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,60,90,.85)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      for (const rl of relays) {
+        ctx.beginPath();
+        ctx.arc(rl.x, rl.y, rl.radius, 0, Math.PI * 2);
+        ctx.fillStyle = rl.done
+          ? "rgba(120,255,140,.35)"
+          : (rl.n === next && hinting ? "rgba(252,238,10,.3)" : "rgba(0,243,255,.16)");
+        ctx.fill();
+        ctx.lineWidth = (rl.n === next && !rl.done) ? 4 : 2;
+        ctx.strokeStyle = (rl.n === next && !rl.done) ? "rgba(255,255,255,.9)" : "rgba(0,243,255,.6)";
+        ctx.stroke();
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(rl.n), rl.x, rl.y);
+      }
+      ctx.textAlign = "start";
+      ctx.textBaseline = "alphabetic";
+
+      drawParticles(ctx, dt);
+      if (corrupt) drawGlitch(ctx, r);
+
+      setHud(`${next - 1} / ${total}`, timer, timeLimit,
+        patrolling ? "ICE PATROULLIERT — ZIEHEN OHNE BERÜHREN" : "VOM RELAIS ZUM NÄCHSTEN ZIEHEN");
+      if (paused || finished) return;
+
+      if (next > total) {
+        finished = true;
+        report({ success: true, score: total * 3, misses });
+      } else if (timer >= timeLimit) {
+        finished = true;
+        report({ success: false, score: 0, misses });
+      }
+    }
+  };
+}
+
 /* ---------------- GHOST NET (geheimes Minigame: flackernde Ziele fangen) ---------------- */
 function makeGhostNet({ diff, mods, timeMult = 1 }) {
   const objective = 7 + Math.round(diff * 3);
@@ -1258,13 +1461,14 @@ const FACTORY = {
   wires: makeWireMatch,
   breach: makeBreachSequence,
   pulse: makePulseLock,
+  trace: makeSignalTrace,
   ghost: makeGhostNet,
   boss_mini: makeBossGuard,
   boss_big: makeBossCore
 };
 
 // Nur diese Typen werden zufällig für normale Layer gewürfelt
-export const MG_TYPES = ["cache", "wires", "breach", "pulse"];
+export const MG_TYPES = ["cache", "wires", "breach", "pulse", "trace"];
 
 export function createMinigame(type, opts) {
   const f = FACTORY[type] || FACTORY.cache;

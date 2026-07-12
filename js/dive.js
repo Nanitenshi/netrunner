@@ -324,7 +324,7 @@ function renderChoice() {
   // Vorschau auf den nächsten Layer — Modifikator evtl. verdeckt
   const n = dive.next;
   const range = traceGainRange(dive, n.hidden ? null : n.mod);
-  const iceNames = { cache: "CACHE POP", wires: "WIRE MATCH", breach: "BREACH", pulse: "PULSE LOCK" };
+  const iceNames = { cache: "CACHE POP", wires: "WIRE MATCH", breach: "BREACH", pulse: "PULSE LOCK", trace: "SIGNAL TRACE" };
 
   const dcN = $("dcNext");
   if (dcN) {

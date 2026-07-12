@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=0f733064";
-import { sfx } from "./sfx.js?v=0f733064";
+import { game } from "./core.js?v=1a3a9bca";
+import { sfx } from "./sfx.js?v=1a3a9bca";
 
 const $ = (id) => document.getElementById(id);
 
@@ -161,7 +161,11 @@ function makeCachePop({ diff, mods, timeMult = 1, corrupt = false }) {
 
   function spawn(forceTrap = null) {
     const r = playRect();
-    const trap = forceTrap !== null ? forceTrap : Math.random() < trapChance;
+    // Nie alle lebenden Caches gleichzeitig Fallen — sonst kann eine Pech-
+    // Serie das Feld komplett mit Roten füllen, ohne dass ein sicheres Ziel
+    // übrig bleibt (gemeldeter Bug: "Sequenzen mit nur Bomben")
+    const hasSafeAlive = caches.some((c) => c.alive && !c.trap);
+    const trap = forceTrap !== null ? forceTrap : (hasSafeAlive && Math.random() < trapChance);
     const cap = maxRing(r);
     const rOuter = (cap * 0.72 + Math.random() * cap * 0.28) * mods.ringScale * sizeMult;
     const rInner = rOuter * (0.36 + Math.random() * 0.16);

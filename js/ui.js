@@ -207,14 +207,26 @@ export function uiTick(dt = 0) {
   }
 
   // Quick-Start-Button: nur sichtbar, wenn man in der Stadt auf einem
-  // Mission-Node steht
+  // Mission-Node steht UND kein anderes Overlay offen ist (der Button hat
+  // ein eigenes z-index und würde sonst über CREW/PAUSE/Tutorial gemalt —
+  // gleiche Ursache wie der AUFTRAG-Chip-Overlap-Bug). Position dynamisch
+  // unter die HUD-Leiste setzen, sonst überlappt er mit dem Signal-Panel
+  // weiter unten (das Panel malt sich optisch darüber, obwohl
+  // pointer-events:none Taps durchlässt — der Button wäre da, aber unsichtbar)
   const diveBtn = $("btnDiveNow");
   if (diveBtn) {
-    const n = game.mode === "WORLD" ? api?.nearMission?.() : null;
+    const overlayOpen = !$("crewOverlay")?.classList.contains("hidden")
+      || !$("pauseMenu")?.classList.contains("hidden")
+      || !$("tutorial")?.classList.contains("hidden");
+    const n = (game.mode === "WORLD" && !overlayOpen) ? api?.nearMission?.() : null;
     diveBtn.classList.toggle("hidden", !n);
     if (n) {
       const label = `▶ DIVE: ${n.name.toUpperCase()} · TIER ${(n.tier || 1) + (n.hot ? 1 : 0)}${n.hot ? " 🔥" : ""}`;
       if (diveBtn.textContent !== label) diveBtn.textContent = label;
+
+      const hud = $("hudTop");
+      const hudBottom = hud ? hud.getBoundingClientRect().bottom : 100;
+      diveBtn.style.top = `${Math.round(hudBottom + 14)}px`;
     }
   }
 

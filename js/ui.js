@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=b31a0ade";
-import { saveNow } from "./save.js?v=b31a0ade";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=0f733064";
+import { saveNow } from "./save.js?v=0f733064";
 
 const $ = (id) => document.getElementById(id);
 
@@ -185,7 +185,11 @@ export function uiTick(dt = 0) {
   if (f) f.textContent = `${game.frags}`;
 
   const rk = $("hudRank");
-  if (rk) rk.textContent = RANKS[Math.min(RANKS.length - 1, Math.floor(game.missionsDone / 3))];
+  if (rk) {
+    rk.textContent = game.stats?.voidCompleted
+      ? "VOID WALKER"
+      : RANKS[Math.min(RANKS.length - 1, Math.floor(game.missionsDone / 3))];
+  }
 
   const t = $("hudTime");
   if (t) t.textContent = game.dayRatio < 0.35 ? "DAY" : (game.dayRatio < 0.7 ? "DUSK" : "NIGHT");
@@ -213,8 +217,9 @@ export function uiTick(dt = 0) {
   const stats = $("titleStats");
   if (stats) {
     const owned = Object.keys(game.crew?.roster || {}).length;
+    const walker = game.stats?.voidCompleted ? " · VOID WALKER" : "";
     stats.textContent = game.stats?.dives > 0
-      ? `REKORD: LAYER ${game.stats.bestLayer} · DIVES: ${game.stats.dives} · CREW: ${owned}/15`
+      ? `REKORD: LAYER ${game.stats.bestLayer} · DIVES: ${game.stats.dives} · CREW: ${owned}/15${walker}`
       : "Noch keine Dives. Zeit, das zu ändern.";
   }
 }

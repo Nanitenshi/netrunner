@@ -1,10 +1,10 @@
 // js/world.js
-import { game } from "./core.js?v=f36e00dc";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=f36e00dc";
-import { openNpcDialog } from "./npc.js?v=f36e00dc";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=f36e00dc";
-import { sfx } from "./sfx.js?v=f36e00dc";
-import { saveNow } from "./save.js?v=f36e00dc";
+import { game } from "./core.js?v=30e449d9";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=30e449d9";
+import { openNpcDialog } from "./npc.js?v=30e449d9";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=30e449d9";
+import { sfx } from "./sfx.js?v=30e449d9";
+import { saveNow } from "./save.js?v=30e449d9";
 
 const $ = (id) => document.getElementById(id);
 
@@ -80,6 +80,8 @@ const drones = [];
 const props = [];
 const steamVents = [];
 const puffs = [];
+const secondaryRoads = [];
+const groundGrain = [];
 
 // deterministischer Pseudozufall pro Gebäude (für stabile Fenster-Muster)
 function hashRnd(seed, i) {
@@ -136,6 +138,86 @@ function nodeDistrict(n) {
     if (dd < bestD) { bestD = dd; best = d; }
   }
   return best;
+}
+
+// Zweite Straßen-Ebene zwischen benachbarten Bezirken (nicht über den Hub) —
+// bricht die reine Stern-Topologie auf, damit sich die Stadt wie ein
+// zusammenhängendes Netz anfühlt statt wie Speichen um einen Mittelpunkt
+const SECONDARY_ROADS = [
+  ["downtown", "corporate"],
+  ["industrial", "slums"],
+  ["slums", "undercity"]
+];
+
+// N-1 Zwischenpunkte, seitlich ausgelenkt (deterministisch, per Seed) —
+// macht aus einer Lineal-Geraden eine leicht geschwungene Straße
+function bendWaypoints(ax, ay, bx, by, seed, segs = 3) {
+  const dx = bx - ax, dy = by - ay;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+
+  const pts = [{ x: ax, y: ay }];
+  for (let i = 1; i < segs; i++) {
+    const t = i / segs;
+    const wob = (hashRnd(seed, i * 17 + 3) - 0.5) * len * 0.16;
+    pts.push({ x: ax + dx * t + nx * wob, y: ay + dy * t + ny * wob });
+  }
+  pts.push({ x: bx, y: by });
+  return pts;
+}
+
+// Organische Bezirksgrenze statt Zirkelkreis: N Punkte mit zufälligem
+// Radius-Jitter, per hashRnd stabil (kein Geflacker zwischen Frames)
+function initDistrictBlobs() {
+  for (const d of DISTRICTS) {
+    const seed = d.cx * 3 + d.cy * 7 + 11;
+    const n = 11;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2;
+      const jitter = 0.7 + hashRnd(seed, i * 13 + 5) * 0.36;
+      pts.push({ x: d.cx + Math.cos(ang) * d.r * jitter, y: d.cy + Math.sin(ang) * d.r * jitter });
+    }
+    d.blobPts = pts;
+  }
+}
+
+function initRoadPaths() {
+  const hub = DISTRICTS[0];
+  for (let i = 1; i < DISTRICTS.length; i++) {
+    const d = DISTRICTS[i];
+    d.roadPts = bendWaypoints(hub.cx, hub.cy, d.cx, d.cy, d.cx * 5 + d.cy * 13 + 41);
+  }
+
+  secondaryRoads.length = 0;
+  for (const [aId, bId] of SECONDARY_ROADS) {
+    const a = DISTRICTS.find((x) => x.id === aId);
+    const b = DISTRICTS.find((x) => x.id === bId);
+    if (!a || !b) continue;
+    secondaryRoads.push({ pts: bendWaypoints(a.cx, a.cy, b.cx, b.cy, a.cx * 7 + b.cy * 19 + 71, 2) });
+  }
+}
+
+// Feine Boden-Körnung statt eines Koordinatengitters — ein Gitter über der
+// ganzen Stadt sah nach Diagrammpapier aus, nicht nach Asphalt (gemeldetes
+// Problem: "Mathe-Optik"). Einmal berechnet, dann nur noch neu projiziert.
+function initGroundGrain() {
+  groundGrain.length = 0;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const d of DISTRICTS) {
+    minX = Math.min(minX, d.cx - d.r); maxX = Math.max(maxX, d.cx + d.r);
+    minY = Math.min(minY, d.cy - d.r); maxY = Math.max(maxY, d.cy + d.r);
+  }
+  const count = Math.min(700, Math.round(((maxX - minX) * (maxY - minY)) / 11000));
+  for (let i = 0; i < count; i++) {
+    groundGrain.push({
+      x: minX + Math.random() * (maxX - minX),
+      y: minY + Math.random() * (maxY - minY),
+      r: 1 + Math.random() * 1.8,
+      a: 0.03 + Math.random() * 0.05,
+      warm: Math.random() < 0.25
+    });
+  }
 }
 
 function initBuildings() {
@@ -526,6 +608,9 @@ export function initWorld() {
   }
 
   cam.x = player.x; cam.y = player.y;
+  initDistrictBlobs();
+  initRoadPaths();
+  initGroundGrain();
   initBuildings();
   initCars();
   initLamps();
@@ -534,6 +619,9 @@ export function initWorld() {
   initProps();
   initStreetLoot();
   updateNodeList(visibleNodes(), game.selectedNodeId, goToNode);
+
+  // Debug-/Test-Zugriff
+  window.__NEON_CAM = () => cam;
 }
 
 export function getNodeById(id) {
@@ -678,6 +766,45 @@ function screenToWorld(sx, sy, W, H) {
     x: (sx - W / 2) / cam.zoom + cam.x,
     y: (sy - H / 2) / cam.zoom + cam.y
   };
+}
+
+// Position + lokale Richtung entlang einer mehrsegmentigen Straße bei
+// t ∈ [0,1] — Autos folgen jetzt der gebogenen Straße statt querfeldein
+// schnurgerade zwischen Hub und Bezirk zu schneiden
+function pointOnPath(pts, t) {
+  const segs = pts.length - 1;
+  const tt = Math.max(0, Math.min(1, t)) * segs;
+  const i = Math.min(segs - 1, Math.floor(tt));
+  const lt = tt - i;
+  const a = pts[i], b = pts[i + 1];
+  return { x: a.x + (b.x - a.x) * lt, y: a.y + (b.y - a.y) * lt, dx: b.x - a.x, dy: b.y - a.y };
+}
+
+// Öffnet einen Pfad entlang mehrerer Punkte (Straßen-Wegpunkte) — ein
+// einzelner Stroke-Call statt Segment-für-Segment, für die durchgehenden
+// Fahrbahn-/Tint-/Highlight-Passes
+function pathThroughPoints(ctx, pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+}
+
+// Schließt einen weichen Blob-Umriss durch eine Punktreihe (Mittelpunkt-zu-
+// Mittelpunkt-Quadrics) — macht aus den rohen Jitter-Punkten eine organische,
+// geschlossene Kontur statt eines Vielecks mit sichtbaren Ecken
+function pathBlob(ctx, pts) {
+  const n = pts.length;
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const m0 = mid(pts[n - 1], pts[0]);
+  ctx.beginPath();
+  ctx.moveTo(m0.x, m0.y);
+  for (let i = 0; i < n; i++) {
+    const cur = pts[i];
+    const next = pts[(i + 1) % n];
+    const m = mid(cur, next);
+    ctx.quadraticCurveTo(cur.x, cur.y, m.x, m.y);
+  }
+  ctx.closePath();
 }
 
 function interact(n) {
@@ -1049,19 +1176,17 @@ function drawBuildings(ctx, W, H) {
 }
 
 function drawCars(ctx, W, H) {
-  const hub = DISTRICTS[0];
   for (const c of cars) {
     const d = DISTRICTS[c.seg];
-    const wx = hub.cx + (d.cx - hub.cx) * c.t;
-    const wy = hub.cy + (d.cy - hub.cy) * c.t;
-    const p = worldToScreen(wx, wy, W, H);
+    if (!d.roadPts) continue;
+    const wp = pointOnPath(d.roadPts, c.t);
+    const p = worldToScreen(wp.x, wp.y, W, H);
     if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
 
-    // Lichtspur
-    const dx = (d.cx - hub.cx), dy = (d.cy - hub.cy);
-    const len = Math.hypot(dx, dy) || 1;
-    const tx = (dx / len) * 14 * cam.zoom * -c.dir;
-    const ty = (dy / len) * 14 * cam.zoom * -c.dir;
+    // Lichtspur, entlang der lokalen Straßen-Richtung an dieser Stelle
+    const len = Math.hypot(wp.dx, wp.dy) || 1;
+    const tx = (wp.dx / len) * 14 * cam.zoom * -c.dir;
+    const ty = (wp.dy / len) * 14 * cam.zoom * -c.dir;
 
     ctx.strokeStyle = `rgba(${c.color},.35)`;
     ctx.lineWidth = 3 * cam.zoom;
@@ -1090,23 +1215,27 @@ function draw() {
   // einmal pro Frame berechnen — wird von mehreren Abschnitten gebraucht
   // (Straßen-Hervorhebung, Nodes, ...)
   const tNow = performance.now() / 1000;
+  const perfMode = game.settings?.quality === "perf";
 
   // Boden: helle blaugraue Fläche statt schwarzem Loch
   ctx.fillStyle = "rgba(26,36,58,.72)";
   ctx.fillRect(0, 0, W, H);
 
-  // district glow zones — kräftiger, die Bezirke sollen leuchten
+  // district glow zones — organische Blob-Kontur statt Zirkelkreis (ein
+  // perfekter Kreis pro Bezirk + Gitter + Speichen-Straßen sah wie ein
+  // Mathe-Diagramm aus, nicht wie eine Stadt)
   for (const d of DISTRICTS) {
     const p = worldToScreen(d.cx, d.cy, W, H);
     const rr = d.r * cam.zoom;
     if (p.x < -rr || p.x > W + rr || p.y < -rr || p.y > H + rr) continue;
 
+    const screenBlob = d.blobPts.map((pt) => worldToScreen(pt.x, pt.y, W, H));
+    pathBlob(ctx, screenBlob);
+
     const grd = ctx.createRadialGradient(p.x, p.y, rr * 0.15, p.x, p.y, rr);
     grd.addColorStop(0, d.color.replace(/0\.1\d+\)/, "0.30)"));
     grd.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = grd;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, rr, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -1123,56 +1252,83 @@ function draw() {
   })();
   const goalDistrictId = goalNode ? nodeDistrict(goalNode).id : null;
   const roadW = 34 * cam.zoom;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
 
   for (let i = 1; i < DISTRICTS.length; i++) {
     const d = DISTRICTS[i];
-    const bp = worldToScreen(d.cx, d.cy, W, H);
     const isGoalRoute = d.id === goalDistrictId;
     const tint = BUILD_STYLE[d.id]?.neon || "0,243,255";
+    const pts = d.roadPts.map((pt) => worldToScreen(pt.x, pt.y, W, H));
 
     // Fahrbahn: dunkel, aber mit leichtem Bezirks-Farbstich statt reinem Grau
+    pathThroughPoints(ctx, pts);
     ctx.strokeStyle = `rgba(14,20,34,.92)`;
     ctx.lineWidth = roadW;
-    ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+    ctx.stroke();
+    pathThroughPoints(ctx, pts);
     ctx.strokeStyle = `rgba(${tint},.05)`;
     ctx.lineWidth = roadW;
-    ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+    ctx.stroke();
 
-    // Bordstein-Kanten: zwei helle Linien am Rand geben der Fahrbahn Kontur
-    const dx = bp.x - hp.x, dy = bp.y - hp.y;
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len, ny = dx / len;
+    // Bordstein-Kanten pro Segment: zwei helle Linien am Rand geben der
+    // (jetzt geschwungenen) Fahrbahn Kontur
     const half = roadW / 2;
-    for (const side of [-1, 1]) {
-      ctx.strokeStyle = `rgba(${tint},.35)`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(hp.x + nx * half * side, hp.y + ny * half * side);
-      ctx.lineTo(bp.x + nx * half * side, bp.y + ny * half * side);
-      ctx.stroke();
+    for (let s = 0; s < pts.length - 1; s++) {
+      const a = pts[s], b = pts[s + 1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len;
+      for (const side of [-1, 1]) {
+        ctx.strokeStyle = `rgba(${tint},.35)`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(a.x + nx * half * side, a.y + ny * half * side);
+        ctx.lineTo(b.x + nx * half * side, b.y + ny * half * side);
+        ctx.stroke();
+      }
     }
 
     if (isGoalRoute) {
       // breiter, hell pulsierender Lichtstreifen mittig auf der Route
       const glowPulse = 0.5 + Math.sin(tNow * 3) * 0.2;
+      pathThroughPoints(ctx, pts);
       ctx.strokeStyle = `rgba(252,238,10,${(0.22 + glowPulse * 0.18).toFixed(2)})`;
       ctx.lineWidth = 16 * cam.zoom;
-      ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+      ctx.stroke();
 
+      pathThroughPoints(ctx, pts);
       ctx.strokeStyle = "rgba(252,238,10,.9)";
       ctx.lineWidth = 3;
       ctx.setLineDash([14 * cam.zoom, 10 * cam.zoom]);
       ctx.lineDashOffset = -tNow * 40;
-      ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+      ctx.stroke();
       ctx.setLineDash([]);
       ctx.lineDashOffset = 0;
     } else {
+      pathThroughPoints(ctx, pts);
       ctx.strokeStyle = `rgba(${tint},.32)`;
       ctx.lineWidth = 2;
       ctx.setLineDash([12 * cam.zoom, 16 * cam.zoom]);
-      ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+      ctx.stroke();
       ctx.setLineDash([]);
     }
+  }
+
+  // Nebenstraßen zwischen Nachbar-Bezirken — bricht die reine Stern-
+  // Topologie auf (gemeldetes Problem: sah aus wie ein Graph-Diagramm)
+  for (const road of secondaryRoads) {
+    const pts = road.pts.map((pt) => worldToScreen(pt.x, pt.y, W, H));
+    pathThroughPoints(ctx, pts);
+    ctx.strokeStyle = "rgba(10,15,26,.85)";
+    ctx.lineWidth = roadW * 0.5;
+    ctx.stroke();
+    pathThroughPoints(ctx, pts);
+    ctx.strokeStyle = "rgba(150,170,200,.18)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([10 * cam.zoom, 14 * cam.zoom]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // Kreuzungs-Plaza: sauberer runder Abschluss am Konvergenzpunkt, statt
@@ -1190,17 +1346,18 @@ function draw() {
   ctx.arc(hp.x, hp.y, roadW * 0.55, 0, Math.PI * 2);
   ctx.stroke();
 
-  // grid
-  ctx.strokeStyle = "rgba(0,243,255,.12)";
-  ctx.lineWidth = 1;
-  const step = 60 * cam.zoom;
-  const offX = (W / 2 - cam.x * cam.zoom) % step;
-  const offY = (H / 2 - cam.y * cam.zoom) % step;
-  for (let x = offX; x < W; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-  for (let y = offY; y < H; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  // Boden-Körnung: verstreute feine Flecken statt eines Koordinatengitters —
+  // ein Gitter über der ganzen Stadt sah nach Diagrammpapier aus, nicht nach
+  // Asphalt (gemeldetes Problem: "Mathe-Optik"). In PERF ausgelassen.
+  if (!perfMode) {
+    for (const g of groundGrain) {
+      const p = worldToScreen(g.x, g.y, W, H);
+      if (p.x < -6 || p.x > W + 6 || p.y < -6 || p.y > H + 6) continue;
+      ctx.fillStyle = g.warm ? `rgba(255,214,150,${g.a})` : `rgba(160,190,220,${g.a})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, g.r * cam.zoom, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // Straßenlaternen: warme Lichtpunkte mit Lichtkegel am Boden

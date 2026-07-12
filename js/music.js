@@ -38,7 +38,12 @@ let timer = null;
 function ensureGraph(ac) {
   if (master) return;
   master = ac.createGain();
-  master.gain.value = 0.11;
+  // 0.11 war auf Handylautsprechern praktisch unhörbar (Spieler-Feedback:
+  // "hört gar nichts") — Voice-Pegel (0.014-0.05) blieben bei 0.11 Master
+  // im Bereich 0.002-0.006 absolut. Reichlich Headroom vorhanden: selbst
+  // Pad+Pluck gleichzeitig summieren pre-master auf ~0.11, also weit unter
+  // Clipping (1.0) auch bei diesem höheren Master-Wert.
+  master.gain.value = 0.42;
   master.connect(ac.destination);
 }
 

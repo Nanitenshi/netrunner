@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=4fbfa88c";
+} from "./threeScene.js?v=2b94d4a4";
 
 import {
   initWorld,
@@ -14,15 +14,16 @@ import {
   worldSetFocusToggle,
   refreshNodeList,
   currentGoal,
-  routeGoal
-} from "./world.js?v=4fbfa88c";
+  routeGoal,
+  nearMissionNode
+} from "./world.js?v=2b94d4a4";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=4fbfa88c";
-import { loadSave, saveNow, resetSave } from "./save.js?v=4fbfa88c";
-import { openNpcDialog, npcTick } from "./npc.js?v=4fbfa88c";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=4fbfa88c";
-import { unlockAudio } from "./sfx.js?v=4fbfa88c";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=4fbfa88c";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=2b94d4a4";
+import { loadSave, saveNow, resetSave } from "./save.js?v=2b94d4a4";
+import { openNpcDialog, npcTick } from "./npc.js?v=2b94d4a4";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=2b94d4a4";
+import { unlockAudio } from "./sfx.js?v=2b94d4a4";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=2b94d4a4";
 
 import {
   startDive,
@@ -32,7 +33,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=4fbfa88c";
+} from "./dive.js?v=2b94d4a4";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -63,7 +64,8 @@ export const game = {
 
   upgrades: { buffer: 0, amplifier: 0, pulse: 0 },
   crew: { roster: {}, equipped: [], pity: 0 },
-  daily: { date: "", done: false, npcs: {} },
+  daily: { date: "", done: false, npcs: {}, lootTaken: {} },
+  tutorialDone: false,
   stats: { bestLayer: 0, dives: 0, dumps: 0, voidAnnounced: false, voidCompleted: false, psychosisWarned: false },
   // Fortschritt der NPC-Story-Arcs: welche Dialogzeile als nächstes dran ist
   storyStage: {},
@@ -101,7 +103,7 @@ function todayStr() {
 
 export function checkDailyReset() {
   if (game.daily.date !== todayStr()) {
-    game.daily = { date: todayStr(), done: false, npcs: {} };
+    game.daily = { date: todayStr(), done: false, npcs: {}, lootTaken: {} };
   }
 }
 
@@ -148,14 +150,54 @@ export function setMode(next) {
   // Musik: dichter im Dive, ruhiger in der Stadt
   musicSetIntensity(next === "MISSION" ? 1 : 0);
 
-  // Erste-Schritte-Hinweis für frische Spieler
-  if (next === "WORLD" && game.missionsDone === 0 && !game._introShown) {
-    game._introShown = true;
-    setComms(`NYX: „Lauf zum CACHE POP TERMINAL — dein erster Dive wartet. Tipp einfach hin.“`);
+  // Erstes Mal in der Stadt: kurzes Tutorial statt kryptischem Einzeiler —
+  // erklärt WAS man tut und WARUM (gemeldetes Problem: keine Orientierung)
+  if (next === "WORLD" && !game.tutorialDone) {
+    showTutorial(0);
   }
 
   // no pause carryover
   setPaused(false);
+}
+
+/* ---------------- TUTORIAL ---------------- */
+const TUT_STEPS = [
+  {
+    title: "WILLKOMMEN IN NEON ALLEY",
+    text: "Du bist Netrunner: Du hackst dich in Systeme („Dives“) und holst Eddies (E$) und Frags (◆) raus.\n\nDer gelbe AUFTRAG-Chip oben zeigt IMMER dein nächstes Ziel. Tipp drauf — dein Runner läuft automatisch hin."
+  },
+  {
+    title: "DER DIVE — DEIN RISIKO, DEIN LOOT",
+    text: "Im Dive löst du Minigames. Jede Ebene füllt deinen BUFFER (unsicherer Loot) — aber der TRACE steigt.\n\nBei TRACE 100% ist fast alles weg. Also: GO DEEPER für mehr Loot — oder JACK OUT, um alles zu sichern. Das ist das ganze Spiel: Gier gegen Vernunft."
+  },
+  {
+    title: "CREW & STADT",
+    text: "Mit Frags (◆) rekrutierst du im CREW-Menü Verbündete — sie geben Boni und reden mit dir.\n\nNPCs in der Stadt geben 1x täglich echte Boni. Gelbe Shards auf der Straße = Gratis-Loot. Und hör auf die Musik … sie sagt dir, wie es dir geht."
+  }
+];
+
+let tutStep = 0;
+
+function showTutorial(step) {
+  tutStep = step;
+  const box = $("tutorial");
+  if (!box) return;
+
+  if (step >= TUT_STEPS.length) {
+    box.classList.add("hidden");
+    game.tutorialDone = true;
+    saveNow();
+    toast("AUFTRAG oben antippen = loslegen.");
+    return;
+  }
+
+  box.classList.remove("hidden");
+  const t = $("tutTitle");
+  const x = $("tutText");
+  const b = $("btnTutNext");
+  if (t) t.textContent = TUT_STEPS[step].title;
+  if (x) x.textContent = TUT_STEPS[step].text;
+  if (b) b.textContent = step === TUT_STEPS.length - 1 ? "LOS GEHT'S ▶" : `WEITER (${step + 1}/${TUT_STEPS.length})`;
 }
 
 /* ---------------- PAUSE ---------------- */
@@ -290,6 +332,7 @@ function boot() {
     if (buffs) Object.assign(game.buffs, buffs);
     if (storyStage) Object.assign(game.storyStage, storyStage);
     if (!game.daily.npcs) game.daily.npcs = {};
+    if (!game.daily.lootTaken) game.daily.lootTaken = {};
     if (crew) {
       if (crew.roster) game.crew.roster = crew.roster;
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
@@ -305,24 +348,36 @@ function boot() {
 
   checkDailyReset();
 
+  // Als benannte Funktion, damit START MISSION (Panel) und der
+  // Quick-Start-Button am Node denselben Pfad nutzen
+  const startMissionNow = () => {
+    if (!game.selectedNodeId) {
+      toast("WÄHL ZUERST EINEN NODE.");
+      return;
+    }
+    const type = game.selectedMissionType;
+    if (!type) {
+      toast("DIESER NODE HAT KEINEN NETZZUGANG.");
+      return;
+    }
+    setMode("MISSION");
+    const special = game.selectedNodeId === "H1" ? "void" : null;
+    startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot, special);
+  };
+
   // init modules
   initUI({
     setMode,
     refreshNodeList,
-    startMission: () => {
-      if (!game.selectedNodeId) {
-        toast("WÄHL ZUERST EINEN NODE.");
-        return;
-      }
-      const type = game.selectedMissionType;
-      if (!type) {
-        toast("DIESER NODE HAT KEINEN NETZZUGANG.");
-        return;
-      }
-      setMode("MISSION");
-      const special = game.selectedNodeId === "H1" ? "void" : null;
-      startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot, special);
+    startMission: startMissionNow,
+    quickStart: (n) => {
+      game.selectedNodeId = n.id;
+      game.selectedMissionType = n.missionType || null;
+      game.selectedMissionTier = n.tier || 1;
+      game.selectedMissionHot = !!n.hot;
+      startMissionNow();
     },
+    nearMission: nearMissionNode,
     openNpcDialog,
     saveNow,
     resetSave,
@@ -338,6 +393,9 @@ function boot() {
     getGoal: currentGoal,
     routeGoal
   });
+
+  // Tutorial-Button
+  $("btnTutNext")?.addEventListener("click", () => showTutorial(tutStep + 1));
 
   // Pausenmenü-Buttons
   $("btnResume")?.addEventListener("click", () => setPaused(false));

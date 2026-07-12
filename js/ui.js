@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=4fbfa88c";
-import { saveNow } from "./save.js?v=4fbfa88c";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=2b94d4a4";
+import { saveNow } from "./save.js?v=2b94d4a4";
 
 const $ = (id) => document.getElementById(id);
 
@@ -76,6 +76,12 @@ export function initUI(_api) {
 
   // AUFTRAG-Chip: Tap routet direkt zum Ziel-Node
   bindFastPress($("hudGoal"), () => api.routeGoal?.());
+
+  // Quick-Start: steht man auf einem Mission-Node, startet ein Tap den Dive
+  bindFastPress($("btnDiveNow"), () => {
+    const n = api.nearMission?.();
+    if (n) api.quickStart?.(n);
+  });
 
   // Mobile-Drawer: NODES-Liste ein-/ausblenden, Signal-Panel schließen —
   // beim Öffnen die Liste neu aufbauen, falls sich Requires-Gates (z.B. ein
@@ -198,6 +204,18 @@ export function uiTick(dt = 0) {
   if (goalText) {
     const goal = api?.getGoal?.();
     if (goal && goal.text !== goalText.textContent) goalText.textContent = goal.text;
+  }
+
+  // Quick-Start-Button: nur sichtbar, wenn man in der Stadt auf einem
+  // Mission-Node steht
+  const diveBtn = $("btnDiveNow");
+  if (diveBtn) {
+    const n = game.mode === "WORLD" ? api?.nearMission?.() : null;
+    diveBtn.classList.toggle("hidden", !n);
+    if (n) {
+      const label = `▶ DIVE: ${n.name.toUpperCase()} · TIER ${(n.tier || 1) + (n.hot ? 1 : 0)}${n.hot ? " 🔥" : ""}`;
+      if (diveBtn.textContent !== label) diveBtn.textContent = label;
+    }
   }
 
   const t = $("hudTime");

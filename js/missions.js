@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=1a3a9bca";
-import { sfx } from "./sfx.js?v=1a3a9bca";
+import { game } from "./core.js?v=83390461";
+import { sfx } from "./sfx.js?v=83390461";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1264,12 +1264,16 @@ function makeBossCore({ diff, mods, timeMult = 1 }) {
 
   function placeCores() {
     const r = playRect();
+    // wie überall sonst über fitRadius/placeSpread platzieren, statt komplett
+    // unabhängigem Zufall — sonst können auf schmalen Handys alle 6 Kerne
+    // übereinander landen (gemeldete Bug-Klasse: überlappende Ziele)
+    const rOuter = fitRadius(CORE_GOAL, r, 58);
+    const pts = placeSpread(CORE_GOAL, rOuter, r);
     cores.length = 0;
     for (let i = 0; i < CORE_GOAL; i++) {
       cores.push({
-        x: r.x0 + 60 + Math.random() * (r.x1 - r.x0 - 120),
-        y: r.y0 + 60 + Math.random() * (r.y1 - r.y0 - 120),
-        rOuter: 58, rInner: 24, pulse: Math.random() * 6,
+        x: pts[i].x, y: pts[i].y,
+        rOuter, rInner: rOuter * 0.414, pulse: Math.random() * 6,
         alive: true
       });
     }
@@ -1309,7 +1313,10 @@ function makeBossCore({ diff, mods, timeMult = 1 }) {
         if (phase === 1) { hintUntil = timer + 2.5; return true; }
         if (phase === 2) { widenUntil = timer + 5; return true; }
       }
-      if (kind === "magnet") { widenUntil = timer + 5; return true; }
+      // Nur in Phase 2 hat Magnet überhaupt eine Wirkung (breitere Puls-Zone) —
+      // vorher blind true zurückzugeben hätte den einmaligen Ability-Charge
+      // wirkungslos verbrannt, statt auf den "+2s"-Fallback in dive.js zurückzufallen
+      if (kind === "magnet" && phase === 2) { widenUntil = timer + 5; return true; }
       return false;
     },
     start() { placeCores(); },

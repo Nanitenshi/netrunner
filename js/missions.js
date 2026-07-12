@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=cfd4ac5e";
-import { sfx } from "./sfx.js?v=cfd4ac5e";
+import { game } from "./core.js?v=60b2c4c0";
+import { sfx } from "./sfx.js?v=60b2c4c0";
 
 const $ = (id) => document.getElementById(id);
 
@@ -716,6 +716,7 @@ function makePulseLock({ diff, mods, timeMult = 1, corrupt = false }) {
       const cy = (r.y0 + r.y1) / 2;
       const radius = Math.min(r.x1 - r.x0, r.y1 - r.y0) * 0.32;
       const w = arcWidth * (timer < widenUntil ? 1.7 : 1);
+      const inZone = norm(angle - zoneStart) <= w;
 
       if (flash > 0) {
         flash -= dt;
@@ -750,22 +751,39 @@ function makePulseLock({ diff, mods, timeMult = 1, corrupt = false }) {
       ctx.arc(mx, my, 15, 0, Math.PI * 2);
       ctx.stroke();
 
+      // Zentrale Ampel: DAS ist das eigentliche Signal. Man muss nicht den
+      // Läufer auf dem Ring verfolgen — nur die Mitte beobachten und
+      // tippen, wenn sie grün leuchtet. Löst gemeldete Verwirrung
+      // ("weiß nicht was er drücken soll, die Mitte ist nicht richtig") —
+      // vorher zeigte die Mitte nur einen statischen Zähler ohne Bezug
+      // zum eigentlichen Timing-Fenster.
+      const corePulse = 1 + Math.sin(performance.now() / 90) * 0.05;
+      const coreR = 48 * (inZone ? corePulse : 1);
+      ctx.beginPath();
+      ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+      ctx.fillStyle = inZone ? "rgba(125,255,138,.30)" : "rgba(255,255,255,.05)";
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = inZone ? "rgba(125,255,138,.95)" : "rgba(120,140,160,.45)";
+      ctx.stroke();
+
       // Fortschritt in der Mitte
-      ctx.fillStyle = "rgba(255,255,255,.9)";
+      ctx.fillStyle = inZone ? "#7dff8a" : "rgba(255,255,255,.9)";
       ctx.font = "bold 26px ui-monospace, monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(`${done}/${hits}`, cx, cy);
-      ctx.font = "11px ui-monospace, monospace";
-      ctx.fillStyle = "rgba(160,180,200,.8)";
-      ctx.fillText("TIPP, WENN DER LÄUFER IN DER ZONE IST", cx, cy + 28);
+      ctx.font = "bold 13px ui-monospace, monospace";
+      ctx.fillStyle = inZone ? "#7dff8a" : "rgba(160,180,200,.8)";
+      ctx.fillText(inZone ? "● JETZT TIPPEN!" : "warten…", cx, cy + 30);
       ctx.textAlign = "start";
       ctx.textBaseline = "alphabetic";
 
       drawParticles(ctx, dt);
       if (corrupt) drawGlitch(ctx, r);
 
-      const pulseHint = corrupt ? "ZONE SPRINGT — TIMING!" : (reversing ? "RICHTUNG WECHSELT — AUFPASSEN!" : "TIMING IST ALLES");
+      const pulseBase = "TIPPEN WENN DIE MITTE GRÜN LEUCHTET";
+      const pulseHint = corrupt ? `${pulseBase} — ZONE SPRINGT!` : (reversing ? `${pulseBase} — RICHTUNG WECHSELT!` : pulseBase);
       setHud(`${done} / ${hits}`, timer, timeLimit, pulseHint);
       if (paused || finished) return;
 
@@ -1404,7 +1422,7 @@ function makeBossCore({ diff, mods, timeMult = 1 }) {
       ctx.fillStyle = "rgba(24,2,8,0.5)";
       ctx.fillRect(0, 0, r.W, r.H);
 
-      const phaseNames = ["PHASE 1/3: KERNE POPPEN", "PHASE 2/3: SEQUENZ 1→5", "PHASE 3/3: PULS TREFFEN (3x)"];
+      const phaseNames = ["PHASE 1/3: KERNE POPPEN", "PHASE 2/3: SEQUENZ 1→5", "PHASE 3/3: TIPPEN WENN DIE MITTE GRÜN LEUCHTET"];
 
       if (phase === 0) {
         for (const c of cores) {
@@ -1446,6 +1464,7 @@ function makeBossCore({ diff, mods, timeMult = 1 }) {
         const cy = (r.y0 + r.y1) / 2;
         const radius = Math.min(r.x1 - r.x0, r.y1 - r.y0) * 0.3;
         const w = arcWidth * (timer < widenUntil ? 1.6 : 1);
+        const inZone = norm(angle - zoneStart) <= w;
 
         ctx.lineWidth = 10;
         ctx.strokeStyle = "rgba(255,40,80,.2)";
@@ -1460,11 +1479,26 @@ function makeBossCore({ diff, mods, timeMult = 1 }) {
         ctx.fillStyle = "#fff";
         ctx.beginPath(); ctx.arc(mx, my, 10, 0, Math.PI * 2); ctx.fill();
 
-        ctx.fillStyle = "rgba(255,255,255,.9)";
+        // Zentrale Ampel — gleiche Lösung wie beim Standalone-Pulse-Lock:
+        // die Mitte selbst zeigt, wann getippt werden muss
+        const corePulse = 1 + Math.sin(performance.now() / 90) * 0.05;
+        const coreR = 44 * (inZone ? corePulse : 1);
+        ctx.beginPath();
+        ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+        ctx.fillStyle = inZone ? "rgba(125,255,138,.30)" : "rgba(255,255,255,.05)";
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = inZone ? "rgba(125,255,138,.95)" : "rgba(120,140,160,.45)";
+        ctx.stroke();
+
+        ctx.fillStyle = inZone ? "#7dff8a" : "rgba(255,255,255,.9)";
         ctx.font = "bold 24px ui-monospace, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(`${pulseDone}/${PULSE_GOAL}`, cx, cy);
+        ctx.font = "bold 12px ui-monospace, monospace";
+        ctx.fillStyle = inZone ? "#7dff8a" : "rgba(160,180,200,.8)";
+        ctx.fillText(inZone ? "● JETZT TIPPEN!" : "warten…", cx, cy + 26);
         ctx.textAlign = "start";
         ctx.textBaseline = "alphabetic";
 

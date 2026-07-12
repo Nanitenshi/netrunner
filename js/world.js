@@ -1,10 +1,10 @@
 // js/world.js
-import { game } from "./core.js?v=cfd4ac5e";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=cfd4ac5e";
-import { openNpcDialog } from "./npc.js?v=cfd4ac5e";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=cfd4ac5e";
-import { sfx } from "./sfx.js?v=cfd4ac5e";
-import { saveNow } from "./save.js?v=cfd4ac5e";
+import { game } from "./core.js?v=60b2c4c0";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=60b2c4c0";
+import { openNpcDialog } from "./npc.js?v=60b2c4c0";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=60b2c4c0";
+import { sfx } from "./sfx.js?v=60b2c4c0";
+import { saveNow } from "./save.js?v=60b2c4c0";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1176,6 +1176,20 @@ function draw() {
       ctx.stroke();
     }
 
+    // Bodenmarkierung: ein IMMER sichtbarer, sanft pulsierender Ring unter
+    // jedem interaktiven Node — unterscheidet ihn zuverlässig von Deko
+    // (Props, Passanten, Gebäuden), die dieselbe Neon-Palette benutzen.
+    // Gemeldetes Problem: "Overworld unübersichtlich" / Nodes gehen unter.
+    const nodePulse = 0.7 + Math.sin(tNow * 2.4 + n.x * 0.01) * 0.3;
+    const markColor = n.type === "npc" ? (NPC_PALETTE[n.npc]?.accent || "#00f3ff") : "#00f3ff";
+    ctx.save();
+    ctx.globalAlpha = 0.35 + nodePulse * 0.2;
+    ctx.fillStyle = markColor;
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 10 * cam.zoom, 20 * cam.zoom, 7 * cam.zoom, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
     if (n.type === "npc") {
       const pal = NPC_PALETTE[n.npc] || PALETTES.nyx;
       const sprites = getSprites(pal);
@@ -1186,26 +1200,42 @@ function draw() {
         drawCharacterAt(ctx, p.x, p.y + 6 * cam.zoom, charScale * 1.15, "down", false, sprites.down[0]);
         ctx.restore();
       } else {
+        ctx.save();
+        ctx.shadowColor = pal.accent;
+        ctx.shadowBlur = 6 * cam.zoom;
         drawCharacterAt(ctx, p.x, p.y + 6 * cam.zoom, charScale * 1.15, "down", false, sprites.down[0]);
+        ctx.restore();
       }
     } else {
-      ctx.fillStyle = active ? "#ffffff" : "rgba(0,243,255,.6)";
+      // weicher Halo immer sichtbar, nicht erst wenn man draufsteht
+      const haloR = (18 + nodePulse * 4) * cam.zoom;
+      const halo = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, haloR);
+      halo.addColorStop(0, "rgba(0,243,255,.35)");
+      halo.addColorStop(1, "rgba(0,243,255,0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = active ? "#ffffff" : "rgba(0,243,255,.85)";
       ctx.beginPath();
       ctx.arc(p.x, p.y, (inRange ? 20 : 16) * cam.zoom, 0, Math.PI * 2);
       ctx.fill();
-
-      if (inRange) {
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(255,255,255,.85)";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 25 * cam.zoom, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255,255,255,.9)";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (inRange ? 20 : 16) * cam.zoom, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
-    ctx.fillStyle = "rgba(255,255,255,.9)";
-    ctx.font = "12px ui-monospace, monospace";
-    ctx.fillText(n.name, p.x + 22, p.y + 5);
+    // Namensschild mit dunklem Hintergrund — sonst geht weißer Text auf
+    // der unruhigen Stadt-Kulisse unter
+    ctx.font = "bold 12px ui-monospace, monospace";
+    const labelW = ctx.measureText(n.name).width;
+    ctx.fillStyle = "rgba(5,9,14,.75)";
+    ctx.fillRect(p.x + 15, p.y - 4, labelW + 14, 18);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(n.name, p.x + 22, p.y + 9);
   });
 
   // player

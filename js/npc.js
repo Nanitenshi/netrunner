@@ -1,9 +1,11 @@
 // js/npc.js
-import { game, checkDailyReset } from "./core.js?v=cfd4ac5e";
-import { toast, renderStoryLog } from "./ui.js?v=cfd4ac5e";
-import { getNodeById } from "./world.js?v=cfd4ac5e";
-import { crewTick } from "./crew.js?v=cfd4ac5e";
-import { saveNow } from "./save.js?v=cfd4ac5e";
+import { game, checkDailyReset } from "./core.js?v=60b2c4c0";
+import { toast, renderStoryLog } from "./ui.js?v=60b2c4c0";
+import { getNodeById } from "./world.js?v=60b2c4c0";
+import { crewTick } from "./crew.js?v=60b2c4c0";
+import { saveNow } from "./save.js?v=60b2c4c0";
+
+const $ = (id) => document.getElementById(id);
 
 // Jeder NPC hat einen kleinen, festen Dialog-Arc statt zufälliger Zeilen —
 // jeder Besuch (nach dem Tagesbonus) rückt eine Stufe weiter, die letzte
@@ -106,6 +108,13 @@ export function openNpcDialog(nodeId) {
     game.storyLog.unshift(`> ${npcName}: ${line}`);
     if (game.storyLog.length > 60) game.storyLog.length = 60;
 
+    // Antwort direkt im offenen Signal-Panel zeigen, nicht nur im Story-Log
+    // (das man extra über NODES aufklappen müsste) — gemeldetes Problem:
+    // "kann mit NPCs nicht wirklich interagieren", weil TALK sichtbar
+    // nichts tat außer einem kurz aufblitzenden Toast.
+    const dlg = $("dialogText");
+    if (dlg) dlg.textContent = `⚡ ${line}`;
+
     renderStoryLog();
     saveNow();
     toast(`⚡ TAGESBONUS: ${npcName}`);
@@ -119,6 +128,9 @@ export function openNpcDialog(nodeId) {
 
   game.storyLog.unshift(`> ${npcName || "SIGNAL"}: "${line}"`);
   if (game.storyLog.length > 60) game.storyLog.length = 60;
+
+  const dlg = $("dialogText");
+  if (dlg) dlg.textContent = `„${line}“`;
 
   renderStoryLog();
   saveNow();

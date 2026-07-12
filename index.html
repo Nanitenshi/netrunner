@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#05070a"/>
   <title>NEON ALLEY — Netrunner</title>
 
-  <link rel="manifest" href="manifest.webmanifest?v=cfd4ac5e">
+  <link rel="manifest" href="manifest.webmanifest?v=60b2c4c0">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=cfd4ac5e">
-  <script type="module" src="js/core.js?v=cfd4ac5e"></script>
+  <link rel="stylesheet" href="css/style.css?v=60b2c4c0">
+  <script type="module" src="js/core.js?v=60b2c4c0"></script>
 </head>
 
 <body>
@@ -22,15 +22,23 @@
     </div>
 
     <div id="ui">
-      <!-- TOP HUD -->
+      <!-- TOP HUD: kompakte Stat-Zeile + große AUFTRAG-Banner darunter.
+           Vorher 7 gleichrangige Boxen ohne Hierarchie ("zu unübersichtlich",
+           "weiß nicht was zu tun ist" — Playtest-Feedback). Jetzt: Status
+           kompakt oben, das WAS-TUN unmissverständlich groß darunter. -->
       <header id="hudTop" class="hud hidden">
-        <div class="chip panel">DISTRICT <b id="hudDistrict">Sector-07</b></div>
-        <div class="chip panel">TIME <b id="hudTime">DAY</b></div>
-        <div class="chip panel">EDDIES <b id="hudMoney">E$ 0</b></div>
-        <div class="chip panel">HEAT <b id="hudHeat">0%</b></div>
-        <div class="chip panel pink">FRAGS <b id="hudFrags">0</b></div>
-        <div class="chip panel yellow">RANK <b id="hudRank">ROOKIE</b></div>
-        <div class="chip panel yellow" id="hudGoal" role="button" style="cursor:pointer">AUFTRAG <b id="hudGoalText">—</b></div>
+        <div class="hudStats panel">
+          <span class="stat">💰 <b id="hudMoney">0</b></span>
+          <span class="stat">🔥 <b id="hudHeat">0%</b></span>
+          <span class="stat pinkText">◆ <b id="hudFrags">0</b></span>
+          <span class="hudMeta">
+            <span id="hudDistrict">Sector-07</span> · <span id="hudTime">DAY</span> · <span id="hudRank">ROOKIE</span>
+          </span>
+        </div>
+        <div class="banner" id="hudGoal" role="button">
+          <span class="bannerIcon">🎯</span>
+          <span id="hudGoalText">—</span>
+        </div>
       </header>
 
       <!-- TITLE -->
@@ -65,7 +73,6 @@
 
         <div class="row leftRow">
           <button type="button" id="btnFocus" class="btn small">Focus</button>
-          <button type="button" id="btnTalk" class="btn small pink">Talk</button>
           <button type="button" id="btnMission" class="btn small yellow">Start Mission</button>
         </div>
 
@@ -89,18 +96,28 @@
           <button type="button" id="btnCloseSignal" class="btn small pink">✕</button>
         </header>
         <div id="dialogText" class="dialog">Keine Daten empfangen.</div>
+        <div class="row" id="signalActions">
+          <button type="button" id="btnTalk" class="btn small pink">💬 Sprechen</button>
+        </div>
       </aside>
 
-      <!-- MISSION HUD -->
+      <!-- MISSION HUD: Kontext-Zeile (klein) + Status-Zeile (kompakt) +
+           HINT als große Banner — der Hint sagt buchstäblich, was zu drücken
+           ist (z.B. bei Pulse Lock), das darf nicht in einer von 8
+           gleichrangigen Boxen untergehen. -->
       <header id="missionHud" class="hud missionHud hidden">
-        <div class="chip panel">ICE <b id="mHudType">—</b></div>
-        <div class="chip panel yellow">LAYER <b id="mHudLayer">1</b></div>
-        <div class="chip panel">ZIEL <b id="mHudObjective">—</b></div>
-        <div class="chip panel" id="mHudTimerBox">TIMER <b id="mHudTimer">—</b></div>
-        <div class="chip panel pink">TRACE <b id="mHudTrace">0%</b></div>
-        <div class="chip panel yellow">BUFFER <b id="mHudBuffer">0</b></div>
-        <div class="chip panel">MOD <b id="mHudMod">—</b></div>
-        <div class="chip panel">HINT <b id="mHudAbility">—</b></div>
+        <div class="missionTitle">
+          <b id="mHudType">—</b> · LAYER <b id="mHudLayer">1</b> · <span id="mHudMod">—</span>
+        </div>
+        <div class="hudStats panel">
+          <span class="stat">🎯 <b id="mHudObjective">—</b></span>
+          <span class="stat" id="mHudTimerBox">⏱ <b id="mHudTimer">—</b></span>
+          <span class="stat pinkText">📡 <b id="mHudTrace">0%</b></span>
+          <span class="stat yellowText">💾 <b id="mHudBuffer">0</b></span>
+        </div>
+        <div class="banner info">
+          <b id="mHudAbility">—</b>
+        </div>
       </header>
 
       <!-- CREW ACTIVES -->

@@ -1,5 +1,5 @@
-import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=cfd4ac5e";
-import { saveNow } from "./save.js?v=cfd4ac5e";
+import { game, DAILY_GOAL_LAYER, DAILY_REWARD } from "./core.js?v=60b2c4c0";
+import { saveNow } from "./save.js?v=60b2c4c0";
 
 const $ = (id) => document.getElementById(id);
 
@@ -185,7 +185,7 @@ export function uiTick(dt = 0) {
   if (d) d.textContent = `Sector-${String(game.district).padStart(2, "0")}`;
 
   const m = $("hudMoney");
-  if (m) m.textContent = `E$ ${game.money}`;
+  if (m) m.textContent = `${game.money} E$`;
 
   const h = $("hudHeat");
   if (h) h.textContent = `${Math.round(game.heat)}%`;

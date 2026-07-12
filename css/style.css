@@ -145,8 +145,11 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 .missionHud { top: 12px; }
 
 /* Der AUFTRAG-Chip ist als einziger HUD-Chip interaktiv (Tap = hinrouten) —
-   .hud selbst hat pointer-events:none, damit Taps die Welt erreichen */
-#hudGoal { pointer-events: auto; z-index: 20; position: relative; }
+   .hud selbst hat pointer-events:none, damit Taps die Welt erreichen.
+   BEWUSST kein z-index hier: das würde eine neue Stacking-Ebene über #ui
+   aufmachen und den Chip vor spätere Overlays ohne eigenes z-index malen
+   (z.B. #crewOverlay) — genau der gemeldete Bug "Chip liegt übers Menü". */
+#hudGoal { pointer-events: auto; }
 
 .chip {
   padding: 8px 12px;

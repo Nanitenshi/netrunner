@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#05070a"/>
   <title>NEON ALLEY — Netrunner</title>
 
-  <link rel="manifest" href="manifest.webmanifest?v=2b94d4a4">
+  <link rel="manifest" href="manifest.webmanifest?v=bba082b9">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=2b94d4a4">
-  <script type="module" src="js/core.js?v=2b94d4a4"></script>
+  <link rel="stylesheet" href="css/style.css?v=bba082b9">
+  <script type="module" src="js/core.js?v=bba082b9"></script>
 </head>
 
 <body>
@@ -195,9 +195,13 @@
         </div>
       </section>
 
-      <!-- QUICK-START: erscheint, wenn man auf einem Mission-Node steht -->
+      <!-- QUICK-START: erscheint, wenn man auf einem Mission-Node steht.
+           top wird in ui.js dynamisch unter die HUD-Leiste gesetzt — fest
+           unten hätte sich mit dem Signal-Panel überlappt (das Panel malt
+           sich optisch darüber, obwohl es dank pointer-events:none Taps
+           durchlässt: der Button war da, aber unsichtbar). -->
       <button type="button" id="btnDiveNow" class="btn yellow hidden"
-        style="position:absolute; left:50%; transform:translateX(-50%); bottom:132px; z-index:30">
+        style="position:absolute; left:50%; transform:translateX(-50%); z-index:30">
         ▶ DIVE STARTEN
       </button>
 

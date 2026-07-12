@@ -90,13 +90,20 @@ function hashRnd(seed, i) {
 }
 
 // Gebäude-Stil pro Bezirk: Höhenprofil + Neon-Farbe der Dachkanten
+// Bezirks-Persönlichkeit: nicht nur Höhe/Farbe, sondern eigene Grundriss-
+// Proportionen, Dachform und Dachaufbauten — vorher war jedes Gebäude in
+// jedem Bezirk dieselbe Box, nur umgefärbt (gemeldetes Problem: "nichts
+// unterscheidet sich voneinander"). wMin/wMax/hMin/hMax steuern die
+// Grundriss-Proportion (z.B. Industrie: breit+flach = Lagerhalle,
+// Corporate: schmal+tief = Monolith), roof/rooftop geben jedem Viertel eine
+// eigene Silhouette.
 const BUILD_STYLE = {
-  neon:       { h: 1.0, neon: "0,243,255",   count: 16 },
-  downtown:   { h: 1.3, neon: "150,170,255", count: 16 },
-  corporate:  { h: 1.9, neon: "210,235,255", count: 13 },
-  industrial: { h: 0.6, neon: "255,150,60",  count: 15 },
-  slums:      { h: 0.5, neon: "140,220,110", count: 18 },
-  undercity:  { h: 0.8, neon: "190,90,255",  count: 13 }
+  neon:       { h: 1.0,  neon: "0,243,255",   count: 16, wMin: 40, wMax: 76,  hMin: 40, hMax: 76,  roof: "flat",    rooftop: null,          winChance: 0.85, signChance: 0.5,  billboardChance: 0.3 },
+  downtown:   { h: 1.3,  neon: "150,170,255", count: 16, wMin: 46, wMax: 78,  hMin: 46, hMax: 78,  roof: "flat",    rooftop: "watertower",  winChance: 0.88, signChance: 0.28, billboardChance: 0.25 },
+  corporate:  { h: 1.9,  neon: "210,235,255", count: 11, wMin: 58, wMax: 88,  hMin: 58, hMax: 88,  roof: "tiered",  rooftop: null,          winChance: 0.9,  signChance: 0.08, billboardChance: 0.42 },
+  industrial: { h: 0.55, neon: "255,150,60",  count: 15, wMin: 72, wMax: 120, hMin: 40, hMax: 58,  roof: "sawtooth",rooftop: "smokestack",  winChance: 0.45, signChance: 0.12, billboardChance: 0.04 },
+  slums:      { h: 0.45, neon: "140,220,110", count: 20, wMin: 30, wMax: 54,  hMin: 30, hMax: 54,  roof: "lean",    rooftop: null,          winChance: 0.55, signChance: 0.22, billboardChance: 0.03 },
+  undercity:  { h: 0.75, neon: "190,90,255",  count: 13, wMin: 44, wMax: 70,  hMin: 44, hMax: 70,  roof: "flat",    rooftop: "pipes",       winChance: 0.32, signChance: 0.1,  billboardChance: 0.08 }
 };
 
 // Graffiti-Wahrscheinlichkeit pro Bezirk — das ist es, was Slums/Industrie
@@ -234,8 +241,8 @@ function initBuildings() {
         const rr = d.r * (0.2 + Math.random() * 0.68);
         const x = d.cx + Math.cos(ang) * rr;
         const y = d.cy + Math.sin(ang) * rr;
-        const w = 44 + Math.random() * 64;
-        const h = 44 + Math.random() * 64;
+        const w = style.wMin + Math.random() * (style.wMax - style.wMin);
+        const h = style.hMin + Math.random() * (style.hMax - style.hMin);
 
         // nicht auf Nodes, Straßen oder anderen Gebäuden
         if (NODE_DEFS.some((n) => Math.hypot(n.x - x, n.y - y) < 130)) continue;
@@ -247,12 +254,14 @@ function initBuildings() {
           x, y, w, h,
           height,
           neon: style.neon,
-          windows: Math.random() < 0.85,
+          windows: Math.random() < style.winChance,
           seed: Math.random() * 1000,
           hasAntenna: Math.random() < 0.4,
-          hasSign: Math.random() < 0.35,
-          hasBillboard: height > 0.9 && Math.random() < 0.3,
+          hasSign: Math.random() < style.signChance,
+          hasBillboard: height > 0.9 && Math.random() < style.billboardChance,
           hasGraffiti: Math.random() < (GRAFFITI_CHANCE[d.id] || 0),
+          roof: style.roof,
+          rooftop: style.rooftop && Math.random() < 0.55 ? style.rooftop : null,
           district: d.id,
           landmark: false
         });
@@ -339,16 +348,22 @@ function initLamps() {
   const hub = DISTRICTS[0];
   for (let i = 1; i < DISTRICTS.length; i++) {
     const d = DISTRICTS[i];
+    if (!d.roadPts) continue;
     const len = Math.hypot(d.cx - hub.cx, d.cy - hub.cy);
     const steps = Math.floor(len / 170);
-    const nx = -(d.cy - hub.cy) / len, ny = (d.cx - hub.cx) / len; // Normale
 
+    // Laternen folgen jetzt der gebogenen Straße statt der alten
+    // Lineal-Geraden — sonst würden sie sichtbar neben der Fahrbahn
+    // schweben (Folgefehler aus dem Straßen-Rework)
     for (let s = 1; s < steps; s++) {
       const t = s / steps;
+      const wp = pointOnPath(d.roadPts, t);
+      const wlen = Math.hypot(wp.dx, wp.dy) || 1;
+      const nx = -wp.dy / wlen, ny = wp.dx / wlen;
       const side = s % 2 === 0 ? 1 : -1;
       lamps.push({
-        x: hub.cx + (d.cx - hub.cx) * t + nx * 26 * side,
-        y: hub.cy + (d.cy - hub.cy) * t + ny * 26 * side
+        x: wp.x + nx * 26 * side,
+        y: wp.y + ny * 26 * side
       });
     }
   }
@@ -1009,6 +1024,15 @@ function drawBuildings(ctx, W, H) {
       y: c.y + (c.y - cyS) * k
     }));
 
+    // Lean-to-Dach (Slums): eine Kante des Dachs tiefer als die andere —
+    // Wände laufen automatisch schräg mit, macht aus der Box eine schiefe
+    // Hütte statt eines weiteren sauberen Blocks
+    if (b.roof === "lean") {
+      const drop = 9 * cam.zoom * (0.6 + hashRnd(b.seed, 999) * 0.9);
+      top[0].y += drop;
+      top[1].y += drop;
+    }
+
     // Seitenwände: nur die zur Bildmitte gerichteten sind sichtbar
     const normals = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
     for (let i = 0; i < 4; i++) {
@@ -1134,6 +1158,55 @@ function drawBuildings(ctx, W, H) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
+    // Sawtooth-Dach (Industrie): gezackte Kammlinie über der Vorderkante —
+    // die klassische Fabrikhallen-Silhouette
+    if (b.roof === "sawtooth") {
+      const teeth = 3;
+      ctx.fillStyle = "rgba(14,20,30,.9)";
+      for (let t = 0; t < teeth; t++) {
+        const f0 = t / teeth, f1 = (t + 0.5) / teeth, f2 = (t + 1) / teeth;
+        const p0 = { x: top[0].x + (top[1].x - top[0].x) * f0, y: top[0].y + (top[1].y - top[0].y) * f0 };
+        const pMid = { x: top[0].x + (top[1].x - top[0].x) * f1, y: top[0].y + (top[1].y - top[0].y) * f1 - 7 * cam.zoom };
+        const p2 = { x: top[0].x + (top[1].x - top[0].x) * f2, y: top[0].y + (top[1].y - top[0].y) * f2 };
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(pMid.x, pMid.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // Tiered-Dach (Corporate): ein zweiter, kleinerer Aufbau oben drauf —
+    // die klassische Konzernturm-Silhouette mit Rücksprung statt einer
+    // weiteren austauschbaren Flachdach-Box
+    if (b.roof === "tiered") {
+      const shrink = 0.42;
+      const center = { x: (top[0].x + top[2].x) / 2, y: (top[0].y + top[2].y) / 2 };
+      const top2 = top.map((c) => ({ x: center.x + (c.x - center.x) * shrink, y: center.y + (c.y - center.y) * shrink }));
+      const k2 = k * 0.6;
+      const roof2 = top2.map((c) => ({ x: c.x + (c.x - cxS) * k2, y: c.y + (c.y - cyS) * k2 }));
+
+      ctx.fillStyle = "rgba(9,13,21,.97)";
+      ctx.beginPath();
+      ctx.moveTo(top2[2].x, top2[2].y);
+      ctx.lineTo(top2[3].x, top2[3].y);
+      ctx.lineTo(roof2[3].x, roof2[3].y);
+      ctx.lineTo(roof2[2].x, roof2[2].y);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(34,48,68,.97)";
+      ctx.beginPath();
+      ctx.moveTo(roof2[0].x, roof2[0].y);
+      for (let i = 1; i < 4; i++) ctx.lineTo(roof2[i].x, roof2[i].y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = `rgba(${b.neon},.6)`;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
     // Dachdetails: Klimakasten + blinkende Antenne auf hohen Gebäuden
     const rcx = (top[0].x + top[2].x) / 2;
     const rcy = (top[0].y + top[2].y) / 2;
@@ -1158,6 +1231,64 @@ function drawBuildings(ctx, W, H) {
         ctx.fillStyle = "rgba(255,60,60,.95)";
         ctx.beginPath(); ctx.arc(ax, ay, 2.2, 0, Math.PI * 2); ctx.fill();
       }
+    }
+
+    // Dachaufbauten pro Bezirk — der eigentliche Punkt: Downtown hat
+    // Wassertanks, Industrie raucht, Undercity glimmt an Rohren statt an
+    // Neonschildern. Macht die Skyline von weitem unterscheidbar, nicht nur
+    // die Fassade aus der Nähe.
+    if (b.rooftop === "watertower" && !perf) {
+      const legH = 8 * cam.zoom, tankR = 9 * cam.zoom;
+      ctx.strokeStyle = "rgba(80,90,100,.8)";
+      ctx.lineWidth = 1.2;
+      for (const lx of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(rcx + lx * tankR * 0.7, rcy);
+        ctx.lineTo(rcx + lx * tankR * 0.7, rcy - legH);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(50,60,74,.95)";
+      ctx.beginPath();
+      ctx.ellipse(rcx, rcy - legH - tankR * 0.6, tankR, tankR * 0.75, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(150,170,200,.4)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    if (b.rooftop === "smokestack") {
+      const stackH = 20 * cam.zoom;
+      const sx = rcx + 6 * cam.zoom, sy = rcy;
+      ctx.fillStyle = "rgba(40,34,30,.95)";
+      ctx.fillRect(sx - 3 * cam.zoom, sy - stackH, 6 * cam.zoom, stackH);
+      ctx.strokeStyle = `rgba(${b.neon},.4)`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx - 3 * cam.zoom, sy - stackH, 6 * cam.zoom, stackH);
+
+      if (!perf) {
+        // Rauch: 3 langsam aufsteigende, verblassende Kreise, Phase per
+        // Gebäude-Seed versetzt — kein Partikel-State nötig, rein zeitbasiert
+        for (let sk = 0; sk < 3; sk++) {
+          const ph = (performance.now() / 2200 + sk / 3 + b.seed * 0.001) % 1;
+          const sy2 = sy - stackH - ph * 30 * cam.zoom;
+          const r = (3 + ph * 5) * cam.zoom;
+          ctx.fillStyle = `rgba(180,180,190,${(0.22 * (1 - ph)).toFixed(2)})`;
+          ctx.beginPath();
+          ctx.arc(sx + Math.sin(ph * 6 + sk) * 3 * cam.zoom, sy2, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    if (b.rooftop === "pipes" && !perf) {
+      const pw = 15 * cam.zoom;
+      const pulse = 0.4 + Math.sin(performance.now() / 900 + b.seed) * 0.3;
+      ctx.strokeStyle = `rgba(${b.neon},${(0.3 + pulse * 0.3).toFixed(2)})`;
+      ctx.lineWidth = 3 * cam.zoom;
+      ctx.beginPath();
+      ctx.moveTo(rcx - pw, rcy + 4 * cam.zoom);
+      ctx.lineTo(rcx + pw, rcy + 4 * cam.zoom);
+      ctx.stroke();
     }
 
     // Wahrzeichen: heller Lichtstrahl schießt in den Himmel — als Landmarke

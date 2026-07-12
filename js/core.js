@@ -48,6 +48,9 @@ export const game = {
   // allein und deutlicher bei einem sauberen, tiefen Jack Out. Bewusst ohne
   // HUD-Anzeige — man soll es hören, nicht ablesen.
   psychosis: 0,
+  // Timestamp (performance.now()), bis zu dem der Welt-Canvas glitchen soll —
+  // rein transient, wird nie gespeichert
+  glitchUntil: 0,
 
   settings: {
     quality: "perf", // perf | quality

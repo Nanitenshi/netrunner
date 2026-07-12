@@ -1134,6 +1134,27 @@ function draw() {
   }
 
   drawAmbient(ctx);
+  drawPsychosisGlitch(ctx, W, H);
+}
+
+// Cyberpsychose-Glitch: kurze horizontale Bildstörung mit Farbrand, ausgelöst
+// von music.js im selben Moment wie ein Hilferuf — bindet Audio und Optik
+// zusammen, ohne ein eigenes Timing-System zu brauchen
+function drawPsychosisGlitch(ctx, W, H) {
+  if (!game.glitchUntil || performance.now() >= game.glitchUntil) return;
+
+  const bands = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < bands; i++) {
+    const y = Math.random() * H;
+    const h = 4 + Math.random() * 12;
+    const dx = (Math.random() - 0.5) * 40;
+
+    try { ctx.drawImage(game.canvases.world, 0, y, W, h, dx, y, W, h); } catch {}
+    ctx.fillStyle = "rgba(255,0,60,.12)";
+    ctx.fillRect(0, y, W, h);
+    ctx.fillStyle = "rgba(0,220,255,.10)";
+    ctx.fillRect(dx * 0.4, y, W, h);
+  }
 }
 
 export function worldTick(dt = 0) {

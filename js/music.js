@@ -136,6 +136,9 @@ function maybeScheduleWhisper(ac, now) {
 
   const t0 = Math.max(nextWhisperAt, now + 0.5);
   whisper(ac, t0);
+  // Bildstörung im Weltcanvas fällt (grob) mit dem hörbaren Moment zusammen —
+  // world.js pollt performance.now() gegen glitchUntil, kein extra Timer nötig
+  setTimeout(() => { game.glitchUntil = performance.now() + 700 + Math.random() * 400; }, 500);
   if (Math.random() < 0.4) {
     const line = WHISPER_LINES[Math.floor(Math.random() * WHISPER_LINES.length)];
     toast(`▓▓ ${line} ▓▓`);

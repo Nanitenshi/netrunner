@@ -327,7 +327,21 @@ export function getChar(id) {
   return CHARS.find((c) => c.id === id);
 }
 
+// Seltenheit zählt jetzt als Level-Vorsprung: ein frisches Elite-Mitglied
+// (eff. Level 1+1.5) schlägt ein Street-Mitglied auf Stufe 2, nicht erst auf
+// Stufe 5 — gemeldetes Problem: "Level-3-Graue besser als Level-1-Goldene"
+const RARITY_EDGE = { street: 0, pro: 0.75, elite: 1.5, phantom: 2.25 };
+
+export function effLevel(c, lvl) {
+  return lvl > 0 ? lvl + (RARITY_EDGE[c.rarity] || 0) : 0;
+}
+
 /* ---------------- MODS (Crew + Gear) ---------------- */
+// Gear jenseits Stufe 5 ist "übertaktet": halber Effekt pro weiterer Stufe
+function gearEff(lvl) {
+  return Math.min(lvl, 5) + Math.max(0, lvl - 5) * 0.5;
+}
+
 export function computeMods() {
   const m = {
     lootMult: 1, traceMult: 1, timeBonus: 0, peekBonus: 0, ringScale: 1,
@@ -340,7 +354,8 @@ export function computeMods() {
     const lvl = game.crew.roster[id] || 0;
     if (!c || !lvl) continue;
 
-    const v = c.perk.base * lvl;
+    const el = effLevel(c, lvl);
+    const v = c.perk.base * el;
     switch (c.perk.type) {
       case "loot": m.lootMult += v; break;
       case "trace": m.traceMult -= v; break;
@@ -350,15 +365,15 @@ export function computeMods() {
       case "salvage": m.salvage += v; break;
       case "frags": m.fragsPerLayer += v; break;
       case "startTrace": m.startTrace += v; break;
-      case "forgive": m.forgive += 1; m.timeBonus += 0.5 * (lvl - 1); break;
-      case "revive": m.revive += 1; m.salvage += 0.08 * lvl; break;
-      case "glitch": m.peekBonus += 0.5 * lvl; m.lootMult += 0.04 * lvl; break;
+      case "forgive": m.forgive += 1; m.timeBonus += 0.5 * (el - 1); break;
+      case "revive": m.revive += 1; m.salvage += 0.08 * el; break;
+      case "glitch": m.peekBonus += 0.5 * el; m.lootMult += 0.04 * el; break;
     }
   }
 
-  m.lootMult += 0.12 * (game.upgrades.amplifier || 0);
-  m.traceMult -= 0.08 * (game.upgrades.pulse || 0);
-  m.salvage += 0.15 * (game.upgrades.buffer || 0);
+  m.lootMult += 0.12 * gearEff(game.upgrades.amplifier || 0);
+  m.traceMult -= 0.08 * gearEff(game.upgrades.pulse || 0);
+  m.salvage += 0.15 * gearEff(game.upgrades.buffer || 0);
 
   m.traceMult = Math.max(0.35, m.traceMult);
   m.salvage = Math.min(0.9, m.salvage);
@@ -466,21 +481,28 @@ const GEAR = [
   { id: "buffer", name: "BUFFER GUARD", desc: "+15% Rettung bei Dump pro Stufe", costs: [60, 160, 400, 900, 1800] }
 ];
 
+// Übertakten: nach Stufe 5 geht's endlos weiter — halber Effekt pro Stufe,
+// Preis wächst exponentiell. Gibt Eddies auch im Endgame einen Zweck
+// (gemeldetes Problem: "alles upgegraded, nichts mehr zu tun mit dem Geld")
+export function gearCost(g, lvl) {
+  if (lvl < g.costs.length) return g.costs[lvl];
+  return Math.round(2500 * Math.pow(1.8, lvl - g.costs.length));
+}
+
 function buyGear(gid) {
   const g = GEAR.find((x) => x.id === gid);
   const lvl = game.upgrades[gid] || 0;
 
-  if (lvl >= g.costs.length) return toast("MAX-STUFE ERREICHT.");
-
   const discount = game.buffs.gearDiscount || 0;
-  const cost = Math.round(g.costs[lvl] * (1 - discount));
+  const cost = Math.round(gearCost(g, lvl) * (1 - discount));
   if (game.money < cost) return toast(`ZU WENIG EDDIES (${cost} E$).`);
 
   game.money -= cost;
   game.upgrades[gid] = lvl + 1;
   game.buffs.gearDiscount = 0; // Rabatt (RUST) ist pro Kauf verbraucht
   saveNow();
-  toast(discount > 0 ? `${g.name} → STUFE ${lvl + 1} (RUST-RABATT: -${Math.round(discount * 100)}%)` : `${g.name} → STUFE ${lvl + 1}`);
+  const oc = lvl + 1 > g.costs.length ? ` ⚡ÜBERTAKTET` : "";
+  toast(discount > 0 ? `${g.name} → STUFE ${lvl + 1}${oc} (RUST-RABATT: -${Math.round(discount * 100)}%)` : `${g.name} → STUFE ${lvl + 1}${oc}`);
   renderGear();
 }
 
@@ -554,7 +576,7 @@ function renderPullResult(res) {
 
   const perk = document.createElement("div");
   perk.className = "perkText";
-  perk.textContent = "PERK: " + res.char.perk.text(res.level || 1);
+  perk.textContent = "PERK: " + res.char.perk.text(effLevel(res.char, res.level || 1));
 
   body.append(title, sub, quote, perk);
   card.append(mono, body);
@@ -598,7 +620,7 @@ function renderCrewGrid() {
 
     const perk = document.createElement("div");
     perk.className = "perkText";
-    perk.textContent = owned ? c.perk.text(owned) : "PERK: ???";
+    perk.textContent = owned ? c.perk.text(effLevel(c, owned)) : "PERK: ???";
 
     body.append(name, meta, perk);
 
@@ -641,7 +663,7 @@ function renderGear() {
 
   for (const g of GEAR) {
     const lvl = game.upgrades[g.id] || 0;
-    const maxed = lvl >= g.costs.length;
+    const overclocked = lvl >= g.costs.length;
 
     const row = document.createElement("div");
     row.className = "gearRow";
@@ -649,22 +671,25 @@ function renderGear() {
     const body = document.createElement("div");
     const name = document.createElement("div");
     name.className = "name";
-    name.textContent = `${g.name} · STUFE ${lvl}/${g.costs.length}`;
+    name.textContent = overclocked
+      ? `${g.name} · STUFE ${lvl} ⚡ÜBERTAKTET`
+      : `${g.name} · STUFE ${lvl}/${g.costs.length}`;
 
     const desc = document.createElement("div");
     desc.className = "meta";
-    desc.textContent = g.desc;
+    desc.textContent = overclocked ? `${g.desc} (übertaktet: halber Effekt pro Stufe)` : g.desc;
 
     body.append(name, desc);
 
     const discount = game.buffs.gearDiscount || 0;
-    const price = Math.round(g.costs[lvl] * (1 - discount));
+    const price = Math.round(gearCost(g, lvl) * (1 - discount));
 
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn small yellow";
-    btn.textContent = maxed ? "MAX" : (discount > 0 ? `KAUFEN ${price} E$ (RUST -${Math.round(discount * 100)}%)` : `KAUFEN ${price} E$`);
-    if (!maxed) bindFastPress(btn, () => buyGear(g.id));
+    const verb = overclocked ? "⚡ÜBERTAKTEN" : "KAUFEN";
+    btn.textContent = discount > 0 ? `${verb} ${price} E$ (RUST -${Math.round(discount * 100)}%)` : `${verb} ${price} E$`;
+    bindFastPress(btn, () => buyGear(g.id));
 
     row.append(body, btn);
     wrap.appendChild(row);

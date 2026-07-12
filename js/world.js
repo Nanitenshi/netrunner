@@ -3,6 +3,8 @@ import { game } from "./core.js";
 import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js";
 import { openNpcDialog } from "./npc.js";
 import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js";
+import { sfx } from "./sfx.js";
+import { saveNow } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -519,6 +521,7 @@ export function initWorld() {
   initDrones();
   initAmbient();
   initProps();
+  initStreetLoot();
   updateNodeList(visibleNodes(), game.selectedNodeId, goToNode);
 }
 
@@ -560,6 +563,79 @@ export function routeGoal() {
   const goal = currentGoal();
   if (goal.nodeId) goToNode(goal.nodeId);
   else toast(goal.text);
+}
+
+// Mission-Node in Reichweite? Für den Quick-Start-Button ("steht man auf der
+// Mission, muss man umständlich übers Menü starten" — jetzt: ein Tap)
+export function nearMissionNode() {
+  for (const n of visibleNodes()) {
+    if (n.type !== "mission") continue;
+    if (Math.hypot(player.x - n.x, player.y - n.y) <= INTERACT_R) return n;
+  }
+  return null;
+}
+
+/* ---- Street-Loot: tägliche Daten-Shards, die die Overworld nützlich machen ---- */
+const streetLoot = [];
+
+function initStreetLoot() {
+  streetLoot.length = 0;
+  const seed = todaySeed();
+  for (let i = 0; i < 12; i++) {
+    // deterministisch pro Tag: gleiche Positionen für alle Sessions heute
+    const d = DISTRICTS[Math.floor(hashRnd(seed, i * 7) * DISTRICTS.length)];
+    const ang = hashRnd(seed, i * 13 + 1) * Math.PI * 2;
+    const rr = d.r * (0.15 + hashRnd(seed, i * 17 + 2) * 0.7);
+    const frags = hashRnd(seed, i * 23 + 3) < 0.4;
+    streetLoot.push({
+      i,
+      x: d.cx + Math.cos(ang) * rr,
+      y: d.cy + Math.sin(ang) * rr,
+      frags,
+      amount: frags ? 3 + Math.floor(hashRnd(seed, i * 29 + 4) * 4) : 8 + Math.floor(hashRnd(seed, i * 31 + 5) * 13)
+    });
+  }
+}
+
+function stepStreetLoot() {
+  if (game.mode !== "WORLD") return;
+  for (const s of streetLoot) {
+    if (game.daily.lootTaken?.[s.i]) continue;
+    if (Math.hypot(player.x - s.x, player.y - s.y) > 46) continue;
+
+    if (!game.daily.lootTaken) game.daily.lootTaken = {};
+    game.daily.lootTaken[s.i] = true;
+    if (s.frags) game.frags += s.amount;
+    else game.money += s.amount;
+    toast(`DATEN-SHARD: +${s.amount} ${s.frags ? "◆" : "E$"}`);
+    sfx.pop();
+    saveNow();
+  }
+}
+
+function drawStreetLoot(ctx, W, H) {
+  const tNow = performance.now() / 1000;
+  for (const s of streetLoot) {
+    if (game.daily.lootTaken?.[s.i]) continue;
+    const p = worldToScreen(s.x, s.y, W, H);
+    if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
+
+    const bob = Math.sin(tNow * 3 + s.i) * 3;
+    const size = 6 * cam.zoom;
+    const color = s.frags ? "255,0,124" : "252,238,10";
+
+    ctx.fillStyle = `rgba(${color},.25)`;
+    ctx.beginPath(); ctx.arc(p.x, p.y + bob, size * 2.2, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = `rgba(${color},.95)`;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y + bob - size);
+    ctx.lineTo(p.x + size * 0.7, p.y + bob);
+    ctx.lineTo(p.x, p.y + bob + size);
+    ctx.lineTo(p.x - size * 0.7, p.y + bob);
+    ctx.closePath();
+    ctx.fill();
+  }
 }
 
 export function worldSetFocusToggle() {
@@ -1069,6 +1145,7 @@ function draw() {
   drawCars(ctx, W, H);
   drawProps(ctx, W, H);
   drawPuffs(ctx, W, H);
+  drawStreetLoot(ctx, W, H);
 
   const charScale = 1.7 * cam.zoom;
 
@@ -1238,6 +1315,7 @@ export function worldTick(dt = 0) {
   stepCars(dt);
   stepAmbient(dt);
   stepPuffs(dt);
+  stepStreetLoot();
   stepCamera(dt);
   draw();
 }

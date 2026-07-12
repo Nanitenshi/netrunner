@@ -127,6 +127,17 @@ function distToSegment(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
 }
 
+// Nächstgelegener Bezirk zu einem Node — für die Straßen-Hervorhebung
+// (welche Route führt gerade zum Auftragsziel)
+function nodeDistrict(n) {
+  let best = DISTRICTS[0], bestD = Infinity;
+  for (const d of DISTRICTS) {
+    const dd = Math.hypot(n.x - d.cx, n.y - d.cy);
+    if (dd < bestD) { bestD = dd; best = d; }
+  }
+  return best;
+}
+
 function initBuildings() {
   buildings.length = 0;
   const hub = DISTRICTS[0];
@@ -1076,6 +1087,10 @@ function draw() {
 
   ctx.clearRect(0, 0, W, H);
 
+  // einmal pro Frame berechnen — wird von mehreren Abschnitten gebraucht
+  // (Straßen-Hervorhebung, Nodes, ...)
+  const tNow = performance.now() / 1000;
+
   // Boden: helle blaugraue Fläche statt schwarzem Loch
   ctx.fillStyle = "rgba(26,36,58,.72)";
   ctx.fillRect(0, 0, W, H);
@@ -1095,21 +1110,48 @@ function draw() {
     ctx.fill();
   }
 
-  // roads: echte Straßenbänder mit Mittelstreifen statt dünner Linien
+  // roads: echte Straßenbänder mit Mittelstreifen statt dünner Linien.
+  // Die Route zum aktuellen Auftragsziel wird gelb hervorgehoben — der
+  // Spieler soll den Weg SEHEN können, statt nur Autowalk zu nutzen
+  // (Idee: "Straßen zu Missionen sollen sich von reiner Deko abheben").
   const hub = DISTRICTS[0];
   const hp = worldToScreen(hub.cx, hub.cy, W, H);
+  const goalNode = (() => {
+    const gid = game.selectedNodeId || currentGoal().nodeId;
+    return gid ? visibleNodes().find((n) => n.id === gid) : null;
+  })();
+  const goalDistrictId = goalNode ? nodeDistrict(goalNode).id : null;
+
   for (let i = 1; i < DISTRICTS.length; i++) {
-    const bp = worldToScreen(DISTRICTS[i].cx, DISTRICTS[i].cy, W, H);
+    const d = DISTRICTS[i];
+    const bp = worldToScreen(d.cx, d.cy, W, H);
+    const isGoalRoute = d.id === goalDistrictId;
 
     ctx.strokeStyle = "rgba(14,20,34,.9)";
     ctx.lineWidth = 34 * cam.zoom;
     ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
 
-    ctx.strokeStyle = "rgba(0,243,255,.30)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([12 * cam.zoom, 16 * cam.zoom]);
-    ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
-    ctx.setLineDash([]);
+    if (isGoalRoute) {
+      // breiter, hell pulsierender Lichtstreifen mittig auf der Route
+      const glowPulse = 0.5 + Math.sin(tNow * 3) * 0.2;
+      ctx.strokeStyle = `rgba(252,238,10,${(0.22 + glowPulse * 0.18).toFixed(2)})`;
+      ctx.lineWidth = 16 * cam.zoom;
+      ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+
+      ctx.strokeStyle = "rgba(252,238,10,.9)";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([14 * cam.zoom, 10 * cam.zoom]);
+      ctx.lineDashOffset = -tNow * 40;
+      ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+    } else {
+      ctx.strokeStyle = "rgba(0,243,255,.30)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12 * cam.zoom, 16 * cam.zoom]);
+      ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(bp.x, bp.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 
   // grid
@@ -1160,7 +1202,6 @@ function draw() {
   }
 
   // nodes
-  const tNow = performance.now() / 1000;
   visibleNodes().forEach((n) => {
     const p = worldToScreen(n.x, n.y, W, H);
     const active = (game.selectedNodeId === n.id);

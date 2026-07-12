@@ -1,11 +1,12 @@
 // js/world.js
-import { game } from "./core.js?v=34af8665";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=34af8665";
-import { openNpcDialog } from "./npc.js?v=34af8665";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=34af8665";
-import { sfx } from "./sfx.js?v=34af8665";
-import { saveNow } from "./save.js?v=34af8665";
-import { encounterTick } from "./encounters.js?v=34af8665";
+import { game } from "./core.js?v=59782255";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=59782255";
+import { openNpcDialog } from "./npc.js?v=59782255";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=59782255";
+import { sfx } from "./sfx.js?v=59782255";
+import { saveNow } from "./save.js?v=59782255";
+import { encounterTick } from "./encounters.js?v=59782255";
+import { getArchetype } from "./archetypes.js?v=59782255";
 
 const $ = (id) => document.getElementById(id);
 
@@ -51,24 +52,24 @@ const DISTRICTS = [
 
 const NODE_DEFS = [
   { id: "A1", type: "npc",     name: "Neon Gate",         npc: "NYX",       tag: "Clean start. Too clean.",                  x: -120, y: -80 },
-  { id: "M1", type: "mission", name: "Cache Pop Terminal",npc: "NYX",       tag: "Pop caches. Stay sharp.",                  x: 160,  y: 120,  missionType: "cache",  tier: 1 },
+  { id: "M1", type: "mission", name: "Cache Pop Terminal",npc: "NYX",       tag: "Pop caches. Stay sharp.",                  x: 160,  y: 120,  missionType: "cache",  tier: 1, archetype: "heist" },
   { id: "B1", type: "npc",     name: "Alley Market",      npc: "GHOST",     tag: "Dirty deals. Quick money. Gear gibt's im CREW-Menü.", x: 200, y: -160 },
-  { id: "M2", type: "mission", name: "Relay Tap",         npc: "GHOST",     tag: "Finde die Paare, bevor der Trace greift.", x: -180, y: 180,  missionType: "wires",  tier: 1 },
+  { id: "M2", type: "mission", name: "Relay Tap",         npc: "GHOST",     tag: "Finde die Paare, bevor der Trace greift.", x: -180, y: 180,  missionType: "wires",  tier: 1, archetype: "intel" },
 
   { id: "C1", type: "npc",     name: "Datastream Café",   npc: "RUNNER-9",  tag: "Kaffee und Gerüchte. Beides bitter.",      x: 950,  y: -260 },
-  { id: "M3", type: "mission", name: "Corp Firewall",     npc: "RUNNER-9",  tag: "Reihenfolge knacken, bevor sie zurückverfolgen.", x: 1080, y: -40, missionType: "breach", tier: 2 },
+  { id: "M3", type: "mission", name: "Corp Firewall",     npc: "RUNNER-9",  tag: "Reihenfolge knacken, bevor sie zurückverfolgen.", x: 1080, y: -40, missionType: "breach", tier: 2, archetype: "infiltration" },
 
   { id: "D1", type: "npc",     name: "Arasaka Lobby",     npc: "ICE-VOICE", tag: "Lächeln am Tag. Nachts fressen sie.",      x: 1650, y: -780 },
-  { id: "M4", type: "mission", name: "Executive Breach",  npc: "ICE-VOICE", tag: "Höchste Sicherheitsstufe. Höchster Preis.",x: 1850, y: -560, missionType: "breach", tier: 3 },
+  { id: "M4", type: "mission", name: "Executive Breach",  npc: "ICE-VOICE", tag: "Höchste Sicherheitsstufe. Höchster Preis.",x: 1850, y: -560, missionType: "breach", tier: 3, archetype: "sabotage" },
 
   { id: "E1", type: "npc",     name: "Scrapyard Boss",    npc: "RUST",      tag: "Schrott ist nur Metall, das noch nicht verkauft wurde.", x: 650, y: 1020 },
-  { id: "M5", type: "mission", name: "Line Sabotage",     npc: "RUST",      tag: "Kabel kreuzen sich. Finde die Paare.",     x: 850,  y: 860,  missionType: "wires",  tier: 2 },
+  { id: "M5", type: "mission", name: "Line Sabotage",     npc: "RUST",      tag: "Kabel kreuzen sich. Finde die Paare.",     x: 850,  y: 860,  missionType: "wires",  tier: 2, archetype: "sabotage" },
 
   { id: "F1", type: "npc",     name: "Clinic Runner",     npc: "DOC-K",     tag: "Ich flick dich. Frag nicht wie. (Senkt Heat gegen Eddies)", x: -900, y: 820 },
-  { id: "M6", type: "mission", name: "Black Cache",       npc: "DOC-K",     tag: "Schnelle Beute, schneller Ausstieg.",      x: -760, y: 650,  missionType: "cache",  tier: 2 },
+  { id: "M6", type: "mission", name: "Black Cache",       npc: "DOC-K",     tag: "Schnelle Beute, schneller Ausstieg.",      x: -760, y: 650,  missionType: "cache",  tier: 2, archetype: "heist" },
 
   { id: "G1", type: "npc",     name: "Ghost Signal",      npc: "ECHO",      tag: "Wenn du glaubst du steuerst das, hat dich die Stadt schon.", x: -280, y: 1600 },
-  { id: "M7", type: "mission", name: "Deep Breach",       npc: "ECHO",      tag: "Niemand hier war je wirklich hier.",       x: -180, y: 1450, missionType: "breach", tier: 3 },
+  { id: "M7", type: "mission", name: "Deep Breach",       npc: "ECHO",      tag: "Niemand hier war je wirklich hier.",       x: -180, y: 1450, missionType: "breach", tier: 3, archetype: "escort" },
 
   // Verstecktes Finale: taucht erst auf, wenn du Layer 10 erreicht hast —
   // ECHO hört ab dieser Tiefe ein Signal, das vorher nur Rauschen war
@@ -864,18 +865,22 @@ function interact(n) {
   game.selectedMissionType = n.missionType || null;
   game.selectedMissionTier = n.tier || 1;
   game.selectedMissionHot = !!n.hot;
+  game.selectedMissionArchetype = n.archetype || null;
   pendingInteractId = null;
   openSignalPanel();
 
   const npcName = $("npcName");
   const npcRole = $("npcRole");
   const dialog = $("dialogText");
+  const archetype = n.archetype ? getArchetype(n.archetype) : null;
 
   if (npcName) npcName.textContent = `${n.npc} // ${n.name}`;
   if (npcRole) npcRole.textContent = (n.type === "mission"
-    ? `NETZZUGANG · TIER ${n.tier || 1}${n.hot ? " · 🔥 HOT ZONE" : ""}`
+    ? `NETZZUGANG · TIER ${n.tier || 1}${n.hot ? " · 🔥 HOT ZONE" : ""}${archetype && archetype.id !== "infiltration" ? ` · ${archetype.icon} ${archetype.name}` : ""}`
     : "NPC SIGNAL");
-  if (dialog) dialog.textContent = n.hot ? `${n.tag}\n\n🔥 HOT ZONE HEUTE: +1 Tier, +50% Loot.` : n.tag;
+
+  const archetypeLine = archetype && archetype.id !== "infiltration" ? `\n\n${archetype.icon} ${archetype.name}: ${archetype.brief}` : "";
+  if (dialog) dialog.textContent = (n.hot ? `${n.tag}\n\n🔥 HOT ZONE HEUTE: +1 Tier, +50% Loot.` : n.tag) + archetypeLine;
 
   if (n.type === "npc") {
     openNpcDialog(n.id);

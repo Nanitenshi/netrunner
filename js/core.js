@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=34af8665";
+} from "./threeScene.js?v=59782255";
 
 import {
   initWorld,
@@ -18,15 +18,15 @@ import {
   nearMissionNode,
   worldIsManualPan,
   worldRecenterCamera
-} from "./world.js?v=34af8665";
+} from "./world.js?v=59782255";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=34af8665";
-import { loadSave, saveNow, resetSave } from "./save.js?v=34af8665";
-import { openNpcDialog, npcTick } from "./npc.js?v=34af8665";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=34af8665";
-import { initEncounters } from "./encounters.js?v=34af8665";
-import { unlockAudio } from "./sfx.js?v=34af8665";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=34af8665";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=59782255";
+import { loadSave, saveNow, resetSave } from "./save.js?v=59782255";
+import { openNpcDialog, npcTick } from "./npc.js?v=59782255";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=59782255";
+import { initEncounters } from "./encounters.js?v=59782255";
+import { unlockAudio } from "./sfx.js?v=59782255";
+import { musicSetEnabled, musicSetIntensity } from "./music.js?v=59782255";
 
 import {
   startDive,
@@ -36,7 +36,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=34af8665";
+} from "./dive.js?v=59782255";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -84,6 +84,7 @@ export const game = {
   selectedMissionType: null,
   selectedMissionTier: 1,
   selectedMissionHot: false,
+  selectedMissionArchetype: null,
   storyLog: [],
 
   canvases: { three: null, world: null, mission: null },
@@ -375,7 +376,7 @@ function boot() {
     }
     setMode("MISSION");
     const special = game.selectedNodeId === "H1" ? "void" : null;
-    startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot, special);
+    startDive(type, game.selectedMissionTier || 1, game.selectedMissionHot, special, game.selectedMissionArchetype);
   };
 
   // init modules
@@ -388,6 +389,7 @@ function boot() {
       game.selectedMissionType = n.missionType || null;
       game.selectedMissionTier = n.tier || 1;
       game.selectedMissionHot = !!n.hot;
+      game.selectedMissionArchetype = n.archetype || null;
       startMissionNow();
     },
     nearMission: nearMissionNode,

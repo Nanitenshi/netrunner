@@ -4,7 +4,7 @@ import { sfx } from "./sfx.js";
 
 const $ = (id) => document.getElementById(id);
 
-function localPos(e) {
+export function localPos(e) {
   const c = game.canvases.mission;
   const r = c.getBoundingClientRect();
   return { x: e.clientX - r.left, y: e.clientY - r.top };

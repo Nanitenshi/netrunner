@@ -1,16 +1,16 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=1d12397a";
-import { toast, bindFastPress } from "./ui.js?v=1d12397a";
-import { createMinigame, MG_TYPES, clearParticles, playRect, localPos } from "./missions.js?v=1d12397a";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=1d12397a";
-import { getBuild } from "./builds.js?v=1d12397a";
-import { ICE_CLASSES, iceLabel, iceStrength } from "./ice.js?v=1d12397a";
-import { PROGRAMS } from "./programs.js?v=1d12397a";
-import { getArchetype } from "./archetypes.js?v=1d12397a";
-import { saveNow } from "./save.js?v=1d12397a";
-import { sfx } from "./sfx.js?v=1d12397a";
-import { musicSetTension } from "./music.js?v=1d12397a";
-import { drawIceSprite, drawHackerSprite } from "./sprites.js?v=1d12397a";
+import { game } from "./core.js?v=7a81dc60";
+import { toast, bindFastPress } from "./ui.js?v=7a81dc60";
+import { createMinigame, MG_TYPES, clearParticles, playRect, localPos } from "./missions.js?v=7a81dc60";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=7a81dc60";
+import { getBuild } from "./builds.js?v=7a81dc60";
+import { ICE_CLASSES, iceLabel, iceStrength } from "./ice.js?v=7a81dc60";
+import { PROGRAMS } from "./programs.js?v=7a81dc60";
+import { getArchetype } from "./archetypes.js?v=7a81dc60";
+import { saveNow } from "./save.js?v=7a81dc60";
+import { sfx } from "./sfx.js?v=7a81dc60";
+import { musicSetTension } from "./music.js?v=7a81dc60";
+import { drawIceSprite, drawHackerSprite } from "./sprites.js?v=7a81dc60";
 
 const $ = (id) => document.getElementById(id);
 

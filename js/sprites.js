@@ -170,48 +170,80 @@ export function drawCharacterAt(ctx, screenX, screenY, scale, dir, mirror, frame
 export const SPRITE_W = W;
 export const SPRITE_H = H;
 
-// Node-Sprite: leuchtender Daten-Cluster als Polygon statt eines simplen
-// Kreises — Hexagon für Konzern-Nodes, Raute für alle anderen, mit
-// Glitch-Overlay im "critical"-State (z.B. Hot Zone).
-export function drawNodeSprite(ctx, x, y, size, type, state) {
+const GLOW_BLUR = 15;
+
+/**
+ * Zeichnet einen Missions-Node (Cluster) auf der Weltkarte.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x Center X
+ * @param {number} y Center Y
+ * @param {number} size Radius
+ * @param {string} type 'corp', 'gang', 'civ'
+ * @param {boolean} isActive Ob der Node ausgewählt ist
+ * @param {number} heat Globaler Heat-Level (0-1) — je heißer, desto kräftiger der Glow
+ */
+export function drawNode(ctx, x, y, size, type, isActive, heat) {
   ctx.save();
   ctx.translate(x, y);
 
-  // Basis-Leuchten (Glow-Effekt)
-  ctx.shadowBlur = 15;
-  const baseColor = type === "corp" ? "rgba(255, 50, 50, 0.8)" : "rgba(50, 255, 50, 0.8)";
-  ctx.shadowColor = baseColor;
+  // --- Basis-Form und Farbe ---
+  const baseColor = type === "corp" ? "255, 50, 50" : (type === "gang" ? "255, 150, 0" : "0, 255, 150");
+  const pulse = Math.sin(Date.now() / 500) * 0.2;
 
-  // Haupt-Polygon: Hexagon für Corp, Raute für alle anderen
+  // Äußerer Glow (reagiert auf Heat)
+  ctx.shadowBlur = GLOW_BLUR + heat * 20;
+  ctx.shadowColor = `rgba(${baseColor}, ${0.5 + heat * 0.5})`;
+
+  // Form: Ein komplexes, rotierendes Polygon
+  const rotation = (Date.now() / 1000) * (type === "corp" ? 1 : 0.5);
+  ctx.rotate(rotation);
+
   ctx.beginPath();
-  const sides = type === "corp" ? 6 : 4;
+  const sides = type === "corp" ? 6 : (type === "gang" ? 3 : 5);
   for (let i = 0; i < sides; i++) {
     const angle = (i * Math.PI * 2) / sides;
-    const px = Math.cos(angle) * size;
-    const py = Math.sin(angle) * size;
+    const px = Math.cos(angle) * size * (1 + pulse);
+    const py = Math.sin(angle) * size * (1 + pulse);
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   }
   ctx.closePath();
 
-  // Radialer Gradient statt Flächenfarbe
-  const gradient = ctx.createRadialGradient(0, 0, size * 0.2, 0, 0, size);
+  // Füllung (Gradient)
+  const gradient = ctx.createRadialGradient(0, 0, size * 0.2, 0, 0, size * 1.5);
   gradient.addColorStop(0, "white");
-  gradient.addColorStop(1, baseColor);
-  ctx.fillStyle = gradient;
-  ctx.fill();
+  gradient.addColorStop(0.5, `rgba(${baseColor}, 0.5)`);
+  gradient.addColorStop(1, `rgba(${baseColor}, 0.1)`);
 
-  // Glitch-Schicht im "critical"-State (z.B. Hot Zone)
-  if (state === "critical") {
-    ctx.shadowBlur = 0;
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(255, 255, 0, 0.9)";
-    for (let i = 0; i < 3; i++) {
-      const dx = (Math.random() - 0.5) * size * 2;
-      const dy = (Math.random() - 0.5) * size * 2;
-      ctx.strokeRect(dx, dy, size / 2, size / 2);
-    }
+  ctx.fillStyle = gradient;
+  ctx.lineWidth = isActive ? 3 : 1;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${isActive ? 0.9 : 0.5})`;
+
+  ctx.fill();
+  ctx.stroke();
+
+  // --- Inneres Symbol ---
+  ctx.shadowBlur = 0; // Kein Glow für das innere Symbol
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.strokeStyle = "rgba(255,255,255,0.8)";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  if (type === "corp") {
+    // Auge der Konzern-Überwachung
+    ctx.arc(0, 0, size / 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === "gang") {
+    // Ein "X" für die Gang-Struktur — Strich statt Füllung: fill() auf zwei
+    // offenen Liniensegmenten ohne Fläche würde nichts zeichnen
+    ctx.moveTo(-size / 3, -size / 3); ctx.lineTo(size / 3, size / 3);
+    ctx.moveTo(size / 3, -size / 3); ctx.lineTo(-size / 3, size / 3);
+    ctx.stroke();
+  } else {
+    // Ein Kreis für Zivil/Neutral
+    ctx.arc(0, 0, size / 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
 
   ctx.restore();

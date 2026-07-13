@@ -1,12 +1,12 @@
 // js/world.js
-import { game, getWorldIntensity } from "./core.js?v=1d12397a";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=1d12397a";
-import { openNpcDialog } from "./npc.js?v=1d12397a";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNodeSprite } from "./sprites.js?v=1d12397a";
-import { sfx } from "./sfx.js?v=1d12397a";
-import { saveNow } from "./save.js?v=1d12397a";
-import { encounterTick } from "./encounters.js?v=1d12397a";
-import { getArchetype } from "./archetypes.js?v=1d12397a";
+import { game, getWorldIntensity } from "./core.js?v=7a81dc60";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=7a81dc60";
+import { openNpcDialog } from "./npc.js?v=7a81dc60";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNode } from "./sprites.js?v=7a81dc60";
+import { sfx } from "./sfx.js?v=7a81dc60";
+import { saveNow } from "./save.js?v=7a81dc60";
+import { encounterTick } from "./encounters.js?v=7a81dc60";
+import { getArchetype } from "./archetypes.js?v=7a81dc60";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1624,19 +1624,13 @@ function draw() {
       ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Node-Form statt austauschbarem Kreis: Hexagon im Konzernbezirk,
-      // Raute überall sonst; Hot Zones glitchen zusätzlich
-      const nodeType = nodeDistrict(n).id === "corporate" ? "corp" : "other";
-      const nodeState = n.hot ? "critical" : "normal";
-      drawNodeSprite(ctx, p.x, p.y, (inRange ? 20 : 16) * cam.zoom, nodeType, nodeState);
-
-      if (active) {
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(255,255,255,.9)";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, (inRange ? 24 : 20) * cam.zoom, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // Node-Form statt austauschbarem Kreis: Hexagon im Konzernbezirk (corp),
+      // Dreieck in Industrie/Slums (gang — passt zu den Gang-Encounters dort),
+      // Fünfeck überall sonst (civ). Glow reagiert auf globalen Heat-Wert,
+      // Auswahl-Ring ist jetzt Teil von drawNode() selbst.
+      const distId = nodeDistrict(n).id;
+      const nodeType = distId === "corporate" ? "corp" : (distId === "industrial" || distId === "slums") ? "gang" : "civ";
+      drawNode(ctx, p.x, p.y, (inRange ? 20 : 16) * cam.zoom, nodeType, active, getWorldIntensity());
     }
 
     // Namensschild mit dunklem Hintergrund — sonst geht weißer Text auf

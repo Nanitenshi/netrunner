@@ -29,11 +29,10 @@ function injectStyle() {
   style.id = "compactOnboardingStyle";
   style.textContent = `
     #onboardingTask.onboardingCompact {
-      left: 12px !important;
-      right: 12px !important;
-      transform: none !important;
-      width: auto !important;
-      max-width: 620px;
+      left: 50% !important;
+      right: auto !important;
+      transform: translateX(-50%) !important;
+      width: min(620px, calc(100vw - 24px)) !important;
       min-height: 44px;
       align-items: center;
       gap: 8px;
@@ -69,14 +68,6 @@ function injectStyle() {
       border-radius: 999px;
       background: linear-gradient(90deg, rgba(252,238,10,.18), rgba(0,0,0,.72));
       box-shadow: 0 0 24px rgba(252,238,10,.28);
-    }
-    @media (min-width: 901px) {
-      #onboardingTask.onboardingCompact {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        width: min(560px, calc(100vw - 24px)) !important;
-      }
     }
   `;
   document.head.appendChild(style);

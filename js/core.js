@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=67170801";
+} from "./threeScene.js?v=98b9add7";
 
 import {
   initWorld,
@@ -18,15 +18,16 @@ import {
   nearMissionNode,
   worldIsManualPan,
   worldRecenterCamera
-} from "./world.js?v=67170801";
+} from "./world.js?v=98b9add7";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=67170801";
-import { loadSave, saveNow, resetSave } from "./save.js?v=67170801";
-import { openNpcDialog, npcTick } from "./npc.js?v=67170801";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=67170801";
-import { initEncounters } from "./encounters.js?v=67170801";
-import { unlockAudio } from "./sfx.js?v=67170801";
-import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=67170801";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=98b9add7";
+import { loadSave, saveNow, resetSave } from "./save.js?v=98b9add7";
+import { openNpcDialog, npcTick } from "./npc.js?v=98b9add7";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=98b9add7";
+import { initEncounters } from "./encounters.js?v=98b9add7";
+import { unlockAudio } from "./sfx.js?v=98b9add7";
+import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=98b9add7";
+import { freshSkillLevels } from "./skills.js?v=98b9add7";
 
 import {
   startDive,
@@ -36,7 +37,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=67170801";
+} from "./dive.js?v=98b9add7";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -74,6 +75,9 @@ export const game = {
   // Hacker-Build: permanente, jederzeit wechselbare Spielstil-Wahl
   // (GHOST RUNNER / COMBAT RUNNER / DATA THIEF) — siehe builds.js
   build: null,
+  // Skilltrees: dauerhafte, mit Frags gekaufte Stufen, unabhängig vom
+  // aktuell gewählten Build wirksam — siehe skills.js
+  skillLevels: freshSkillLevels(),
   // Programme: verbrauchbare Dive-Items, mit E$ gekauft, im Dive verbraucht
   programsOwned: { panic: 0, boost: 0, decoy: 0 },
 
@@ -364,6 +368,17 @@ function boot() {
       if (crew.roster) game.crew.roster = crew.roster;
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
       if (typeof crew.pity === "number") game.crew.pity = crew.pity;
+    }
+    // Nur bekannte Trees/Skills übernehmen — neue Skills aus einem Update
+    // bleiben so bei 0, statt dass ein alter Save-Blob sie überschreibt
+    if (saved.skillLevels) {
+      for (const treeId of Object.keys(game.skillLevels)) {
+        const savedTree = saved.skillLevels[treeId];
+        if (!savedTree) continue;
+        for (const skillId of Object.keys(game.skillLevels[treeId])) {
+          if (typeof savedTree[skillId] === "number") game.skillLevels[treeId][skillId] = savedTree[skillId];
+        }
+      }
     }
   } else {
     // Frischer Start: Nyx schickt dir JUNO + genug Frags für 2 Pulls

@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#05070a"/>
   <title>NEON ALLEY — Netrunner</title>
 
-  <link rel="manifest" href="manifest.webmanifest?v=67170801">
+  <link rel="manifest" href="manifest.webmanifest?v=98b9add7">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=67170801">
-  <script type="module" src="js/core.js?v=67170801"></script>
+  <link rel="stylesheet" href="css/style.css?v=98b9add7">
+  <script type="module" src="js/core.js?v=98b9add7"></script>
 </head>
 
 <body>
@@ -164,6 +164,7 @@
         <div class="panel card overlayCard tall">
           <div class="tabRow">
             <button type="button" class="btn small tabBtn" data-tab="build">BUILD</button>
+            <button type="button" class="btn small tabBtn" data-tab="skills">SKILLS</button>
             <button type="button" class="btn small tabBtn active" data-tab="broker">BROKER</button>
             <button type="button" class="btn small tabBtn" data-tab="crew">CREW</button>
             <button type="button" class="btn small tabBtn" data-tab="gear">GEAR</button>
@@ -177,6 +178,16 @@
               in der Ability-Leiste. Jederzeit wechselbar.
             </p>
             <div id="buildGrid" class="crewGrid"></div>
+          </div>
+
+          <div id="tabSkills" class="tabPage hidden">
+            <p class="muted small">
+              Kleine Skilltrees: ein "Allgemein"-Tree wirkt immer, die drei anderen sind
+              thematisch an je ein Build gekoppelt, wirken aber unabhängig davon.
+              Stufen sind dauerhaft und kosten Frags.
+            </p>
+            <div class="muted small" id="skillsInfo">—</div>
+            <div id="skillsGrid"></div>
           </div>
 
           <div id="tabBroker" class="tabPage">

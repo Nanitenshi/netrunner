@@ -1,9 +1,10 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game } from "./core.js?v=67170801";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=67170801";
-import { saveNow } from "./save.js?v=67170801";
-import { BUILDS, getBuild } from "./builds.js?v=67170801";
-import { PROGRAMS } from "./programs.js?v=67170801";
+import { game } from "./core.js?v=98b9add7";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=98b9add7";
+import { saveNow } from "./save.js?v=98b9add7";
+import { BUILDS, getBuild } from "./builds.js?v=98b9add7";
+import { SKILL_TREES, applySkillMods } from "./skills.js?v=98b9add7";
+import { PROGRAMS } from "./programs.js?v=98b9add7";
 
 const $ = (id) => document.getElementById(id);
 
@@ -350,7 +351,9 @@ export function computeMods() {
     // 10% Grundrettung bei Dump für alle — Buffer Guard und Crew stapeln darauf
     salvage: 0.10, fragsPerLayer: 0, startTrace: 0, forgive: 0, revive: 0,
     // Extra Trace-Abbau beim ICE-Kill — nur vom COMBAT-Build befüllt
-    bossTraceBonus: 0
+    bossTraceBonus: 0,
+    // Rabatt auf Programm-Käufe — nur vom "Schwarzmarkt Kontakte"-Skill befüllt
+    programDiscount: 0
   };
 
   for (const id of game.crew.equipped) {
@@ -390,8 +393,13 @@ export function computeMods() {
     if (bm.bossTraceBonus) m.bossTraceBonus += bm.bossTraceBonus;
   }
 
+  // Skilltrees: dauerhafte, gekaufte Stufen — stapeln zusätzlich auf
+  // Crew + Gear + Build, unabhängig vom aktuell gewählten Build
+  applySkillMods(m, game.skillLevels);
+
   m.traceMult = Math.max(0.35, m.traceMult);
   m.salvage = Math.min(0.9, m.salvage);
+  m.programDiscount = Math.min(0.5, m.programDiscount);
   return m;
 }
 
@@ -530,6 +538,7 @@ export function openCrewOverlay() {
   overlayOpen = true;
   el.classList.remove("hidden");
   renderBuildTab();
+  renderSkillsTab();
   renderBroker();
   renderCrewGrid();
   renderGear();
@@ -543,7 +552,7 @@ export function closeCrewOverlay() {
 }
 
 function switchTab(tab) {
-  for (const t of ["build", "broker", "crew", "gear"]) {
+  for (const t of ["build", "skills", "broker", "crew", "gear"]) {
     const page = $("tab" + t.charAt(0).toUpperCase() + t.slice(1));
     if (page) page.classList.toggle("hidden", t !== tab);
   }
@@ -716,12 +725,16 @@ function renderGear() {
 /* ---------------- PROGRAMME (Verbrauchsgüter) ---------------- */
 function buyProgram(pid) {
   const p = PROGRAMS[pid];
-  if (game.money < p.cost) return toast(`ZU WENIG EDDIES (${p.cost} E$).`);
+  const discount = computeMods().programDiscount || 0;
+  const cost = Math.round(p.cost * (1 - discount));
+  if (game.money < cost) return toast(`ZU WENIG EDDIES (${cost} E$).`);
 
-  game.money -= p.cost;
+  game.money -= cost;
   game.programsOwned[pid] = (game.programsOwned[pid] || 0) + 1;
   saveNow();
-  toast(`${p.icon} ${p.name} GEKAUFT (${game.programsOwned[pid]}x im Inventar)`);
+  toast(discount > 0
+    ? `${p.icon} ${p.name} GEKAUFT (${game.programsOwned[pid]}x im Inventar, SCHWARZMARKT -${Math.round(discount * 100)}%)`
+    : `${p.icon} ${p.name} GEKAUFT (${game.programsOwned[pid]}x im Inventar)`);
   renderPrograms();
 }
 
@@ -730,8 +743,11 @@ function renderPrograms() {
   if (!wrap) return;
   wrap.innerHTML = "";
 
+  const discount = computeMods().programDiscount || 0;
+
   for (const p of Object.values(PROGRAMS)) {
     const owned = game.programsOwned?.[p.id] || 0;
+    const cost = Math.round(p.cost * (1 - discount));
 
     const row = document.createElement("div");
     row.className = "gearRow";
@@ -750,7 +766,7 @@ function renderPrograms() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn small yellow";
-    btn.textContent = `KAUFEN ${p.cost} E$`;
+    btn.textContent = discount > 0 ? `KAUFEN ${cost} E$ (SCHWARZMARKT -${Math.round(discount * 100)}%)` : `KAUFEN ${cost} E$`;
     bindFastPress(btn, () => buyProgram(p.id));
 
     row.append(body, btn);
@@ -813,6 +829,83 @@ function renderBuildTab() {
 
     card.append(mono, body);
     wrap.appendChild(card);
+  }
+}
+
+/* ---------------- SKILLTREES ---------------- */
+function buySkill(treeId, skillId) {
+  const skill = SKILL_TREES[treeId]?.skills[skillId];
+  if (!skill) return;
+
+  const lvl = game.skillLevels[treeId]?.[skillId] || 0;
+  if (lvl >= skill.costs.length) return;
+
+  const cost = skill.costs[lvl];
+  if (game.frags < cost) return toast(`ZU WENIG FRAGS (${cost} ◆).`);
+
+  game.frags -= cost;
+  game.skillLevels[treeId][skillId] = lvl + 1;
+  saveNow();
+  toast(`${skill.name} → STUFE ${lvl + 1}/${skill.costs.length}`);
+  renderSkillsTab();
+  // Schwarzmarkt Kontakte wirkt auf die Programmpreise im GEAR-Tab — der ist
+  // schon gerendert, Tab-Wechsel ruft renderPrograms() sonst nicht erneut auf
+  renderPrograms();
+}
+
+function renderSkillsTab() {
+  const wrap = $("skillsGrid");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  const info = $("skillsInfo");
+  if (info) info.textContent = `Dein Guthaben: ${game.frags} ◆`;
+
+  for (const [treeId, tree] of Object.entries(SKILL_TREES)) {
+    const h = document.createElement("h3");
+    h.className = "sub";
+    h.style.margin = "16px 0 4px";
+    h.textContent = `${tree.icon} ${tree.name}`;
+    wrap.appendChild(h);
+
+    const treeDesc = document.createElement("p");
+    treeDesc.className = "muted small";
+    treeDesc.style.margin = "0 0 8px";
+    treeDesc.textContent = tree.desc;
+    wrap.appendChild(treeDesc);
+
+    for (const [skillId, skill] of Object.entries(tree.skills)) {
+      const lvl = game.skillLevels[treeId]?.[skillId] || 0;
+      const maxed = lvl >= skill.costs.length;
+
+      const row = document.createElement("div");
+      row.className = "gearRow";
+
+      const body = document.createElement("div");
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = `${skill.name} · STUFE ${lvl}/${skill.costs.length}`;
+
+      const desc = document.createElement("div");
+      desc.className = "meta";
+      desc.textContent = skill.desc;
+
+      body.append(name, desc);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn small yellow";
+      if (maxed) {
+        btn.textContent = "MAX";
+        btn.disabled = true;
+      } else {
+        btn.textContent = `KAUFEN ${skill.costs[lvl]} ◆`;
+        bindFastPress(btn, () => buySkill(treeId, skillId));
+      }
+
+      row.append(body, btn);
+      wrap.appendChild(row);
+    }
   }
 }
 

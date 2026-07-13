@@ -1,13 +1,18 @@
 {
+  "id": "./",
   "name": "NEON ALLEY — Netrunner",
   "short_name": "NEON ALLEY",
   "description": "Push-your-luck Cyberpunk-Hacking: Dive tief, sichere Loot, zieh deine Crew.",
-  "start_url": ".",
-  "scope": ".",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "orientation": "any",
   "background_color": "#05070a",
   "theme_color": "#05070a",
+  "categories": ["games", "entertainment"],
   "icons": [
     {
       "src": "icon.svg",

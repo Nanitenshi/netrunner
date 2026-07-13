@@ -1,10 +1,10 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game, maybeShowTutorial } from "./core.js?v=d65a16e1";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=d65a16e1";
-import { saveNow } from "./save.js?v=d65a16e1";
-import { BUILDS, getBuild } from "./builds.js?v=d65a16e1";
-import { SKILL_TREES, applySkillMods } from "./skills.js?v=d65a16e1";
-import { PROGRAMS } from "./programs.js?v=d65a16e1";
+import { game, maybeShowTutorial } from "./core.js?v=131b2413";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=131b2413";
+import { saveNow } from "./save.js?v=131b2413";
+import { BUILDS, getBuild } from "./builds.js?v=131b2413";
+import { SKILL_TREES, applySkillMods } from "./skills.js?v=131b2413";
+import { PROGRAMS } from "./programs.js?v=131b2413";
 
 const $ = (id) => document.getElementById(id);
 

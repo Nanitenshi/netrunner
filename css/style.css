@@ -238,6 +238,12 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
   align-items: center;
   justify-content: center;
   padding: 20px;
+  /* Zentrieren allein reicht nicht: das zählt oben/unten gleich viel Platz,
+     aber unten steht die fest positionierte BottomBar im Weg — eine Karte,
+     die gar nicht an .overlayCards max-height stößt, konnte trotzdem genau
+     dort hineinragen (gemeldeter Screenshot-Bug). Unten gezielt mehr Rand
+     reservieren behebt das an der Wurzel statt nur die Kartenhöhe zu kappen. */
+  padding-bottom: var(--bottomBarSpace, 110px);
 }
 
 .card {
@@ -252,6 +258,18 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
   letter-spacing: 4px;
   color: var(--cyan);
   text-shadow: 0 0 18px rgba(0, 243, 255, .35);
+  animation: logoPulse 3.2s ease-in-out infinite;
+}
+
+/* Erster Eindruck des Spiels — etwas mehr Tiefe als der Standard-.panel-Glow,
+   gemischt aus Cyan+Pink statt nur Cyan, damit der Titel sich vom Rest abhebt */
+@keyframes logoPulse {
+  0%, 100% { text-shadow: 0 0 18px rgba(0, 243, 255, .35); }
+  50%      { text-shadow: 0 0 30px rgba(0, 243, 255, .6), 0 0 54px rgba(255, 0, 124, .22); }
+}
+
+#title .panel {
+  box-shadow: var(--shadowC), 0 0 70px rgba(255, 0, 124, .10);
 }
 
 .sub {
@@ -339,6 +357,12 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
   flex-direction: column;
   gap: 8px;
   overflow: auto;
+  /* #app setzt touch-action:none fürs Kamera-Pan auf dem Canvas — ohne diese
+     Zeile erben scrollbare Panels das und lassen sich auf echten Touch-
+     Geräten nicht durchwischen, obwohl overflow:auto sie scrollbar macht
+     (gemeldeter Bug: Inhalte "hängen fest", Maus/Trackpad-Scroll war
+     trotzdem unauffällig, weil der touch-action-Bug nur Touch betrifft) */
+  touch-action: pan-y;
   padding-right: 4px;
   flex: 1 1 auto;
   min-height: 80px;
@@ -381,6 +405,7 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
   min-height: 88px;
   max-height: 30vh;
   overflow: auto;
+  touch-action: pan-y;
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, .08);
   border-radius: 10px;
@@ -400,6 +425,7 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 #storyArchive {
   max-height: 18vh;
   overflow: auto;
+  touch-action: pan-y;
   font-size: 11px;
   color: #9fb3c2;
   padding-right: 4px;
@@ -416,7 +442,10 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 74px;
+  /* War fest bei 74px — auf schmalen Screens wrappt die BottomBar in 2-3
+     Zeilen und wird deutlich höher als das, der Toast landete dann mitten
+     in den Buttons statt sauber darüber (gemeldeter Screenshot-Bug) */
+  bottom: var(--bottomBarSpace, 74px);
   transform: translateX(-50%);
   padding: 10px 14px;
   border-radius: 10px;
@@ -493,7 +522,22 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
   width: min(720px, 94vw);
   max-height: 86vh;
   overflow: auto;
+  touch-action: pan-y;
   text-align: left;
+}
+
+/* 86vh allein reicht nicht: auf echten Handys frisst die Browser-Chrome
+   (Adressleiste, Nav-Buttons) sichtbare Höhe, die vh nicht mitrechnet,
+   während die fest positionierte BottomBar trotzdem ihren Platz beansprucht
+   — Ergebnis war ein Karten-Body, der optisch hinter/unter der BottomBar
+   verschwand (gemeldeter Screenshot-Bug). --bottomBarSpace kommt live aus
+   ui.js (gemessene BottomBar-Höhe + Puffer), 100dvh ist die tatsächlich
+   sichtbare Höhe statt der spekulativen 100vh; Browser ohne dvh-Support
+   ignorieren die Zeile und behalten die 86vh-Notlösung von oben. */
+@supports (height: 100dvh) {
+  .overlayCard {
+    max-height: min(86vh, calc(100dvh - var(--bottomBarSpace, 120px) - 40px));
+  }
 }
 
 .overlayCard.tall { min-height: 50vh; }

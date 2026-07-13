@@ -1,10 +1,10 @@
 // js/crew.js — Charaktere, Gacha ("Broker"), Perks, Banter, Gear
-import { game } from "./core.js?v=98b9add7";
-import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=98b9add7";
-import { saveNow } from "./save.js?v=98b9add7";
-import { BUILDS, getBuild } from "./builds.js?v=98b9add7";
-import { SKILL_TREES, applySkillMods } from "./skills.js?v=98b9add7";
-import { PROGRAMS } from "./programs.js?v=98b9add7";
+import { game, maybeShowTutorial } from "./core.js?v=1a3ba971";
+import { toast, bindFastPress, setComms, renderStoryLog } from "./ui.js?v=1a3ba971";
+import { saveNow } from "./save.js?v=1a3ba971";
+import { BUILDS, getBuild } from "./builds.js?v=1a3ba971";
+import { SKILL_TREES, applySkillMods } from "./skills.js?v=1a3ba971";
+import { PROGRAMS } from "./programs.js?v=1a3ba971";
 
 const $ = (id) => document.getElementById(id);
 
@@ -537,6 +537,7 @@ export function openCrewOverlay() {
   if (!el) return;
   overlayOpen = true;
   el.classList.remove("hidden");
+  maybeShowTutorial("crew");
   renderBuildTab();
   renderSkillsTab();
   renderBroker();

@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=98b9add7";
+} from "./threeScene.js?v=1a3ba971";
 
 import {
   initWorld,
@@ -18,16 +18,16 @@ import {
   nearMissionNode,
   worldIsManualPan,
   worldRecenterCamera
-} from "./world.js?v=98b9add7";
+} from "./world.js?v=1a3ba971";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=98b9add7";
-import { loadSave, saveNow, resetSave } from "./save.js?v=98b9add7";
-import { openNpcDialog, npcTick } from "./npc.js?v=98b9add7";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=98b9add7";
-import { initEncounters } from "./encounters.js?v=98b9add7";
-import { unlockAudio } from "./sfx.js?v=98b9add7";
-import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=98b9add7";
-import { freshSkillLevels } from "./skills.js?v=98b9add7";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=1a3ba971";
+import { loadSave, saveNow, resetSave } from "./save.js?v=1a3ba971";
+import { openNpcDialog, npcTick } from "./npc.js?v=1a3ba971";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=1a3ba971";
+import { initEncounters } from "./encounters.js?v=1a3ba971";
+import { unlockAudio } from "./sfx.js?v=1a3ba971";
+import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=1a3ba971";
+import { freshSkillLevels } from "./skills.js?v=1a3ba971";
 
 import {
   startDive,
@@ -37,7 +37,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=98b9add7";
+} from "./dive.js?v=1a3ba971";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -85,6 +85,9 @@ export const game = {
   crew: { roster: {}, equipped: [], pity: 0 },
   daily: { date: "", done: false, npcs: {}, lootTaken: {} },
   tutorialDone: false,
+  // Welcher TUT_STEPS-Index als nächstes fällig ist — steuert die
+  // kontextuellen Tutorial-Trigger (siehe maybeShowTutorial)
+  tutorialStep: 0,
   stats: { bestLayer: 0, dives: 0, dumps: 0, voidAnnounced: false, voidCompleted: false, psychosisWarned: false },
   // Fortschritt der NPC-Story-Arcs: welche Dialogzeile als nächstes dran ist
   storyStage: {},
@@ -171,37 +174,50 @@ export function setMode(next) {
   toggle("missionHud", next === "MISSION");
   toggle("result", next === "RESULT");
   toggle("diveChoice", false);
+  // Auf dem Titelscreen gibt's noch nichts zu speichern/verwalten — NODES/
+  // CREW/SAVE dort sichtbar zu haben, war nur Rauschen (Screenshot-Feedback)
+  toggle("bottomBar", next !== "TITLE");
   closeCrewOverlay?.();
 
   // Musik: dichter im Dive, ruhiger in der Stadt
   musicSetIntensity(next === "MISSION" ? 1 : 0);
   if (next !== "MISSION") musicSetTension(0);
 
-  // Erstes Mal in der Stadt: kurzes Tutorial statt kryptischem Einzeiler —
-  // erklärt WAS man tut und WARUM (gemeldetes Problem: keine Orientierung)
-  if (next === "WORLD" && !game.tutorialDone) {
-    showTutorial(0);
-  }
+  // Kontextuelles Tutorial statt vier Text-Wänden am Stück: Schritt 1 sofort
+  // in der Stadt, DIVE-Erklärung erst beim ersten echten Dive, CREW/BUILD
+  // erst beim ersten Öffnen des CREW-Menüs (siehe maybeShowTutorial unten)
+  if (next === "WORLD") maybeShowTutorial("world");
+  if (next === "MISSION") maybeShowTutorial("dive");
 
   // no pause carryover
   setPaused(false);
 }
 
-/* ---------------- TUTORIAL ---------------- */
+/* ---------------- TUTORIAL ----------------
+   Vorher: alle 4 Schritte als Text-Wand direkt am Stadt-Eintritt, bevor man
+   überhaupt etwas tun durfte. Jetzt: Schritt 1 sofort, der Rest kontextuell
+   beim ersten echten Kontakt mit dem jeweiligen System — Lernen durch Tun
+   statt Vorab-Lektüre. `trigger` sagt, WANN ein Schritt fällig ist;
+   aufeinanderfolgende Schritte mit demselben trigger (CREW+BUILD) laufen
+   weiter wie bisher direkt hintereinander durch. */
 const TUT_STEPS = [
   {
+    trigger: "world",
     title: "WILLKOMMEN IN NEON ALLEY",
     text: "Du bist Netrunner: Du hackst dich in Systeme („Dives“) und holst Eddies (E$) und Frags (◆) raus.\n\nDer gelbe AUFTRAG-Chip oben zeigt IMMER dein nächstes Ziel. Tipp drauf — dein Runner läuft automatisch hin."
   },
   {
+    trigger: "dive",
     title: "DER DIVE — DEIN RISIKO, DEIN LOOT",
     text: "Im Dive löst du Minigames. Jede Ebene füllt deinen BUFFER (unsicherer Loot) — aber der TRACE steigt.\n\nBei TRACE 100% ist fast alles weg. Also: GO DEEPER für mehr Loot — oder JACK OUT, um alles zu sichern. Das ist das ganze Spiel: Gier gegen Vernunft."
   },
   {
+    trigger: "crew",
     title: "CREW & STADT",
     text: "Mit Frags (◆) rekrutierst du im CREW-Menü Verbündete — sie geben Boni und reden mit dir.\n\nNPCs in der Stadt geben 1x täglich echte Boni. Gelbe Shards auf der Straße = Gratis-Loot. Und hör auf die Musik … sie sagt dir, wie es dir geht."
   },
   {
+    trigger: "crew",
     title: "DEIN HACKER-BUILD",
     text: "Im CREW-Menü unter BUILD wählst du deinen Spielstil: GHOST RUNNER (Tarnung, wenig Trace), COMBAT RUNNER (bricht ICE mit Gewalt) oder DATA THIEF (maximaler Loot).\n\nJeder Build gibt dir eine eigene Signature-Fähigkeit im Dive. Jederzeit wechselbar — probier alle drei."
   }
@@ -209,18 +225,19 @@ const TUT_STEPS = [
 
 let tutStep = 0;
 
+// Von den drei Auslösepunkten (WORLD betreten, Dive starten, CREW-Menü
+// öffnen) aufgerufen — zeigt nur, wenn der aktuell fällige Schritt zu
+// genau diesem Auslöser gehört, sonst passiert nichts.
+export function maybeShowTutorial(trigger) {
+  if (game.tutorialStep >= TUT_STEPS.length) return;
+  if (TUT_STEPS[game.tutorialStep].trigger !== trigger) return;
+  showTutorial(game.tutorialStep);
+}
+
 function showTutorial(step) {
   tutStep = step;
   const box = $("tutorial");
   if (!box) return;
-
-  if (step >= TUT_STEPS.length) {
-    box.classList.add("hidden");
-    game.tutorialDone = true;
-    saveNow();
-    toast("AUFTRAG oben antippen = loslegen.");
-    return;
-  }
 
   box.classList.remove("hidden");
   const t = $("tutTitle");
@@ -229,6 +246,25 @@ function showTutorial(step) {
   if (t) t.textContent = TUT_STEPS[step].title;
   if (x) x.textContent = TUT_STEPS[step].text;
   if (b) b.textContent = step === TUT_STEPS.length - 1 ? "LOS GEHT'S ▶" : `WEITER (${step + 1}/${TUT_STEPS.length})`;
+}
+
+function advanceTutorial() {
+  const box = $("tutorial");
+  const next = tutStep + 1;
+  game.tutorialStep = next;
+
+  // Gleicher Auslöser wie eben (CREW → BUILD) = direkt weiter im selben
+  // Modal-Durchlauf; sonst schließen und auf den nächsten Kontext warten
+  if (next < TUT_STEPS.length && TUT_STEPS[next].trigger === TUT_STEPS[tutStep].trigger) {
+    showTutorial(next);
+  } else {
+    box?.classList.add("hidden");
+    if (next >= TUT_STEPS.length) {
+      game.tutorialDone = true;
+      toast("AUFTRAG oben antippen = loslegen.");
+    }
+  }
+  saveNow();
 }
 
 /* ---------------- PAUSE ---------------- */
@@ -369,6 +405,12 @@ function boot() {
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
       if (typeof crew.pity === "number") game.crew.pity = crew.pity;
     }
+    // Alter Save von vor dem kontextuellen Tutorial: tutorialDone war schon
+    // true, aber tutorialStep gab's noch nicht — ohne diesen Fallback würde
+    // das neue Tutorial für Bestandsspieler nochmal von vorn anfangen
+    if (game.tutorialDone && typeof saved.tutorialStep !== "number") {
+      game.tutorialStep = TUT_STEPS.length;
+    }
     // Nur bekannte Trees/Skills übernehmen — neue Skills aus einem Update
     // bleiben so bei 0, statt dass ein alter Save-Blob sie überschreibt
     if (saved.skillLevels) {
@@ -444,7 +486,7 @@ function boot() {
   });
 
   // Tutorial-Button
-  $("btnTutNext")?.addEventListener("click", () => showTutorial(tutStep + 1));
+  $("btnTutNext")?.addEventListener("click", advanceTutorial);
 
   // Pausenmenü-Buttons
   $("btnResume")?.addEventListener("click", () => setPaused(false));

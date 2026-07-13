@@ -1,16 +1,16 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=98b9add7";
-import { toast, bindFastPress } from "./ui.js?v=98b9add7";
-import { createMinigame, MG_TYPES, clearParticles, playRect, localPos } from "./missions.js?v=98b9add7";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=98b9add7";
-import { getBuild } from "./builds.js?v=98b9add7";
-import { ICE_CLASSES, iceLabel, iceStrength } from "./ice.js?v=98b9add7";
-import { PROGRAMS } from "./programs.js?v=98b9add7";
-import { getArchetype } from "./archetypes.js?v=98b9add7";
-import { saveNow } from "./save.js?v=98b9add7";
-import { sfx } from "./sfx.js?v=98b9add7";
-import { musicSetTension } from "./music.js?v=98b9add7";
-import { drawIceSprite, drawHackerSprite } from "./sprites.js?v=98b9add7";
+import { game } from "./core.js?v=1a3ba971";
+import { toast, bindFastPress } from "./ui.js?v=1a3ba971";
+import { createMinigame, MG_TYPES, clearParticles, playRect, localPos } from "./missions.js?v=1a3ba971";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=1a3ba971";
+import { getBuild } from "./builds.js?v=1a3ba971";
+import { ICE_CLASSES, iceLabel, iceStrength } from "./ice.js?v=1a3ba971";
+import { PROGRAMS } from "./programs.js?v=1a3ba971";
+import { getArchetype } from "./archetypes.js?v=1a3ba971";
+import { saveNow } from "./save.js?v=1a3ba971";
+import { sfx } from "./sfx.js?v=1a3ba971";
+import { musicSetTension } from "./music.js?v=1a3ba971";
+import { drawIceSprite, drawHackerSprite } from "./sprites.js?v=1a3ba971";
 
 const $ = (id) => document.getElementById(id);
 
@@ -217,6 +217,21 @@ function setDiveHud() {
 function showChoice(show) {
   const el = $("diveChoice");
   if (el) el.classList.toggle("hidden", !show);
+
+  // Ability-/Programm-Leiste sind während der Layer-Wahl nicht klickbar
+  // (Click-Handler prüft dive.phase !== "play") — trotzdem blieben sie
+  // sichtbar und ihre Buttons überlappten optisch JACK OUT/GO DEEPER und
+  // die BottomBar darunter (gemeldeter Screenshot-Bug). Beim Zurückkehren
+  // in die Play-Phase nur wieder einblenden, was tatsächlich Inhalt hat.
+  const abilities = $("abilityBar");
+  const programs = $("programBar");
+  if (show) {
+    abilities?.classList.add("hidden");
+    programs?.classList.add("hidden");
+  } else {
+    if (abilities && abilities.children.length > 0) abilities.classList.remove("hidden");
+    if (programs && programs.children.length > 0) programs.classList.remove("hidden");
+  }
 }
 
 /* ---------------- Ability-Bar ---------------- */

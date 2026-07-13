@@ -1,5 +1,6 @@
 // js/overworldPolish.js — mobile-first visual and usability pass for Night City.
-// Runs as a separate overlay so the core world renderer stays untouched.
+// Kept on a separate canvas so atmosphere can scale independently from the
+// gameplay renderer and never intercept input.
 
 const FX_ID = "worldFxCanvas";
 const INTRO_ID = "districtIntro";
@@ -15,15 +16,19 @@ const DISTRICTS = [
 ];
 
 const ARASAKA = { x: 1750, y: -700 };
+const reducedMotion = matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const rain = [];
 const motes = [];
+
 let canvas = null;
 let ctx = null;
 let dpr = 1;
-let lastTime = performance.now();
+let lastRaf = performance.now();
+let lastPaint = 0;
 let currentDistrict = null;
 let introTimer = 0;
 let initialZoomApplied = false;
+let particleProfile = "";
 
 function installStyles() {
   if (document.getElementById(STYLE_ID)) return;
@@ -141,7 +146,7 @@ function createOverlay() {
     canvas.setAttribute("aria-hidden", "true");
     host.appendChild(canvas);
   }
-  ctx = canvas.getContext("2d");
+  ctx = canvas.getContext("2d", { alpha: true });
 
   let intro = document.getElementById(INTRO_ID);
   if (!intro) {
@@ -152,13 +157,22 @@ function createOverlay() {
   }
 
   resize();
-  seedParticles();
-  return true;
+  syncParticles(true);
+  return !!ctx;
+}
+
+function gameState() {
+  return window.__NEON?.game || null;
+}
+
+function qualityMode() {
+  return gameState()?.settings?.quality === "quality" ? "quality" : "perf";
 }
 
 function resize() {
   if (!canvas || !ctx) return;
-  dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const cap = qualityMode() === "quality" ? 1.5 : 1;
+  dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, cap));
   const w = Math.max(1, window.innerWidth);
   const h = Math.max(1, window.innerHeight);
   canvas.width = Math.round(w * dpr);
@@ -168,27 +182,34 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function seedParticles() {
+function syncParticles(force = false) {
+  const profile = `${qualityMode()}-${window.innerWidth <= 900 ? "mobile" : "desktop"}`;
+  if (!force && profile === particleProfile) return;
+  particleProfile = profile;
+
+  const quality = qualityMode() === "quality";
+  const mobile = window.innerWidth <= 900;
+  const rainCount = reducedMotion ? 0 : quality ? (mobile ? 34 : 58) : (mobile ? 16 : 28);
+  const moteCount = reducedMotion ? 0 : quality ? (mobile ? 16 : 26) : (mobile ? 7 : 12);
+
   rain.length = 0;
   motes.length = 0;
-  const rainCount = window.innerWidth <= 900 ? 38 : 62;
-  const moteCount = window.innerWidth <= 900 ? 18 : 28;
 
   for (let i = 0; i < rainCount; i++) {
     rain.push({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
+      x: Math.random() * innerWidth,
+      y: Math.random() * innerHeight,
       len: 8 + Math.random() * 18,
       speed: 260 + Math.random() * 330,
       drift: -45 - Math.random() * 45,
-      alpha: 0.08 + Math.random() * 0.16
+      alpha: 0.07 + Math.random() * (quality ? 0.16 : 0.08)
     });
   }
 
   for (let i = 0; i < moteCount; i++) {
     motes.push({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
+      x: Math.random() * innerWidth,
+      y: Math.random() * innerHeight,
       vx: -8 + Math.random() * 16,
       vy: -6 - Math.random() * 12,
       r: 0.8 + Math.random() * 1.8,
@@ -198,9 +219,8 @@ function seedParticles() {
 }
 
 function isWorldVisible() {
-  const hud = document.getElementById("hudTop");
-  const world = document.getElementById("worldCanvas");
-  return !!hud && !hud.classList.contains("hidden") && world?.style.display !== "none";
+  const game = gameState();
+  return !document.hidden && game?.mode === "WORLD" && !game.paused;
 }
 
 function getCam() {
@@ -212,8 +232,8 @@ function getCam() {
 }
 
 function preferredBaseZoom() {
-  if (window.innerWidth <= 600) return 0.84;
-  if (window.innerWidth <= 900) return 0.76;
+  if (innerWidth <= 600) return 0.84;
+  if (innerWidth <= 900) return 0.76;
   return 0.68;
 }
 
@@ -234,7 +254,7 @@ function bindFocusZoom() {
     const cam = getCam();
     if (!cam) return;
     if (Math.abs(cam.zoom - 0.62) < 0.04) cam.zoom = preferredBaseZoom();
-    else if (Math.abs(cam.zoom - 1.05) < 0.06) cam.zoom = window.innerWidth <= 900 ? 1.18 : 1.12;
+    else if (Math.abs(cam.zoom - 1.05) < 0.06) cam.zoom = innerWidth <= 900 ? 1.18 : 1.12;
   }, 0);
 
   btn.addEventListener("pointerup", normalize, { passive: true });
@@ -260,23 +280,24 @@ function showDistrictIntro(district) {
   intro.textContent = `// ${district.name} //`;
   intro.style.setProperty("--district-accent", district.accent);
   intro.classList.add("show");
-  introTimer = 2.2;
+  introTimer = reducedMotion ? 1.2 : 2.2;
 }
 
 function worldToScreen(wx, wy, cam) {
   return {
-    x: window.innerWidth / 2 + (wx - cam.x) * cam.zoom,
-    y: window.innerHeight / 2 + (wy - cam.y) * cam.zoom
+    x: innerWidth / 2 + (wx - cam.x) * cam.zoom,
+    y: innerHeight / 2 + (wy - cam.y) * cam.zoom
   };
 }
 
 function drawArasakaBeacon(cam, time) {
-  const W = window.innerWidth;
-  const H = window.innerHeight;
+  const W = innerWidth;
+  const H = innerHeight;
   const p = worldToScreen(ARASAKA.x, ARASAKA.y, cam);
-  const safe = { left: 26, right: W - 26, top: 105, bottom: H - 112 };
+  const bottomSpace = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--bottomBarSpace")) || 112;
+  const safe = { left: 26, right: W - 26, top: 105, bottom: H - bottomSpace - 16 };
   const onScreen = p.x >= safe.left && p.x <= safe.right && p.y >= safe.top && p.y <= safe.bottom;
-  const pulse = 0.55 + Math.sin(time * 2.2) * 0.2;
+  const pulse = reducedMotion ? 0.6 : 0.55 + Math.sin(time * 2.2) * 0.2;
 
   if (onScreen) {
     const beamH = Math.min(190, Math.max(70, p.y - safe.top));
@@ -294,9 +315,7 @@ function drawArasakaBeacon(cam, time) {
     return;
   }
 
-  const dx = p.x - W / 2;
-  const dy = p.y - H / 2;
-  const angle = Math.atan2(dy, dx);
+  const angle = Math.atan2(p.y - H / 2, p.x - W / 2);
   const ex = Math.max(safe.left, Math.min(safe.right, W / 2 + Math.cos(angle) * 10000));
   const ey = Math.max(safe.top, Math.min(safe.bottom, H / 2 + Math.sin(angle) * 10000));
 
@@ -325,8 +344,8 @@ function drawRain(dt, accent) {
   for (const drop of rain) {
     drop.x += drop.drift * dt;
     drop.y += drop.speed * dt;
-    if (drop.y > window.innerHeight + 30 || drop.x < -30) {
-      drop.x = Math.random() * (window.innerWidth + 80);
+    if (drop.y > innerHeight + 30 || drop.x < -30) {
+      drop.x = Math.random() * (innerWidth + 80);
       drop.y = -30 - Math.random() * 100;
     }
     ctx.strokeStyle = `rgba(${accent},${drop.alpha})`;
@@ -341,9 +360,9 @@ function drawMotes(dt, accent, mode, time) {
   for (const mote of motes) {
     mote.x += mote.vx * dt;
     mote.y += mote.vy * dt;
-    if (mote.y < -10 || mote.x < -10 || mote.x > window.innerWidth + 10) {
-      mote.x = Math.random() * window.innerWidth;
-      mote.y = window.innerHeight + 10;
+    if (mote.y < -10 || mote.x < -10 || mote.x > innerWidth + 10) {
+      mote.x = Math.random() * innerWidth;
+      mote.y = innerHeight + 10;
     }
 
     const pulse = 0.35 + Math.sin(time * 1.6 + mote.phase) * 0.2;
@@ -356,13 +375,13 @@ function drawMotes(dt, accent, mode, time) {
 }
 
 function drawDistrictAtmosphere(district, dt, time) {
-  const W = window.innerWidth;
-  const H = window.innerHeight;
+  const W = innerWidth;
+  const H = innerHeight;
 
   if (district.weather === "rain") drawRain(dt, district.accent);
   if (district.weather === "dust" || district.weather === "smoke") drawMotes(dt, district.accent, district.weather, time);
 
-  if (district.weather === "scan") {
+  if (district.weather === "scan" && !reducedMotion) {
     const y = ((time * 42) % (H + 120)) - 60;
     const scan = ctx.createLinearGradient(0, y - 28, 0, y + 28);
     scan.addColorStop(0, "rgba(220,235,255,0)");
@@ -372,7 +391,7 @@ function drawDistrictAtmosphere(district, dt, time) {
     ctx.fillRect(0, y - 28, W, 56);
   }
 
-  if (district.weather === "glitch" && Math.random() < 0.05) {
+  if (district.weather === "glitch" && !reducedMotion && Math.random() < 0.04) {
     const y = Math.random() * H;
     ctx.fillStyle = "rgba(190,90,255,.08)";
     ctx.fillRect(0, y, W, 1 + Math.random() * 5);
@@ -385,18 +404,10 @@ function drawDistrictAtmosphere(district, dt, time) {
   ctx.fillRect(0, 0, W, H);
 }
 
-function frame(now) {
-  requestAnimationFrame(frame);
-  if (!ctx || !canvas) return;
-
-  const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
-  lastTime = now;
-  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-  applyInitialZoom();
-  bindFocusZoom();
-
+function paint(now, dt) {
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
   if (!isWorldVisible()) return;
+
   const cam = getCam();
   if (!cam) return;
 
@@ -415,6 +426,25 @@ function frame(now) {
   drawArasakaBeacon(cam, now / 1000);
 }
 
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!ctx || !canvas) return;
+
+  applyInitialZoom();
+  bindFocusZoom();
+  syncParticles();
+
+  const mode = qualityMode();
+  const targetFps = reducedMotion ? 12 : mode === "quality" ? (innerWidth <= 900 ? 30 : 45) : 24;
+  const minFrame = 1000 / targetFps;
+  if (now - lastPaint < minFrame) return;
+
+  const dt = Math.min(0.08, Math.max(0, (now - lastRaf) / 1000));
+  lastRaf = now;
+  lastPaint = now;
+  paint(now, dt);
+}
+
 function init() {
   installStyles();
   compactMobileControls();
@@ -422,8 +452,14 @@ function init() {
 
   window.addEventListener("resize", () => {
     resize();
-    seedParticles();
+    syncParticles(true);
   }, { passive: true });
+
+  window.addEventListener("neon-save-status", () => {
+    const oldDpr = dpr;
+    resize();
+    if (oldDpr !== dpr) syncParticles(true);
+  });
 
   // Register after the core boot listener so this overlay paints on top.
   setTimeout(() => requestAnimationFrame(frame), 0);

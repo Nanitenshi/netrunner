@@ -1,9 +1,9 @@
 // js/music.js — generative Ambient-Musik über WebAudio, keine Audio-Assets.
 // A-Moll-Pentatonik-Arpeggio über einem langsamen Pad; MISSION-Modus spielt dichter.
 
-import { getAudioCtx } from "./sfx.js?v=1616032b";
-import { game } from "./core.js?v=1616032b";
-import { toast } from "./ui.js?v=1616032b";
+import { getAudioCtx } from "./sfx.js?v=905511bd";
+import { game } from "./core.js?v=905511bd";
+import { toast } from "./ui.js?v=905511bd";
 
 const SCALE = [110, 130.81, 146.83, 164.81, 196, 220, 261.63, 293.66, 329.63]; // A-Pentatonik
 const PAD_ROOTS = [110, 87.31, 130.81, 98]; // A2 → F2 → C3 → G2

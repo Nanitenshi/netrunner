@@ -4,9 +4,9 @@
 // Diese Präsentationsschicht verwendet dafür ausschließlich das vorhandene
 // AUFTRAG-Banner. Die frühere zweite Aufgabenkarte bleibt unsichtbar, damit HUD,
 // Tutorial und Quick-Start nicht gleichzeitig verschiedene Befehle ausgeben.
-import "./onboarding_core.js";
-import { game } from "./core.js?v=8813e241";
-import { nearMissionNode } from "./world.js?v=8813e241";
+import "./onboarding_core.js?v=260111c3";
+import { game } from "./core.js?v=260111c3";
+import { nearMissionNode } from "./world.js?v=260111c3";
 
 const $ = (id) => document.getElementById(id);
 

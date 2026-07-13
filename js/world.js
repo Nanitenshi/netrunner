@@ -1,12 +1,12 @@
 // js/world.js
-import { game, getWorldIntensity } from "./core.js?v=b1cb64f4";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=b1cb64f4";
-import { openNpcDialog } from "./npc.js?v=b1cb64f4";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNode } from "./sprites.js?v=b1cb64f4";
-import { sfx } from "./sfx.js?v=b1cb64f4";
-import { saveNow } from "./save.js?v=b1cb64f4";
-import { encounterTick } from "./encounters.js?v=b1cb64f4";
-import { getArchetype } from "./archetypes.js?v=b1cb64f4";
+import { game, getWorldIntensity } from "./core.js?v=22ec55a6";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=22ec55a6";
+import { openNpcDialog } from "./npc.js?v=22ec55a6";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNode } from "./sprites.js?v=22ec55a6";
+import { sfx } from "./sfx.js?v=22ec55a6";
+import { saveNow } from "./save.js?v=22ec55a6";
+import { encounterTick } from "./encounters.js?v=22ec55a6";
+import { getArchetype } from "./archetypes.js?v=22ec55a6";
 
 const $ = (id) => document.getElementById(id);
 

@@ -5,8 +5,8 @@
 // AUFTRAG-Banner. Die frühere zweite Aufgabenkarte bleibt unsichtbar, damit HUD,
 // Tutorial und Quick-Start nicht gleichzeitig verschiedene Befehle ausgeben.
 import "./onboarding_core.js";
-import { game } from "./core.js?v=b1cb64f4";
-import { nearMissionNode } from "./world.js?v=b1cb64f4";
+import { game } from "./core.js?v=22ec55a6";
+import { nearMissionNode } from "./world.js?v=22ec55a6";
 
 const $ = (id) => document.getElementById(id);
 

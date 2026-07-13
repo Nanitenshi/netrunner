@@ -190,6 +190,20 @@ export function updateNodeList(nodes, selectedId, onPick) {
 }
 
 export function uiTick(dt = 0) {
+  // BottomBar-Höhe messen und als CSS-Var bereitstellen: .overlayCard und
+  // .toast reservieren darüber Platz, damit auf schmalen Screens mit
+  // mehrzeiliger BottomBar (COMMS/NODES/CREW/SND/PERF/PAUSE/SAVE wrappen
+  // dort leicht in 2-3 Zeilen) nichts mehr dahinter verschwindet oder
+  // überlappt (gemeldeter Overlap-Bug auf echten Geräten)
+  const bottomBar = $("bottomBar");
+  if (bottomBar) {
+    const h = bottomBar.classList.contains("hidden") ? 0 : Math.ceil(bottomBar.getBoundingClientRect().height);
+    const space = `${h + 24}px`;
+    if (document.documentElement.style.getPropertyValue("--bottomBarSpace") !== space) {
+      document.documentElement.style.setProperty("--bottomBarSpace", space);
+    }
+  }
+
   const d = $("hudDistrict");
   if (d) d.textContent = `Sector-${String(game.district).padStart(2, "0")}`;
 

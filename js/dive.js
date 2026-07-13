@@ -217,6 +217,21 @@ function setDiveHud() {
 function showChoice(show) {
   const el = $("diveChoice");
   if (el) el.classList.toggle("hidden", !show);
+
+  // Ability-/Programm-Leiste sind während der Layer-Wahl nicht klickbar
+  // (Click-Handler prüft dive.phase !== "play") — trotzdem blieben sie
+  // sichtbar und ihre Buttons überlappten optisch JACK OUT/GO DEEPER und
+  // die BottomBar darunter (gemeldeter Screenshot-Bug). Beim Zurückkehren
+  // in die Play-Phase nur wieder einblenden, was tatsächlich Inhalt hat.
+  const abilities = $("abilityBar");
+  const programs = $("programBar");
+  if (show) {
+    abilities?.classList.add("hidden");
+    programs?.classList.add("hidden");
+  } else {
+    if (abilities && abilities.children.length > 0) abilities.classList.remove("hidden");
+    if (programs && programs.children.length > 0) programs.classList.remove("hidden");
+  }
 }
 
 /* ---------------- Ability-Bar ---------------- */

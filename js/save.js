@@ -23,6 +23,7 @@ export function saveNow() {
       buffs: game.buffs,
       storyStage: game.storyStage,
       tutorialDone: game.tutorialDone,
+      tutorialStep: game.tutorialStep,
       settings: game.settings,
       storyLog: game.storyLog
     };

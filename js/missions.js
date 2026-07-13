@@ -10,7 +10,7 @@ function localPos(e) {
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
-function playRect() {
+export function playRect() {
   const W = window.innerWidth;
   const H = window.innerHeight;
 

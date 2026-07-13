@@ -1,15 +1,16 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
 import { game } from "./core.js";
 import { toast, bindFastPress } from "./ui.js";
-import { createMinigame, MG_TYPES, clearParticles } from "./missions.js";
+import { createMinigame, MG_TYPES, clearParticles, playRect } from "./missions.js";
 import { computeMods, banter, banterLine, getChar } from "./crew.js";
 import { getBuild } from "./builds.js";
-import { ICE_CLASSES, iceLabel } from "./ice.js";
+import { ICE_CLASSES, iceLabel, iceStrength } from "./ice.js";
 import { PROGRAMS } from "./programs.js";
 import { getArchetype } from "./archetypes.js";
 import { saveNow } from "./save.js";
 import { sfx } from "./sfx.js";
 import { musicSetTension } from "./music.js";
+import { drawIceSprite } from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -762,6 +763,18 @@ function drawTensionOverlay(ctx, W, H) {
   }
 }
 
+// ICE-Badge: pulsierendes Symbol für das aktive ICE dieses Layers, oben
+// rechts über der Spielfläche (Boss-Leiste sitzt zentriert dort, deshalb
+// bewusst am Rand statt in der Mitte)
+function drawIceBadge(ctx) {
+  if (!dive.spec) return;
+  const r = playRect();
+  const size = 22;
+  const x = r.x1 - size - 6;
+  const y = r.y0 - size - 2;
+  drawIceSprite(ctx, x, y, size, dive.spec.type, iceStrength(dive.tier, dive.layer));
+}
+
 function checkTensionWarnings() {
   const t = dive.trace / 100;
   for (const w of TENSION_WARNINGS) {
@@ -787,7 +800,10 @@ export function diveTick(dt, onFinish) {
     dive.mg.tick(paused ? 0 : dt, paused, onReport);
     if (!paused) {
       const ctx = game.ctx.mission;
-      if (ctx) drawTensionOverlay(ctx, window.innerWidth, window.innerHeight);
+      if (ctx) {
+        drawIceBadge(ctx);
+        drawTensionOverlay(ctx, window.innerWidth, window.innerHeight);
+      }
       checkTensionWarnings();
     }
   }

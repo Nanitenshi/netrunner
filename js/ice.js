@@ -12,11 +12,17 @@ export const ICE_CLASSES = {
   boss_big:  { icon: "⚠⚠", enemy: "ICE-KERN PRIME", threat: "Kern-ICE. Alles oder nichts, drei Phasen." }
 };
 
+// Rohe Stärke aus Tier + Tiefe — treibt sowohl den Text-Rang (MK1-4) als
+// auch die Sprite-Farbe (drawIceSprite: Blau bis Stärke 5, danach Rot)
+export function iceStrength(tier, layer) {
+  return (tier || 1) + (layer || 1) * 0.4;
+}
+
 // Rang skaliert sichtbar mit der Tiefe — dasselbe ICE fühlt sich in Layer 20
 // spürbar bedrohlicher an als in Layer 1, auch wenn's mechanisch dasselbe
 // Minigame bleibt.
 export function iceRank(tier, layer) {
-  const eff = (tier || 1) + (layer || 1) * 0.4;
+  const eff = iceStrength(tier, layer);
   if (eff >= 9) return "MK4";
   if (eff >= 6) return "MK3";
   if (eff >= 3.5) return "MK2";

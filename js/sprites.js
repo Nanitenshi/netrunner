@@ -216,3 +216,32 @@ export function drawNodeSprite(ctx, x, y, size, type, state) {
 
   ctx.restore();
 }
+
+// ICE-Sprite: pulsierendes Vektor-Symbol (Ring + Dreieck) für die aktive
+// Gegner-Identität während eines Dive-Layers — Farbe kippt bei hoher Stärke
+// von Blau nach Rot.
+export function drawIceSprite(ctx, x, y, size, iceType, strength) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Das ICE pulsiert im Takt basierend auf seiner Stärke
+  const pulse = (Date.now() / 300) % Math.PI;
+  const scale = 1 + Math.sin(pulse) * 0.1;
+  ctx.scale(scale, scale);
+
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.9, 0, Math.PI * 2);
+  ctx.moveTo(0, -size * 0.6);
+  ctx.lineTo(size * 0.5, size * 0.3);
+  ctx.lineTo(-size * 0.5, size * 0.3);
+  ctx.closePath();
+
+  const iceColor = strength > 5 ? "rgba(255, 0, 100, 1)" : "rgba(0, 150, 255, 1)";
+  ctx.strokeStyle = iceColor;
+  ctx.lineWidth = 3;
+  ctx.fillStyle = iceColor.replace("1)", "0.2)");
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.restore();
+}

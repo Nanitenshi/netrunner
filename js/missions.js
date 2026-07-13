@@ -1,6 +1,6 @@
 // js/missions.js — Minigame-Bibliothek ("ICE-Typen"), orchestriert von dive.js
-import { game } from "./core.js?v=7a81dc60";
-import { sfx } from "./sfx.js?v=7a81dc60";
+import { game } from "./core.js?v=67170801";
+import { sfx } from "./sfx.js?v=67170801";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1528,19 +1528,434 @@ function makeBossCore({ diff, mods, timeMult = 1 }) {
   };
 }
 
+/* ---------------- SIGNAL STREAM (Snake: Datenbits sammeln) ---------------- */
+function makeSignalStream({ diff, mods, timeMult = 1, corrupt = false }) {
+  const objective = 8 + Math.round(diff * 6) + (corrupt ? 2 : 0);
+  let timeLimit = (Math.max(16, 24 - diff * 2) + mods.timeBonus) * timeMult;
+
+  const cellSize = 34;
+  let cols = 10, rows = 10, ox = 0, oy = 0;
+
+  let snake = [];
+  let dir = { x: 1, y: 0 };
+  let pendingDir = null;
+  let bit = { x: 0, y: 0 };
+  let moveTimer = 0;
+  const moveInterval = Math.max(0.09, 0.19 - diff * 0.012) * (corrupt ? 0.82 : 1);
+
+  let timer = 0, collected = 0, misses = 0, finished = false;
+  let forgiveLeft = mods.forgive;
+  let magnetUntil = -1, hintUntil = -1;
+
+  function layoutGrid() {
+    const r = playRect();
+    cols = Math.max(6, Math.floor((r.x1 - r.x0) / cellSize));
+    rows = Math.max(6, Math.floor((r.y1 - r.y0) / cellSize));
+    ox = r.x0 + ((r.x1 - r.x0) - cols * cellSize) / 2;
+    oy = r.y0 + ((r.y1 - r.y0) - rows * cellSize) / 2;
+  }
+
+  function cellToScreen(cx, cy) {
+    return { x: ox + cx * cellSize + cellSize / 2, y: oy + cy * cellSize + cellSize / 2 };
+  }
+
+  function spawnBit() {
+    let tries = 0, p;
+    do {
+      p = { x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * rows) };
+      tries += 1;
+    } while (snake.some((s) => s.x === p.x && s.y === p.y) && tries < 40);
+    bit = p;
+  }
+
+  function reset() {
+    layoutGrid();
+    snake = [{ x: Math.floor(cols / 2), y: Math.floor(rows / 2) }];
+    dir = { x: 1, y: 0 };
+    pendingDir = null;
+    spawnBit();
+  }
+
+  // Kollision reißt nicht das ganze Layer ab (anders als in klassischem
+  // Snake) — passt zum Rest des Spiels: ein Fehler kostet, statt sofort zu
+  // beenden. Schlange fällt auf Startlänge zurück, weiterspielen.
+  function zap() {
+    if (forgiveLeft > 0) { forgiveLeft -= 1; return; }
+    misses += 1;
+    sfx.bad();
+    snake = [snake[0]];
+    dir = { x: 1, y: 0 };
+  }
+
+  const debug = { type: "stream", get snake() { return snake; }, get bit() { return bit; } };
+
+  return {
+    name: "SIGNAL STREAM",
+    debug,
+    addTime(s) { timeLimit += s; },
+    assist(kind) {
+      if (kind === "reveal") { hintUntil = timer + 2.5; return true; }
+      if (kind === "magnet") { magnetUntil = timer + 6; return true; }
+      if (kind === "forgive") { forgiveLeft += 1; return true; }
+      return false;
+    },
+    start() { reset(); },
+    pointer(type, e) {
+      if (type !== "down" || finished) return;
+      const p = localPos(e);
+      const head = cellToScreen(snake[0].x, snake[0].y);
+      const dx = p.x - head.x, dy = p.y - head.y;
+      // Richtung aus Tap-Position relativ zum Kopf — größere Achse gewinnt
+      const newDir = Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
+      // Keine 180°-Kehrtwende — wäre eine erzwungene Sofort-Kollision
+      if (newDir.x === -dir.x && newDir.y === -dir.y) return;
+      pendingDir = newDir;
+    },
+    tick(dt, paused, report) {
+      const ctx = game.ctx.mission;
+      const r = playRect();
+
+      ctx.clearRect(0, 0, r.W, r.H);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, 0, r.W, r.H);
+
+      ctx.strokeStyle = "rgba(0,243,255,.08)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ox, oy, cols * cellSize, rows * cellSize);
+
+      const mag = timer < magnetUntil;
+      const hinting = timer < hintUntil;
+
+      const bp = cellToScreen(bit.x, bit.y);
+      const pulse = 1 + Math.sin(timer * 6) * 0.15;
+      ctx.beginPath();
+      ctx.arc(bp.x, bp.y, (mag ? cellSize * 0.55 : cellSize * 0.32) * pulse, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(252,238,10,.85)";
+      ctx.fill();
+
+      if (hinting) {
+        const hp = cellToScreen(snake[0].x, snake[0].y);
+        ctx.strokeStyle = "rgba(252,238,10,.5)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(hp.x, hp.y);
+        ctx.lineTo(bp.x, bp.y);
+        ctx.stroke();
+      }
+
+      snake.forEach((s, i) => {
+        const sp = cellToScreen(s.x, s.y);
+        ctx.fillStyle = i === 0 ? "rgba(255,255,255,.95)" : "rgba(0,243,255,.8)";
+        ctx.fillRect(sp.x - cellSize * 0.4, sp.y - cellSize * 0.4, cellSize * 0.8, cellSize * 0.8);
+      });
+
+      drawParticles(ctx, dt);
+      if (corrupt) drawGlitch(ctx, r);
+
+      setHud(`${collected} / ${objective}`, timer, timeLimit, "TIPPEN ZUM LENKEN — WAND/SCHWANZ MEIDEN");
+      if (paused || finished) return;
+
+      timer += dt;
+      moveTimer += dt;
+
+      if (moveTimer >= moveInterval) {
+        moveTimer = 0;
+        if (pendingDir) { dir = pendingDir; pendingDir = null; }
+
+        const head = snake[0];
+        const nx = head.x + dir.x, ny = head.y + dir.y;
+        const hitWall = nx < 0 || nx >= cols || ny < 0 || ny >= rows;
+        const hitSelf = !hitWall && snake.some((s) => s.x === nx && s.y === ny);
+
+        if (hitWall || hitSelf) {
+          zap();
+        } else {
+          snake.unshift({ x: nx, y: ny });
+          if (nx === bit.x && ny === bit.y) {
+            collected += 1;
+            const cp = cellToScreen(nx, ny);
+            burst(cp.x, cp.y, "#fcee0a");
+            sfx.pop();
+            spawnBit();
+          } else {
+            snake.pop();
+          }
+        }
+      }
+
+      if (collected >= objective) {
+        finished = true;
+        report({ success: true, score: collected * 3, misses });
+      } else if (timer >= timeLimit) {
+        finished = true;
+        report({ success: false, score: 0, misses });
+      }
+    }
+  };
+}
+
+/* ---------------- ECHO SEQUENCE (Simon: Muster nachtippen) ---------------- */
+function makeEchoSequence({ diff, mods, timeMult = 1, corrupt = false }) {
+  const objective = 5 + Math.round(diff * 3) + (corrupt ? 1 : 0);
+  let timeLimit = (Math.max(22, 32 - diff * 3) + mods.timeBonus) * timeMult;
+
+  const COLORS = ["#00f3ff", "#ff007c", "#fcee0a", "#7dff8a"];
+  let panels = [];
+  let sequence = [];
+  let playerIdx = 0;
+  let phase = "show"; // show | play
+  let showStepIdx = 0;
+  let showSub = "off"; // "on" | "off"
+  let showAt = 0;
+  const showOn = 0.45, showGap = corrupt ? 0.16 : 0.26;
+  let litPanel = -1;
+  let flashPanel = -1, flashUntil = -1;
+
+  let timer = 0, misses = 0, finished = false, roundsCleared = 0;
+  let forgiveLeft = mods.forgive;
+
+  function layout() {
+    const r = playRect();
+    const cw = (r.x1 - r.x0) / 2;
+    const ch = (r.y1 - r.y0) / 2;
+    panels = [0, 1, 2, 3].map((i) => ({
+      x: r.x0 + (i % 2) * cw, y: r.y0 + Math.floor(i / 2) * ch, w: cw, h: ch
+    }));
+  }
+
+  function nextRound() {
+    sequence.push(Math.floor(Math.random() * 4));
+    playerIdx = 0;
+    phase = "show";
+    showStepIdx = 0;
+    showSub = "off";
+    showAt = timer + 0.4;
+    litPanel = -1;
+  }
+
+  const debug = { type: "echo", get sequence() { return sequence; }, get phase() { return phase; } };
+
+  return {
+    name: "ECHO SEQUENCE",
+    debug,
+    addTime(s) { timeLimit += s; },
+    assist(kind) {
+      if (kind === "reveal") { phase = "show"; showStepIdx = 0; showSub = "off"; showAt = timer + 0.3; return true; }
+      if (kind === "forgive") { forgiveLeft += 1; return true; }
+      return false;
+    },
+    start() { layout(); nextRound(); },
+    pointer(type, e) {
+      if (type !== "down" || finished || phase !== "play") return;
+      const p = localPos(e);
+      const hit = panels.findIndex((pn) => p.x >= pn.x && p.x < pn.x + pn.w && p.y >= pn.y && p.y < pn.y + pn.h);
+      if (hit < 0) return;
+
+      flashPanel = hit; flashUntil = timer + 0.18;
+
+      if (hit === sequence[playerIdx]) {
+        playerIdx += 1;
+        sfx.pop();
+        if (playerIdx >= sequence.length) {
+          roundsCleared += 1;
+          if (roundsCleared < objective) nextRound();
+        }
+      } else {
+        sfx.bad();
+        // Fehler kostet, wirft aber nur die aktuelle Eingabe zurück, nicht
+        // das ganze Layer — konsistent mit den anderen Minigames
+        if (forgiveLeft > 0) forgiveLeft -= 1;
+        else misses += 1;
+        playerIdx = 0;
+      }
+    },
+    tick(dt, paused, report) {
+      const ctx = game.ctx.mission;
+      const r = playRect();
+
+      ctx.clearRect(0, 0, r.W, r.H);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, 0, r.W, r.H);
+
+      panels.forEach((pn, i) => {
+        const lit = (phase === "show" && litPanel === i) || (flashPanel === i && timer < flashUntil);
+        ctx.globalAlpha = lit ? 1 : 0.3;
+        ctx.fillStyle = COLORS[i];
+        ctx.fillRect(pn.x + 6, pn.y + 6, pn.w - 12, pn.h - 12);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "rgba(255,255,255,.4)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pn.x + 6, pn.y + 6, pn.w - 12, pn.h - 12);
+      });
+
+      drawParticles(ctx, dt);
+      if (corrupt) drawGlitch(ctx, r);
+
+      setHud(`${roundsCleared} / ${objective}`, timer, timeLimit, phase === "show" ? "BEOBACHTEN…" : "MUSTER NACHTIPPEN");
+      if (paused || finished) return;
+
+      timer += dt;
+
+      if (phase === "show" && timer >= showAt) {
+        if (showSub === "off") {
+          if (showStepIdx >= sequence.length) {
+            litPanel = -1;
+            phase = "play";
+          } else {
+            litPanel = sequence[showStepIdx];
+            sfx.tap();
+            showSub = "on";
+            showAt = timer + showOn;
+          }
+        } else {
+          litPanel = -1;
+          showSub = "off";
+          showStepIdx += 1;
+          showAt = timer + showGap;
+        }
+      }
+
+      if (roundsCleared >= objective) {
+        finished = true;
+        report({ success: true, score: objective * 4, misses });
+      } else if (timer >= timeLimit) {
+        finished = true;
+        report({ success: false, score: 0, misses });
+      }
+    }
+  };
+}
+
+/* ---------------- NODE SWEEP (Minesweeper: Fallen meiden) ---------------- */
+function makeNodeSweep({ diff, mods, timeMult = 1, corrupt = false }) {
+  const cols = 5, rows = 5;
+  const total = cols * rows;
+  const trapCount = Math.min(9, 3 + Math.round(diff * 3) + (corrupt ? 2 : 0));
+  const safeGoal = total - trapCount;
+  let timeLimit = (Math.max(14, 22 - diff * 2) + mods.timeBonus) * timeMult;
+
+  const cells = [];
+  let timer = 0, revealed = 0, misses = 0, finished = false;
+  let forgiveLeft = mods.forgive;
+
+  function layout() {
+    const r = playRect();
+    const size = Math.min((r.x1 - r.x0) / cols, (r.y1 - r.y0) / rows) * 0.86;
+    const gw = size * cols, gh = size * rows;
+    const ox = r.x0 + ((r.x1 - r.x0) - gw) / 2;
+    const oy = r.y0 + ((r.y1 - r.y0) - gh) / 2;
+
+    const trapIdx = new Set();
+    while (trapIdx.size < trapCount) trapIdx.add(Math.floor(Math.random() * total));
+
+    // in-place leeren+neu befüllen statt Neuzuweisung — sonst würde das
+    // debug-Objekt (siehe unten) auf das ursprüngliche leere Array zeigen
+    cells.length = 0;
+    for (let i = 0; i < total; i++) {
+      cells.push({
+        x: ox + (i % cols) * size + size / 2,
+        y: oy + Math.floor(i / cols) * size + size / 2,
+        size,
+        trap: trapIdx.has(i),
+        revealed: false,
+        flashBad: 0
+      });
+    }
+  }
+
+  const debug = { type: "sweep", cells };
+
+  return {
+    name: "NODE SWEEP",
+    debug,
+    addTime(s) { timeLimit += s; },
+    assist(kind) {
+      if (kind === "reveal") {
+        let n = 0;
+        for (const c of cells) {
+          if (!c.revealed && !c.trap && n < 2) { c.revealed = true; revealed += 1; n += 1; burst(c.x, c.y, "#7dff8a"); }
+        }
+        return n > 0;
+      }
+      if (kind === "forgive") { forgiveLeft += 1; return true; }
+      return false;
+    },
+    start() { layout(); },
+    pointer(type, e) {
+      if (type !== "down" || finished) return;
+      const p = localPos(e);
+      const hit = cells.find((c) => !c.revealed && Math.abs(p.x - c.x) < c.size / 2 && Math.abs(p.y - c.y) < c.size / 2);
+      if (!hit) { sfx.tap(); return; }
+
+      if (hit.trap) {
+        hit.flashBad = 0.3;
+        if (forgiveLeft > 0) { forgiveLeft -= 1; sfx.tap(); }
+        else { misses += 1; sfx.bad(); }
+      } else {
+        hit.revealed = true;
+        revealed += 1;
+        burst(hit.x, hit.y, "#00f3ff");
+        sfx.pop();
+      }
+    },
+    tick(dt, paused, report) {
+      const ctx = game.ctx.mission;
+      const r = playRect();
+
+      ctx.clearRect(0, 0, r.W, r.H);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, 0, r.W, r.H);
+
+      for (const c of cells) {
+        if (c.flashBad > 0) c.flashBad -= dt;
+        ctx.fillStyle = c.revealed ? "rgba(0,243,255,.28)" : (c.flashBad > 0 ? "rgba(255,60,60,.5)" : "rgba(255,255,255,.05)");
+        ctx.fillRect(c.x - c.size / 2 + 2, c.y - c.size / 2 + 2, c.size - 4, c.size - 4);
+        ctx.strokeStyle = c.revealed ? "rgba(0,243,255,.7)" : "rgba(255,255,255,.25)";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(c.x - c.size / 2 + 2, c.y - c.size / 2 + 2, c.size - 4, c.size - 4);
+        if (c.revealed) {
+          ctx.fillStyle = "rgba(0,243,255,.95)";
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.size * 0.12, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      drawParticles(ctx, dt);
+      if (corrupt) drawGlitch(ctx, r);
+
+      setHud(`${revealed} / ${safeGoal}`, timer, timeLimit, "SICHERE NODES AUFDECKEN — FALLEN MEIDEN");
+      if (paused || finished) return;
+
+      timer += dt;
+
+      if (revealed >= safeGoal) {
+        finished = true;
+        report({ success: true, score: safeGoal * 3, misses });
+      } else if (timer >= timeLimit) {
+        finished = true;
+        report({ success: false, score: 0, misses });
+      }
+    }
+  };
+}
+
 const FACTORY = {
   cache: makeCachePop,
   wires: makeWireMatch,
   breach: makeBreachSequence,
   pulse: makePulseLock,
   trace: makeSignalTrace,
+  stream: makeSignalStream,
+  echo: makeEchoSequence,
+  sweep: makeNodeSweep,
   ghost: makeGhostNet,
   boss_mini: makeBossGuard,
   boss_big: makeBossCore
 };
 
 // Nur diese Typen werden zufällig für normale Layer gewürfelt
-export const MG_TYPES = ["cache", "wires", "breach", "pulse", "trace"];
+export const MG_TYPES = ["cache", "wires", "breach", "pulse", "trace", "stream", "echo", "sweep"];
 
 export function createMinigame(type, opts) {
   const f = FACTORY[type] || FACTORY.cache;

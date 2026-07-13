@@ -7,6 +7,9 @@ export const ICE_CLASSES = {
   breach:    { icon: "🔐", enemy: "BARRIER-ICE",   threat: "Exakte Reihenfolge — oder Reset." },
   pulse:     { icon: "📡", enemy: "SENTRY-ICE",    threat: "Reagiert nur im perfekten Timing-Fenster." },
   trace:     { icon: "👁", enemy: "WATCHER-ICE",   threat: "Aktive Verfolgung, wird mit der Tiefe schneller." },
+  stream:    { icon: "🐍", enemy: "STREAM-ICE",    threat: "Wächst mit jedem Datenbit. Wand und eigener Schwanz sind tödlich." },
+  echo:      { icon: "🎨", enemy: "ECHO-ICE",      threat: "Wiederholt Muster — ein Fehler wirft dich zum Rundenanfang zurück." },
+  sweep:     { icon: "💣", enemy: "SWEEP-ICE",     threat: "Verstecktes Minenfeld. Vorsichtig aufdecken." },
   ghost:     { icon: "👻", enemy: "PHANTOM-SIGNAL", threat: "Kein reguläres ICE — unbekanntes Muster." },
   boss_mini: { icon: "⚠",  enemy: "ICE-WÄCHTER",   threat: "Boss-ICE. Zerstören senkt den Trace deutlich." },
   boss_big:  { icon: "⚠⚠", enemy: "ICE-KERN PRIME", threat: "Kern-ICE. Alles oder nichts, drei Phasen." }

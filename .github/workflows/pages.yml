@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          for file in js/*.js; do
+          for file in js/*.js sw.js; do
             node --check "$file"
           done
 
@@ -61,6 +61,7 @@ jobs:
           test -f index.html
           test -f css/style.css
           test -f icon.svg
+          test -f sw.js
 
       - name: Cache-bust CSS and module graph
         env:

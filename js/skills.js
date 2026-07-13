@@ -4,11 +4,19 @@
 // eine dauerhafte Investition on top von Build/Crew/Gear. Jeder Skill hängt
 // an einem Stat, den computeMods() in crew.js bereits kennt.
 //
-// onboarding.js und gamefeel.js hängen bewusst hier als kleine Seiteneffekt-
-// Initialisierungen: core.js importiert skills.js ohnehin beim Boot. So bleiben
-// Führung und Präsentations-Feedback getrennt vom eigentlichen Gameplay-State.
-import "./onboarding.js";
-import "./gamefeel.js";
+// Onboarding und Game-Feel sind optionale Präsentationsmodule. Sie dürfen die
+// Kerninitialisierung niemals blockieren. Statische Imports erzeugten hier den
+// Zyklus core → skills → onboarding/gamefeel → core und konnten Android schon
+// vor boot() mit einer TDZ-Exception stoppen. Deshalb erst nach Abschluss des
+// aktuellen Modulladevorgangs nachladen und Fehler ausdrücklich abfangen.
+window.setTimeout(() => {
+  import("./onboarding.js").catch((error) => {
+    console.error("[ONBOARDING] Optionales Modul konnte nicht geladen werden:", error);
+  });
+  import("./gamefeel.js").catch((error) => {
+    console.error("[GAMEFEEL] Optionales Modul konnte nicht geladen werden:", error);
+  });
+}, 0);
 
 export const SKILL_TREES = {
   general: {

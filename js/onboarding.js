@@ -1,14 +1,26 @@
-// js/onboarding.js — kompakte Mobile-Hülle um das bestehende Onboarding
+// js/onboarding.js — eine einzige, dominante Führung für den Mobile-Einstieg
 //
-// Die eigentliche Fortschritts- und Freischaltlogik bleibt in onboarding_core.js.
-// Diese Datei koordiniert nur die Darstellung mit dem kontextuellen DIVE-Button:
-// niemals zwei große Flächen übereinander und kein Textblock über der Spielwelt.
+// onboarding_core.js besitzt weiterhin Fortschritt, Freischaltungen und Aktionen.
+// Diese Präsentationsschicht verwendet dafür ausschließlich das vorhandene
+// AUFTRAG-Banner. Die frühere zweite Aufgabenkarte bleibt unsichtbar, damit HUD,
+// Tutorial und Quick-Start nicht gleichzeitig verschiedene Befehle ausgeben.
 import "./onboarding_core.js";
 import { game } from "./core.js";
 import { nearMissionNode } from "./world.js";
 
 const $ = (id) => document.getElementById(id);
+
+const PRIMARY_GOALS = [
+  "ERSTER JOB · ZUM CACHE POP TERMINAL",
+  "CREW ÖFFNEN · JUNO PRÜFEN",
+  "BUILD WÄHLEN · GHOST / COMBAT / DATA",
+  "SKILLS ÖFFNEN · FRAGS INVESTIEREN",
+  "GEAR ÖFFNEN · EDDIES INVESTIEREN"
+];
+
 let syncTimer = 0;
+let lastPrimaryPress = -Infinity;
+let goalBound = false;
 
 function isVisible(id) {
   const el = $(id);
@@ -23,113 +35,203 @@ function modalOpen() {
     || isVisible("worldEncounter");
 }
 
+function onboardingStage() {
+  const value = window.__NEON_ONBOARDING?.stage?.();
+  return Number.isFinite(value) ? value : PRIMARY_GOALS.length;
+}
+
+function onboardingActive() {
+  return onboardingStage() < PRIMARY_GOALS.length;
+}
+
 function injectStyle() {
-  if ($("compactOnboardingStyle")) return;
+  if ($("singlePrimaryGoalStyle")) return;
+
   const style = document.createElement("style");
-  style.id = "compactOnboardingStyle";
+  style.id = "singlePrimaryGoalStyle";
   style.textContent = `
-    #onboardingTask.onboardingCompact {
-      left: 50% !important;
-      right: auto !important;
-      transform: translateX(-50%) !important;
-      width: min(620px, calc(100vw - 24px)) !important;
-      min-height: 44px;
-      align-items: center;
-      gap: 8px;
-      border-radius: 999px !important;
-      background: linear-gradient(90deg, rgba(5,9,14,.96), rgba(15,17,12,.92)) !important;
-      box-shadow: 0 0 16px rgba(252,238,10,.16) !important;
+    /* Die alte Zusatzkarte existiert nur noch als interner Aktions-Host. */
+    #onboardingTask { display: none !important; }
+
+    #hudGoal.onboardingPrimary {
+      background: linear-gradient(90deg, rgba(252,238,10,.20), rgba(5,7,10,.90));
+      box-shadow: 0 0 24px rgba(252,238,10,.25);
+      cursor: pointer;
     }
-    #onboardingTask.onboardingCompact.forceHidden { display: none !important; }
-    #onboardingTask.onboardingCompact #onboardingTaskText { display: none !important; }
-    #onboardingTask.onboardingCompact #onboardingTaskTitle {
+    #hudGoal.onboardingPrimary #hudGoalText { display: none !important; }
+    #hudGoal.onboardingPrimary::after {
+      content: attr(data-primary-label);
       flex: 1 1 auto;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 11px;
-      letter-spacing: 1.2px;
-      padding-left: 4px;
     }
-    #onboardingTask.onboardingCompact #btnOnboardingAction {
-      flex: 0 0 auto;
-      min-width: 72px;
-      padding: 8px 11px;
-      border-radius: 999px;
-    }
-    #btnDiveNow {
+    #hudGoal.primarySuppressed { display: none !important; }
+
+    #btnDiveNow.primaryDive {
       width: min(560px, calc(100vw - 24px));
       max-width: calc(100vw - 24px);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      padding: 12px 16px;
+      padding: 13px 16px;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(252,238,10,.18), rgba(0,0,0,.72));
-      box-shadow: 0 0 24px rgba(252,238,10,.28);
+      background: linear-gradient(90deg, rgba(252,238,10,.24), rgba(0,0,0,.76));
+      box-shadow: 0 0 28px rgba(252,238,10,.34);
+    }
+
+    /* Sekundäre Werkzeuge bleiben erreichbar, konkurrieren optisch aber nicht
+       mit der einen aktuellen Handlung. */
+    #bottomBar.onboardingSecondary .btn {
+      opacity: .62;
+      filter: saturate(.72);
+    }
+    #bottomBar.onboardingSecondary #btnNodes,
+    #bottomBar.onboardingSecondary #btnPause {
+      opacity: .82;
+    }
+
+    @media (max-width: 600px) {
+      #hudGoal.onboardingPrimary {
+        padding: 10px 13px;
+        font-size: 12px;
+      }
+      #hudGoal.onboardingPrimary .bannerIcon { font-size: 15px; }
     }
   `;
   document.head.appendChild(style);
 }
 
-function compactActionLabel(action) {
-  const labels = {
-    "ZIEL MARKIEREN": "ZIEL",
-    "CREW ÖFFNEN": "CREW",
-    "BUILD WÄHLEN": "BUILD",
-    "SKILLS ÖFFNEN": "SKILLS",
-    "GEAR ÖFFNEN": "GEAR"
-  };
+function runPrimaryAction() {
+  const stage = onboardingStage();
+  const action = $("btnOnboardingAction");
+  if (stage >= PRIMARY_GOALS.length || !action) return;
 
-  // onboarding_core schreibt bei einem neuen Abschnitt wieder die lange Form.
-  // Genau dann den gespeicherten Wert aktualisieren; die bereits gekürzte Form
-  // darf den nächsten Abschnitt nicht versehentlich auf „ZIEL“ festnageln.
-  const current = action.textContent.trim();
-  if (labels[current]) action.dataset.fullOnboardingLabel = current;
+  // Auftrag 01 muss immer zum ersten Terminal führen. Nach einem tiefen, aber
+  // gescheiterten Dive können missionsDone/bestLayer bereits weiter sein als der
+  // echte Onboarding-Fortschritt. Nur während dieses synchronen Aufrufs geben wir
+  // routeGoal deshalb den passenden alten Wert; der Save-State wird nicht verändert.
+  if (stage === 0) {
+    const previousMissionsDone = game.missionsDone;
+    try {
+      game.missionsDone = 0;
+      action.click();
+    } finally {
+      game.missionsDone = previousMissionsDone;
+    }
+    return;
+  }
 
-  const full = action.dataset.fullOnboardingLabel || current;
-  action.textContent = labels[full] || full;
+  // Für spätere Stufen nutzt derselbe interne Handler die bereits vorhandenen
+  // Crew-/Build-/Skills-/Gear-Freischaltungen. Keine zweite Aktionslogik.
+  action.click();
+}
+
+function handlePrimaryPress(event) {
+  if (!onboardingActive() || game.mode !== "WORLD" || modalOpen() || nearMissionNode()) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+
+  const now = performance.now();
+  if (now - lastPrimaryPress < 400) return;
+  lastPrimaryPress = now;
+  runPrimaryAction();
+}
+
+function bindPrimaryGoal() {
+  if (goalBound) return;
+  const goal = $("hudGoal");
+  if (!goal) return;
+
+  goalBound = true;
+  // Capture ist Absicht: ui.js hat bereits bindFastPress(routeGoal) registriert.
+  // Während des Onboardings darf nur die gemeinsame Onboarding-Aktion feuern.
+  goal.addEventListener("pointerup", handlePrimaryPress, { capture: true, passive: false });
+  goal.addEventListener("click", handlePrimaryPress, { capture: true, passive: false });
+}
+
+function restoreGoal(goal, icon) {
+  goal?.classList.remove("onboardingPrimary", "primarySuppressed");
+  if (goal) {
+    delete goal.dataset.primaryLabel;
+    goal.removeAttribute("aria-label");
+  }
+  if (icon?.dataset.originalIcon) {
+    icon.textContent = icon.dataset.originalIcon;
+    delete icon.dataset.originalIcon;
+  }
 }
 
 function sync() {
+  bindPrimaryGoal();
+
   const task = $("onboardingTask");
-  if (!task) return;
+  if (task) task.style.display = "none";
 
-  task.classList.add("onboardingCompact");
-  const action = $("btnOnboardingAction");
-  if (action) compactActionLabel(action);
-
-  const hud = $("hudTop");
-  const hudBottom = hud ? hud.getBoundingClientRect().bottom : 104;
-  task.style.top = `${Math.round(hudBottom + 10)}px`;
-
+  const goal = $("hudGoal");
+  const icon = goal?.querySelector(".bannerIcon");
   const diveButton = $("btnDiveNow");
-  const near = game.mode === "WORLD" && !modalOpen() ? nearMissionNode() : null;
+  const bottomBar = $("bottomBar");
+  const active = onboardingActive();
 
-  // onboarding_core nutzt inline display:block/none. Wenn es die Aufgabe zeigen
-  // will, hier bewusst auf flex wechseln; wenn es sie versteckt, bleibt none.
-  if (task.style.display !== "none") task.style.display = "flex";
-
-  // Am Netzzugang gehört die Bühne dem Start-Button. Die Auftrags-Pille
-  // verschwindet vollständig, statt denselben Bereich optisch zuzukleistern.
-  task.classList.toggle("forceHidden", !!near);
-
-  // Zweite Verteidigungslinie: Der normale UI-Tick macht dasselbe, aber das
-  // Onboarding darf den Button nie wieder verdecken oder durch Timing verlieren.
-  if (diveButton && near) {
-    diveButton.classList.remove("hidden");
-    diveButton.textContent = `▶ DIVE: ${near.name.toUpperCase()} · TIER ${(near.tier || 1) + (near.hot ? 1 : 0)}${near.hot ? " 🔥" : ""}`;
-    diveButton.style.top = `${Math.round(hudBottom + 10)}px`;
+  if (!active) {
+    restoreGoal(goal, icon);
+    diveButton?.classList.remove("primaryDive");
+    bottomBar?.classList.remove("onboardingSecondary");
+    return;
   }
+
+  bottomBar?.classList.add("onboardingSecondary");
+
+  const stage = onboardingStage();
+  if (goal) {
+    goal.dataset.primaryLabel = PRIMARY_GOALS[stage];
+    goal.setAttribute("aria-label", PRIMARY_GOALS[stage]);
+    goal.classList.add("onboardingPrimary");
+  }
+  if (icon) {
+    if (!icon.dataset.originalIcon) icon.dataset.originalIcon = icon.textContent;
+    icon.textContent = "▶";
+  }
+
+  const blocked = game.mode !== "WORLD" || modalOpen();
+  const near = !blocked ? nearMissionNode() : null;
+
+  if (blocked) {
+    goal?.classList.add("primarySuppressed");
+    diveButton?.classList.remove("primaryDive");
+    return;
+  }
+
+  if (near) {
+    // Direkt am Terminal gibt es genau eine dominante Aktion: DIVE starten.
+    goal?.classList.add("primarySuppressed");
+    diveButton?.classList.add("primaryDive");
+    diveButton?.classList.remove("hidden");
+
+    const hud = $("hudTop");
+    const hudBottom = hud ? hud.getBoundingClientRect().bottom : 104;
+    diveButton.style.top = `${Math.round(hudBottom + 10)}px`;
+    return;
+  }
+
+  // Unterwegs ist das AUFTRAG-Banner die einzige dominante Aktion.
+  goal?.classList.remove("primarySuppressed");
+  diveButton?.classList.remove("primaryDive");
 }
 
 function init() {
   injectStyle();
+  bindPrimaryGoal();
   sync();
   syncTimer = window.setInterval(sync, 100);
-  window.__NEON_COMPACT_ONBOARDING = {
+
+  window.__NEON_PRIMARY_GOAL = {
     sync,
+    run: runPrimaryAction,
     stop: () => window.clearInterval(syncTimer)
   };
 }

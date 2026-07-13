@@ -26,7 +26,7 @@ import { openNpcDialog, npcTick } from "./npc.js";
 import { initCrewUI, closeCrewOverlay } from "./crew.js";
 import { initEncounters } from "./encounters.js";
 import { unlockAudio } from "./sfx.js";
-import { musicSetEnabled, musicSetIntensity } from "./music.js";
+import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js";
 
 import {
   startDive,
@@ -159,6 +159,7 @@ export function setMode(next) {
 
   // Musik: dichter im Dive, ruhiger in der Stadt
   musicSetIntensity(next === "MISSION" ? 1 : 0);
+  if (next !== "MISSION") musicSetTension(0);
 
   // Erstes Mal in der Stadt: kurzes Tutorial statt kryptischem Einzeiler —
   // erklärt WAS man tut und WARUM (gemeldetes Problem: keine Orientierung)

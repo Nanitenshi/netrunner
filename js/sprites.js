@@ -169,3 +169,50 @@ export function drawCharacterAt(ctx, screenX, screenY, scale, dir, mirror, frame
 
 export const SPRITE_W = W;
 export const SPRITE_H = H;
+
+// Node-Sprite: leuchtender Daten-Cluster als Polygon statt eines simplen
+// Kreises — Hexagon für Konzern-Nodes, Raute für alle anderen, mit
+// Glitch-Overlay im "critical"-State (z.B. Hot Zone).
+export function drawNodeSprite(ctx, x, y, size, type, state) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Basis-Leuchten (Glow-Effekt)
+  ctx.shadowBlur = 15;
+  const baseColor = type === "corp" ? "rgba(255, 50, 50, 0.8)" : "rgba(50, 255, 50, 0.8)";
+  ctx.shadowColor = baseColor;
+
+  // Haupt-Polygon: Hexagon für Corp, Raute für alle anderen
+  ctx.beginPath();
+  const sides = type === "corp" ? 6 : 4;
+  for (let i = 0; i < sides; i++) {
+    const angle = (i * Math.PI * 2) / sides;
+    const px = Math.cos(angle) * size;
+    const py = Math.sin(angle) * size;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+
+  // Radialer Gradient statt Flächenfarbe
+  const gradient = ctx.createRadialGradient(0, 0, size * 0.2, 0, 0, size);
+  gradient.addColorStop(0, "white");
+  gradient.addColorStop(1, baseColor);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Glitch-Schicht im "critical"-State (z.B. Hot Zone)
+  if (state === "critical") {
+    ctx.shadowBlur = 0;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255, 255, 0, 0.9)";
+    for (let i = 0; i < 3; i++) {
+      const dx = (Math.random() - 0.5) * size * 2;
+      const dy = (Math.random() - 0.5) * size * 2;
+      ctx.strokeRect(dx, dy, size / 2, size / 2);
+    }
+  }
+
+  ctx.restore();
+}

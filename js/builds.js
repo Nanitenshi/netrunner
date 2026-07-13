@@ -2,7 +2,7 @@
 // Spielstil-Identität, unabhängig von Crew und Gear. Jeder Build gibt einen
 // passiven Bonus (fließt in computeMods() ein) und eine exklusive
 // Signature-Fähigkeit in der Dive-Ability-Leiste.
-import "./enhancements.js?v=423ba706";
+import "./enhancements.js?v=5192bf4c";
 
 export const BUILDS = {
   ghost: {

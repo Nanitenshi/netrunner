@@ -1,15 +1,14 @@
 // js/onboarding.js — gestaffelter Einstieg für neue Spieler
 //
-// Kein zusätzliches Regelwerk, sondern eine dünne Führungsschicht über den
-// bestehenden Systemen: immer genau ein sichtbarer Auftrag, klare Sprache und
-// schrittweise Freischaltung. Der Fortschritt leitet sich aus `missionsDone`
-// ab, damit alte Saves ohne Migration weiterlaufen.
+// Dünne Führungsschicht über den bestehenden Systemen: immer genau ein
+// sichtbarer Auftrag, echte Freischaltungen und ein kontrollierter erster Dive.
+// Fortschritt zählt nur saubere Jack Outs — ein Dump ist kein verdammter Sieg.
 import { game } from "./core.js";
 import { routeGoal } from "./world.js";
 import { toast, setComms, bindFastPress } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
-const SEEN_KEY = "neonAlley_onboarding_seen_v1";
+const SEEN_KEY = "neonAlley_onboarding_seen_v2";
 
 const TASKS = [
   {
@@ -46,7 +45,7 @@ const TUTORIAL_COPY = [
   },
   {
     title: "IM NETZ",
-    text: "Triff die Ziele und zerleg das ICE. Jeder geschaffte Layer füllt deinen BUFFER mit unsicherem Loot. Gleichzeitig steigt TRACE.\n\nNach dem Layer entscheidest du: JACK OUT sichert alles. GO DEEPER macht dich reicher — oder lässt dich mit fast nichts aufwachen."
+    text: "Triff die Ziele und zerleg das ICE. Jeder geschaffte Layer füllt deinen BUFFER mit unsicherem Loot. Gleichzeitig steigt TRACE.\n\nDein erster Auftrag endet nach einem Layer: JACK OUT und sichere die Beute. Später darfst du mit GO DEEPER selbst entscheiden, wie gierig du sterben willst."
   },
   {
     title: "DEINE CREW",
@@ -54,15 +53,22 @@ const TUTORIAL_COPY = [
   },
   {
     title: "WÄHL, WIE DU KÄMPFST",
-    text: "Nach deinem zweiten Dive wird BUILD freigeschaltet. GHOST hält Trace klein. COMBAT bricht ICE mit Gewalt. DATA jagt maximalen Loot.\n\nDer Build ist jederzeit wechselbar. Probier aus, was zu deinem verdammten Überlebensinstinkt passt."
+    text: "Nach deinem zweiten sauberen Jack Out wird BUILD freigeschaltet. GHOST hält Trace klein. COMBAT bricht ICE mit Gewalt. DATA jagt maximalen Loot.\n\nDer Build ist jederzeit wechselbar. Probier aus, was zu deinem verdammten Überlebensinstinkt passt."
   }
 ];
 
 let lastStage = -1;
 let taskBox = null;
+let firstDiveChoiceAnnounced = false;
+
+function successfulDives() {
+  const dives = Number(game.stats?.dives || 0);
+  const dumps = Number(game.stats?.dumps || 0);
+  return Math.max(0, dives - dumps);
+}
 
 function stage() {
-  return Math.min(TASKS.length, Math.max(0, game.missionsDone || 0));
+  return Math.min(TASKS.length, successfulDives());
 }
 
 function seenStages() {
@@ -132,35 +138,97 @@ function runTaskAction() {
   const wanted = s === 1 ? "crew" : s === 2 ? "build" : s === 3 ? "skills" : "gear";
   setTimeout(() => {
     const tab = document.querySelector(`.tabBtn[data-tab="${wanted}"]`);
-    if (tab && tab.style.display !== "none") tab.click();
+    if (tab && tab.dataset.onboardingLocked !== "1") tab.click();
   }, 80);
 }
 
 function gateTab(name, unlocked, message) {
   const tab = document.querySelector(`.tabBtn[data-tab="${name}"]`);
+  const page = $("tab" + name.charAt(0).toUpperCase() + name.slice(1));
   if (!tab) return;
 
   tab.style.display = unlocked ? "" : "none";
+  tab.disabled = !unlocked;
   tab.dataset.onboardingLocked = unlocked ? "0" : "1";
-  if (!unlocked) tab.title = message;
+  tab.title = unlocked ? "" : message;
+
+  // Falls ein alter UI-Zustand auf einer inzwischen gesperrten Seite steht,
+  // diese Seite hart schließen. Nur den Tab zu verstecken wäre keine echte Sperre.
+  if (!unlocked) page?.classList.add("hidden");
+}
+
+function ensureUnlockedTabVisible() {
+  const overlay = $("crewOverlay");
+  if (!overlay || overlay.classList.contains("hidden")) return;
+
+  const visiblePage = [...document.querySelectorAll(".tabPage")]
+    .find((page) => !page.classList.contains("hidden"));
+  const visibleName = visiblePage?.id?.replace(/^tab/, "").toLowerCase();
+  const visibleTab = visibleName
+    ? document.querySelector(`.tabBtn[data-tab="${visibleName}"]`)
+    : null;
+
+  if (visibleTab && visibleTab.dataset.onboardingLocked !== "1") return;
+
+  const fallback = ["broker", "crew", "build", "skills", "gear"]
+    .map((name) => document.querySelector(`.tabBtn[data-tab="${name}"]`))
+    .find((tab) => tab && tab.dataset.onboardingLocked !== "1");
+  fallback?.click();
 }
 
 function applyUnlocks() {
-  const dives = game.missionsDone || 0;
+  const wins = successfulDives();
   const crewButton = $("btnCrew");
-  if (crewButton) crewButton.style.display = dives >= 1 ? "" : "none";
+  if (crewButton) {
+    crewButton.style.display = wins >= 1 ? "" : "none";
+    crewButton.disabled = wins < 1;
+  }
 
-  // Broker und Crew bilden den ersten Meta-Schritt. Build, Skills und Gear
-  // folgen einzeln, damit ein Neuling nie fünf Menüs gleichzeitig erklären
-  // soll — genau diese Wand aus Begriffen hat bisher Leute rausgeworfen.
-  gateTab("broker", dives >= 1, "Nach dem ersten Dive freigeschaltet.");
-  gateTab("crew", dives >= 1, "Nach dem ersten Dive freigeschaltet.");
-  gateTab("build", dives >= 2, "Überlebe zwei Dives. Dann darfst du deinen Stil wählen.");
-  gateTab("skills", dives >= 3, "Überlebe drei Dives. Dann werden Skills freigeschaltet.");
-  gateTab("gear", dives >= 4, "Überlebe vier Dives. Dann öffnet der Gear-Markt.");
+  gateTab("broker", wins >= 1, "Nach dem ersten sauberen Jack Out freigeschaltet.");
+  gateTab("crew", wins >= 1, "Nach dem ersten sauberen Jack Out freigeschaltet.");
+  gateTab("build", wins >= 2, "Schaff zwei saubere Jack Outs. Dann darfst du deinen Stil wählen.");
+  gateTab("skills", wins >= 3, "Schaff drei saubere Jack Outs. Dann werden Skills freigeschaltet.");
+  gateTab("gear", wins >= 4, "Schaff vier saubere Jack Outs. Dann öffnet der Gear-Markt.");
 
   const daily = $("dailyInfo");
-  if (daily) daily.style.display = dives >= 3 ? "" : "none";
+  if (daily) daily.style.display = wins >= 3 ? "" : "none";
+  ensureUnlockedTabVisible();
+}
+
+function applyFirstDiveGuidance() {
+  const firstRun = successfulDives() === 0;
+  const choice = $("diveChoice");
+  const deeper = $("btnDeeper");
+  const jackOut = $("btnJackOut");
+  const hint = $("dcBossHint");
+  const choiceVisible = choice && !choice.classList.contains("hidden");
+
+  if (!firstRun) {
+    if (deeper) deeper.style.display = "";
+    if (jackOut && jackOut.dataset.onboardingLabel === "1") {
+      jackOut.textContent = "JACK OUT — sichern";
+      delete jackOut.dataset.onboardingLabel;
+    }
+    return;
+  }
+
+  // Der erste Dive lehrt genau eine Entscheidung: Beute sichern. GO DEEPER
+  // kommt erst danach. So bekommt ein Neuling erst einen Erfolg, dann Freiheit.
+  if (deeper) deeper.style.display = "none";
+  if (jackOut) {
+    jackOut.textContent = "JACK OUT — ERSTEN JOB ABSCHLIESSEN";
+    jackOut.dataset.onboardingLabel = "1";
+  }
+  if (hint && choiceVisible) {
+    hint.textContent = "ERSTER JOB: Sichere jetzt den Buffer. Gier darfst du dir beim nächsten Dive leisten.";
+  }
+
+  if (choiceVisible && !firstDiveChoiceAnnounced) {
+    firstDiveChoiceAnnounced = true;
+    setComms("NYX: „Gut. Jetzt JACK OUT. Erst überleben, dann große Fresse haben.“");
+    toast("JACK OUT DRÜCKEN — BEUTE SICHERN");
+  }
+  if (!choiceVisible) firstDiveChoiceAnnounced = false;
 }
 
 function applyTutorialCopy() {
@@ -213,7 +281,7 @@ function announceStage() {
     : s === 1
       ? "JUNO: „Du lebst noch. Öffne CREW. Ich erklär dir, warum das kein Zufall war.“"
       : s === 2
-        ? "NYX: „Zwei Dives. Reicht für eine Meinung. Wähl jetzt deinen Build.“"
+        ? "NYX: „Zwei saubere Ausstiege. Reicht für eine Meinung. Wähl jetzt deinen Build.“"
         : s === 3
           ? "GHOST: „Skills sind offen. Kauf mit Hirn, nicht mit diesem nervösen Finger.“"
           : "RUST: „Gear-Markt ist offen. Eddies rein, bessere Überlebenschancen raus.“";
@@ -225,6 +293,7 @@ function announceStage() {
 
 function tick() {
   applyUnlocks();
+  applyFirstDiveGuidance();
   applyTutorialCopy();
   renderTask();
   announceStage();

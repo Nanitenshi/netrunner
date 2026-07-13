@@ -219,6 +219,13 @@ function makeMindSweeper({ diff, mods, timeMult = 1, corrupt = false }) {
       const hit = cells[index];
 
       if (hit.trap) {
+        // Eine bereits entdeckte Falle ist bekanntes Terrain. Wiederholtes
+        // Tippen darf nicht erneut Fehler stapeln oder Sounds spammen.
+        if (hit.knownTrap) {
+          sfx.tap();
+          return;
+        }
+
         hit.knownTrap = true;
         hit.flashBad = 0.55;
         flash = 0.2;

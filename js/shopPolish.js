@@ -4,7 +4,6 @@
 
 const PRICE_E = /(\d[\d.,]*)\s*E\$/i;
 const PRICE_F = /(\d[\d.,]*)\s*[◆♦]/;
-let observer = null;
 let scheduled = false;
 
 function gameState() {
@@ -49,16 +48,24 @@ function enhancePurchaseButton(button, game) {
   const missing = Math.max(0, price.amount - balance);
   const unavailable = missing > 0;
 
-  button.disabled = unavailable;
-  button.classList.toggle("unaffordable", unavailable);
-  button.setAttribute("aria-disabled", String(unavailable));
+  if (button.disabled !== unavailable) button.disabled = unavailable;
+  if (button.classList.contains("unaffordable") !== unavailable) {
+    button.classList.toggle("unaffordable", unavailable);
+  }
+
+  const ariaDisabled = String(unavailable);
+  if (button.getAttribute("aria-disabled") !== ariaDisabled) {
+    button.setAttribute("aria-disabled", ariaDisabled);
+  }
 
   if (unavailable) {
-    button.title = `Fehlen: ${missing} ${price.label}`;
-    button.setAttribute("aria-label", `${button.textContent}. Es fehlen ${missing} ${price.label}.`);
+    const title = `Fehlen: ${missing} ${price.label}`;
+    const aria = `${button.textContent}. Es fehlen ${missing} ${price.label}.`;
+    if (button.title !== title) button.title = title;
+    if (button.getAttribute("aria-label") !== aria) button.setAttribute("aria-label", aria);
   } else {
-    button.removeAttribute("title");
-    button.removeAttribute("aria-label");
+    if (button.hasAttribute("title")) button.removeAttribute("title");
+    if (button.hasAttribute("aria-label")) button.removeAttribute("aria-label");
   }
 }
 
@@ -89,7 +96,8 @@ function refreshShop() {
 
   const wallet = document.getElementById("shopWallet");
   if (wallet) {
-    wallet.setAttribute("aria-label", `Guthaben: ${Math.round(game.money || 0)} Eddies und ${Math.round(game.frags || 0)} Frags`);
+    const label = `Guthaben: ${Math.round(game.money || 0)} Eddies und ${Math.round(game.frags || 0)} Frags`;
+    if (wallet.getAttribute("aria-label") !== label) wallet.setAttribute("aria-label", label);
   }
 
   overlay.querySelectorAll("button").forEach((button) => enhancePurchaseButton(button, game));
@@ -99,7 +107,7 @@ function refreshShop() {
 function resetOverlayScroll() {
   const card = document.querySelector("#crewOverlay > .overlayCard");
   if (!card) return;
-  try { card.scrollTo({ top: 0, behavior: "instant" }); }
+  try { card.scrollTo({ top: 0, behavior: "auto" }); }
   catch { card.scrollTop = 0; }
 }
 
@@ -120,13 +128,11 @@ function init() {
 
   window.addEventListener("neon-save-status", scheduleRefresh);
 
-  observer = new MutationObserver(scheduleRefresh);
-  observer.observe(overlay, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ["class", "disabled"]
-  });
+  // Render functions replace rows/cards, so child-list observation is enough.
+  // Avoid attribute observation here: affordability itself changes attributes
+  // and would otherwise create a self-triggering observer loop.
+  const observer = new MutationObserver(scheduleRefresh);
+  observer.observe(overlay, { subtree: true, childList: true });
 
   // __NEON is assigned near the end of boot. Retry briefly without running a
   // permanent timer once the state is available.

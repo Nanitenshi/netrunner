@@ -1,4 +1,4 @@
-import { game } from "./core.js?v=22ec55a6";
+import { game } from "./core.js?v=c1cdd6ab";
 
 const KEY = "neonAlley_save_v1";
 

@@ -3,8 +3,8 @@
 // Reine Präsentationsschicht: keine Balanceänderungen, keine Save-Felder und
 // kein Eingriff in die Dive-State-Maschine. Bestehende Banter-/Tutorial-Texte
 // behalten Vorrang; dieses Modul ergänzt nur dort Sprache, wo sie Mehrwert hat.
-import { game } from "./core.js?v=d6618207";
-import { setComms } from "./ui.js?v=d6618207";
+import { game } from "./core.js?v=d65a16e1";
+import { setComms } from "./ui.js?v=d65a16e1";
 
 const $ = (id) => document.getElementById(id);
 

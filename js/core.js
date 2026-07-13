@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=c3a9ba95";
+} from "./threeScene.js?v=26530f57";
 
 import {
   initWorld,
@@ -18,15 +18,15 @@ import {
   nearMissionNode,
   worldIsManualPan,
   worldRecenterCamera
-} from "./world.js?v=c3a9ba95";
+} from "./world.js?v=26530f57";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=c3a9ba95";
-import { loadSave, saveNow, resetSave } from "./save.js?v=c3a9ba95";
-import { openNpcDialog, npcTick } from "./npc.js?v=c3a9ba95";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=c3a9ba95";
-import { initEncounters } from "./encounters.js?v=c3a9ba95";
-import { unlockAudio } from "./sfx.js?v=c3a9ba95";
-import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=c3a9ba95";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=26530f57";
+import { loadSave, saveNow, resetSave } from "./save.js?v=26530f57";
+import { openNpcDialog, npcTick } from "./npc.js?v=26530f57";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=26530f57";
+import { initEncounters } from "./encounters.js?v=26530f57";
+import { unlockAudio } from "./sfx.js?v=26530f57";
+import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=26530f57";
 
 import {
   startDive,
@@ -36,7 +36,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=c3a9ba95";
+} from "./dive.js?v=26530f57";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -58,6 +58,12 @@ export const game = {
   // Timestamp (performance.now()), bis zu dem der Welt-Canvas glitchen soll —
   // rein transient, wird nie gespeichert
   glitchUntil: 0,
+  // Alarm: ein Dump hinterlässt Spuren, Patrouillen jagen dich aktiv, bis der
+  // Timer abläuft oder du sauber jackst. Getrennt von Heat (das ist der träge
+  // Langzeit-Wert) — Alarm ist der kurze, scharfe "sie sind JETZT hinter dir"-
+  // Zustand. Beides rein transient, wird nie gespeichert.
+  alerted: false,
+  alertedUntil: 0,
 
   settings: {
     quality: "perf", // perf | quality
@@ -115,6 +121,12 @@ export function checkDailyReset() {
   if (game.daily.date !== todayStr()) {
     game.daily = { date: todayStr(), done: false, npcs: {}, lootTaken: {} };
   }
+}
+
+// Reaktive Welt: 0-1 aus dem Heat-Wert, treibt Overworld-Vignette und
+// Encounter-Häufigkeit/-Härte in world.js / encounters.js
+export function getWorldIntensity() {
+  return Math.min(1, game.heat / 100);
 }
 
 /* ---------------- MODE ---------------- */
@@ -427,7 +439,10 @@ function boot() {
     diveAbort?.();
     setPaused(false);
     setMode("WORLD");
-    toast("DIVE ABGEBROCHEN — Buffer verworfen.");
+    // Abbruch ist kein sauberer Ausstieg — hinterlässt Spuren wie ein Dump
+    game.alerted = true;
+    game.alertedUntil = performance.now() + 90000;
+    toast("DIVE ABGEBROCHEN — Buffer verworfen. Spuren hinterlassen.");
   });
 
   // three background
@@ -516,6 +531,9 @@ function loop(tNow) {
       if (game.heat > 0) game.heat = Math.max(0, game.heat - dt * 0.08);
       // Psychose klingt noch langsamer ab als Heat — schwerer abzuschütteln
       if (game.psychosis > 0) game.psychosis = Math.max(0, game.psychosis - dt * 0.03);
+      // Alarm läuft nach der Frist von selbst ab, wenn er nicht schon durch
+      // einen sauberen Jack Out gelöscht wurde
+      if (game.alerted && performance.now() >= game.alertedUntil) game.alerted = false;
     }
 
     if (game.mode === "MISSION") {
@@ -536,13 +554,23 @@ function loop(tNow) {
           // Cyberpsychose: ein gescheiterter Dive (Dump) nagt am Kopf
           game.psychosis = Math.min(100, game.psychosis + 18 + Math.random() * 10);
 
+          // Alarm: ein Dump hinterlässt Spuren — Patrouillen jagen dich jetzt
+          // aktiv in der Stadt, bis der Timer abläuft oder du sauber jackst
+          game.alerted = true;
+          game.alertedUntil = performance.now() + 90000;
+          toast("🚨 SPUREN HINTERLASSEN — PATROUILLEN SUCHEN DICH.");
+
           // Hauptstory Beat: Reaktion auf den ersten je erlittenen Dump
           if (game.stats.dumps === 1) {
             game.storyLog.unshift(`> NYX: „Du hast gerade gefühlt, wie sich ein Verlust im Buffer anfühlt. Ich hab dir gesagt, halt den Mund leer. Jetzt halt auch den Kopf ruhig.“`);
           }
-        } else if (resultData.meta.layer >= 5) {
-          // ein sauberer, tiefer Jack Out beruhigt spürbar
-          game.psychosis = Math.max(0, game.psychosis - 10);
+        } else {
+          // sauberer Jack Out verwischt die Spuren sofort
+          game.alerted = false;
+          if (resultData.meta.layer >= 5) {
+            // ein sauberer, tiefer Jack Out beruhigt spürbar
+            game.psychosis = Math.max(0, game.psychosis - 10);
+          }
         }
 
         // Hauptstory Beat: das erste Mal, dass die Psychose spürbar wird

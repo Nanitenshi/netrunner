@@ -4,9 +4,9 @@
 // Straßen-Alltag), ausgelöst mit Cooldown während man in der Stadt läuft.
 // Bewusst dieselbe zwei-Optionen-Choice-UI wie die Dive-Events/Firewalls
 // (dive.js) — bewährtes, getestetes Muster, nur auf die Overworld gemünzt.
-import { game } from "./core.js?v=c3a9ba95";
-import { toast, bindFastPress, renderStoryLog } from "./ui.js?v=c3a9ba95";
-import { saveNow } from "./save.js?v=c3a9ba95";
+import { game, getWorldIntensity } from "./core.js?v=26530f57";
+import { toast, bindFastPress, renderStoryLog } from "./ui.js?v=26530f57";
+import { saveNow } from "./save.js?v=26530f57";
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,6 +36,7 @@ const ENCOUNTERS = {
   ],
   downtown: [
     {
+      hostile: true,
       name: "NCPD-STREIFE",
       desc: "Eine Streife scannt Passanten routinemäßig. Du fällst nicht sofort auf. Noch nicht.",
       a: { label: "RUHIG BLEIBEN", fn: (g) => {
@@ -61,6 +62,7 @@ const ENCOUNTERS = {
   ],
   corporate: [
     {
+      hostile: true,
       name: "MILITECH DURCHSUCHT PASSANTEN",
       desc: "Sie kontrollieren jeden auf dieser Straße. Verstecken bricht auf, mitmachen bedeutet einen genauen Blick.",
       a: { label: "VERSTECKEN", fn: (g) => {
@@ -75,6 +77,7 @@ const ENCOUNTERS = {
       } }
     },
     {
+      hostile: true,
       name: "ÜBERWACHUNGS-DROHNE",
       desc: "Eine Drohne kreist tiefer als normal. Vielleicht Zufall.",
       a: { label: "BLICKKONTAKT VERMEIDEN", fn: (g) => {
@@ -86,6 +89,7 @@ const ENCOUNTERS = {
   ],
   industrial: [
     {
+      hostile: true,
       name: "GANG-WEGZOLL",
       desc: "Zwei Typen mit improvisierten Werkzeug-Waffen blockieren die Route. „Zoll oder Umweg.“",
       a: { label: "ZAHLEN (-25 E$)", fn: (g) => {
@@ -111,6 +115,7 @@ const ENCOUNTERS = {
   ],
   slums: [
     {
+      hostile: true,
       name: "SCHUTZGELD",
       desc: "„Das ist unser Block.“ Nicht aggressiv, nur... bestimmt.",
       a: { label: "ZAHLEN (-15 E$)", fn: (g) => {
@@ -148,6 +153,7 @@ const ENCOUNTERS = {
       } }
     },
     {
+      hostile: true,
       name: "ICE-SUCHTRUPP",
       desc: "Selten hier unten, aber heute patrouilliert jemand mit Konzern-Ausrüstung.",
       a: { label: "SCHATTEN NUTZEN", fn: (g) => {
@@ -183,16 +189,29 @@ export function encounterTick(dt, districtId) {
 
   cooldown -= dt;
   if (cooldown > 0) return;
-  // ~55–110s bis zum nächsten Check, und selbst dann nur 50% Trefferchance —
-  // die Stadt soll reagieren, nicht nerven
-  cooldown = 55 + Math.random() * 55;
-  if (Math.random() < 0.5) return;
+
+  // Heat/Alarm machen die Stadt spürbar reaktiver: kürzerer Cooldown, höhere
+  // Trefferchance, und die Begegnung selbst wird eher eine Kontrolle/Gang
+  // statt harmloser Straßen-Alltag — "je heißer, desto aggressiver"
+  const urgency = Math.max(getWorldIntensity(), game.alerted ? 1 : 0);
+  const lo = 55 - urgency * 35;
+  const hi = 110 - urgency * 70;
+  cooldown = lo + Math.random() * (hi - lo);
+
+  const chance = 0.5 + urgency * 0.4;
+  if (Math.random() > chance) return;
   if (overlayOpen()) return;
 
   const pool = ENCOUNTERS[districtId];
   if (!pool || !pool.length) return;
 
-  active = pool[Math.floor(Math.random() * pool.length)];
+  let candidates = pool;
+  if (urgency > 0.4) {
+    const hostile = pool.filter((e) => e.hostile);
+    if (hostile.length) candidates = hostile;
+  }
+
+  active = candidates[Math.floor(Math.random() * candidates.length)];
   render();
 }
 
@@ -241,6 +260,16 @@ export function initEncounters() {
       active = pool[Math.floor(Math.random() * pool.length)];
       render();
       return true;
+    },
+    // Treibt den echten Trigger-Pfad inkl. Urgency-Bias — anders als force(),
+    // das absichtlich unverzerrt für Einzeltests bleibt
+    tickNow: (districtId) => {
+      active = null;
+      cooldown = 0;
+      encounterTick(0, districtId);
+      const name = active?.name || null;
+      active = null;
+      return name;
     }
   };
 }

@@ -1,12 +1,12 @@
 // js/world.js
-import { game } from "./core.js?v=c3a9ba95";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=c3a9ba95";
-import { openNpcDialog } from "./npc.js?v=c3a9ba95";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNodeSprite } from "./sprites.js?v=c3a9ba95";
-import { sfx } from "./sfx.js?v=c3a9ba95";
-import { saveNow } from "./save.js?v=c3a9ba95";
-import { encounterTick } from "./encounters.js?v=c3a9ba95";
-import { getArchetype } from "./archetypes.js?v=c3a9ba95";
+import { game, getWorldIntensity } from "./core.js?v=26530f57";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=26530f57";
+import { openNpcDialog } from "./npc.js?v=26530f57";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNodeSprite } from "./sprites.js?v=26530f57";
+import { sfx } from "./sfx.js?v=26530f57";
+import { saveNow } from "./save.js?v=26530f57";
+import { encounterTick } from "./encounters.js?v=26530f57";
+import { getArchetype } from "./archetypes.js?v=26530f57";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1728,6 +1728,28 @@ function draw() {
 
   drawAmbient(ctx);
   drawPsychosisGlitch(ctx, W, H);
+  drawHeatOverlay(ctx, W, H, tNow);
+}
+
+// Reaktive Welt: je höher Heat/Alarm, desto "aggressiver" wirkt die Stadt
+// selbst — dieselbe Vignette-Sprache wie die Trace-Eskalation im Dive
+// (dive.js), nur hier an game.heat gekoppelt statt an dive.trace
+function drawHeatOverlay(ctx, W, H, tNow) {
+  const heatK = getWorldIntensity();
+  const alertPulse = game.alerted ? 0.55 + Math.sin(tNow * 5) * 0.25 : 0;
+  const k = Math.max(heatK > 0.35 ? (heatK - 0.35) / 0.65 : 0, alertPulse);
+  if (k <= 0) return;
+
+  const grd = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+  grd.addColorStop(0, "rgba(255,30,20,0)");
+  grd.addColorStop(1, `rgba(255,30,20,${(0.06 + k * 0.22).toFixed(2)})`);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  if (game.alerted && Math.random() < 0.06) {
+    ctx.fillStyle = `rgba(255,40,40,${(0.05 + k * 0.12).toFixed(2)})`;
+    ctx.fillRect(0, Math.random() * H, W, 2 + Math.random() * 16);
+  }
 }
 
 // Cyberpsychose-Glitch: kurze horizontale Bildstörung mit Farbrand, ausgelöst

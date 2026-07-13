@@ -1827,6 +1827,10 @@ function makeEchoSequence({ diff, mods, timeMult = 1, corrupt = false }) {
 }
 
 /* ---------------- NODE SWEEP (Minesweeper: Fallen meiden) ---------------- */
+// Klassische Minesweeper-Farbcodierung, an die Neon-Palette angepasst —
+// Index = Minenzahl (1-8)
+const SWEEP_COUNT_COLORS = ["", "#00f3ff", "#7dff8a", "#ff5c8a", "#c792ff", "#ffcf5c", "#ff9628", "#ff3c3c", "#ffffff"];
+
 function makeNodeSweep({ diff, mods, timeMult = 1, corrupt = false }) {
   const cols = 5, rows = 5;
   const total = cols * rows;
@@ -1837,6 +1841,22 @@ function makeNodeSweep({ diff, mods, timeMult = 1, corrupt = false }) {
   const cells = [];
   let timer = 0, revealed = 0, misses = 0, finished = false;
   let forgiveLeft = mods.forgive;
+
+  // 8er-Nachbarschaft im flachen row-major-Grid (i = row*cols+col, siehe
+  // layout()) — Basis für die Minenzahl UND für den Flood-Fill bei 0
+  function neighborIdxs(i) {
+    const col = i % cols, row = Math.floor(i / cols);
+    const out = [];
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nc = col + dc, nr = row + dr;
+        if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+        out.push(nr * cols + nc);
+      }
+    }
+    return out;
+  }
 
   function layout() {
     const r = playRect();
@@ -1858,8 +1878,31 @@ function makeNodeSweep({ diff, mods, timeMult = 1, corrupt = false }) {
         size,
         trap: trapIdx.has(i),
         revealed: false,
-        flashBad: 0
+        flashBad: 0,
+        count: 0
       });
+    }
+    // Minenzahl pro sicherem Feld — ohne die war das Spiel reines Raten
+    // (gemeldetes Problem: keine Möglichkeit, Fallen logisch abzuleiten)
+    for (let i = 0; i < total; i++) {
+      if (cells[i].trap) continue;
+      cells[i].count = neighborIdxs(i).filter((j) => cells[j].trap).length;
+    }
+  }
+
+  // Deckt auf, und bei count===0 automatisch die ganze zusammenhängende
+  // leere Fläche mit — klassisches Minesweeper-Verhalten, sonst wären
+  // Nullen mit der neuen Zahlenanzeige nur halb nützlich
+  function revealFrom(startIdx) {
+    const stack = [startIdx];
+    while (stack.length) {
+      const i = stack.pop();
+      const c = cells[i];
+      if (c.revealed || c.trap) continue;
+      c.revealed = true;
+      revealed += 1;
+      burst(c.x, c.y, "#00f3ff");
+      if (c.count === 0) stack.push(...neighborIdxs(i));
     }
   }
 
@@ -1871,9 +1914,11 @@ function makeNodeSweep({ diff, mods, timeMult = 1, corrupt = false }) {
     addTime(s) { timeLimit += s; },
     assist(kind) {
       if (kind === "reveal") {
+        // Über revealFrom() statt direkt zu markieren — sonst würde der
+        // Hinweis bei einer "0" nicht mitfluten wie ein normaler Tap
         let n = 0;
-        for (const c of cells) {
-          if (!c.revealed && !c.trap && n < 2) { c.revealed = true; revealed += 1; n += 1; burst(c.x, c.y, "#7dff8a"); }
+        for (let i = 0; i < cells.length && n < 2; i++) {
+          if (!cells[i].revealed && !cells[i].trap) { revealFrom(i); n += 1; }
         }
         return n > 0;
       }
@@ -1884,17 +1929,16 @@ function makeNodeSweep({ diff, mods, timeMult = 1, corrupt = false }) {
     pointer(type, e) {
       if (type !== "down" || finished) return;
       const p = localPos(e);
-      const hit = cells.find((c) => !c.revealed && Math.abs(p.x - c.x) < c.size / 2 && Math.abs(p.y - c.y) < c.size / 2);
-      if (!hit) { sfx.tap(); return; }
+      const idx = cells.findIndex((c) => !c.revealed && Math.abs(p.x - c.x) < c.size / 2 && Math.abs(p.y - c.y) < c.size / 2);
+      if (idx < 0) { sfx.tap(); return; }
+      const hit = cells[idx];
 
       if (hit.trap) {
         hit.flashBad = 0.3;
         if (forgiveLeft > 0) { forgiveLeft -= 1; sfx.tap(); }
         else { misses += 1; sfx.bad(); }
       } else {
-        hit.revealed = true;
-        revealed += 1;
-        burst(hit.x, hit.y, "#00f3ff");
+        revealFrom(idx);
         sfx.pop();
       }
     },
@@ -1914,10 +1958,23 @@ function makeNodeSweep({ diff, mods, timeMult = 1, corrupt = false }) {
         ctx.lineWidth = 1.5;
         ctx.strokeRect(c.x - c.size / 2 + 2, c.y - c.size / 2 + 2, c.size - 4, c.size - 4);
         if (c.revealed) {
-          ctx.fillStyle = "rgba(0,243,255,.95)";
-          ctx.beginPath();
-          ctx.arc(c.x, c.y, c.size * 0.12, 0, Math.PI * 2);
-          ctx.fill();
+          if (c.count > 0) {
+            // Minenzahl statt reinem Punkt — macht das Feld lesbar statt
+            // reines Raten (0 bleibt bewusst leer, wie bei klassischem
+            // Minesweeper, und wurde beim Aufdecken bereits weggeflutet)
+            ctx.fillStyle = SWEEP_COUNT_COLORS[c.count] || "#fff";
+            ctx.font = `900 ${Math.round(c.size * 0.44)}px ui-monospace, monospace`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(String(c.count), c.x, c.y + 1);
+            ctx.textAlign = "start";
+            ctx.textBaseline = "alphabetic";
+          } else {
+            ctx.fillStyle = "rgba(0,243,255,.5)";
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, c.size * 0.07, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       }
 

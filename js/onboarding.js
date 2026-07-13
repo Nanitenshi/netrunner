@@ -35,8 +35,6 @@ function injectStyle() {
       width: auto !important;
       max-width: 620px;
       min-height: 44px;
-      padding: 7px 8px !important;
-      display: flex;
       align-items: center;
       gap: 8px;
       border-radius: 999px !important;
@@ -85,8 +83,6 @@ function injectStyle() {
 }
 
 function compactActionLabel(action) {
-  const full = action.dataset.fullOnboardingLabel || action.textContent.trim();
-  action.dataset.fullOnboardingLabel = full;
   const labels = {
     "ZIEL MARKIEREN": "ZIEL",
     "CREW ÖFFNEN": "CREW",
@@ -94,6 +90,14 @@ function compactActionLabel(action) {
     "SKILLS ÖFFNEN": "SKILLS",
     "GEAR ÖFFNEN": "GEAR"
   };
+
+  // onboarding_core schreibt bei einem neuen Abschnitt wieder die lange Form.
+  // Genau dann den gespeicherten Wert aktualisieren; die bereits gekürzte Form
+  // darf den nächsten Abschnitt nicht versehentlich auf „ZIEL“ festnageln.
+  const current = action.textContent.trim();
+  if (labels[current]) action.dataset.fullOnboardingLabel = current;
+
+  const full = action.dataset.fullOnboardingLabel || current;
   action.textContent = labels[full] || full;
 }
 
@@ -111,6 +115,10 @@ function sync() {
 
   const diveButton = $("btnDiveNow");
   const near = game.mode === "WORLD" && !modalOpen() ? nearMissionNode() : null;
+
+  // onboarding_core nutzt inline display:block/none. Wenn es die Aufgabe zeigen
+  // will, hier bewusst auf flex wechseln; wenn es sie versteckt, bleibt none.
+  if (task.style.display !== "none") task.style.display = "flex";
 
   // Am Netzzugang gehört die Bühne dem Start-Button. Die Auftrags-Pille
   // verschwindet vollständig, statt denselben Bereich optisch zuzukleistern.

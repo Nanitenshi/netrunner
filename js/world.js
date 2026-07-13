@@ -2,7 +2,7 @@
 import { game, getWorldIntensity } from "./core.js";
 import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js";
 import { openNpcDialog } from "./npc.js";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNodeSprite } from "./sprites.js";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNode } from "./sprites.js";
 import { sfx } from "./sfx.js";
 import { saveNow } from "./save.js";
 import { encounterTick } from "./encounters.js";
@@ -1624,19 +1624,13 @@ function draw() {
       ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Node-Form statt austauschbarem Kreis: Hexagon im Konzernbezirk,
-      // Raute überall sonst; Hot Zones glitchen zusätzlich
-      const nodeType = nodeDistrict(n).id === "corporate" ? "corp" : "other";
-      const nodeState = n.hot ? "critical" : "normal";
-      drawNodeSprite(ctx, p.x, p.y, (inRange ? 20 : 16) * cam.zoom, nodeType, nodeState);
-
-      if (active) {
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(255,255,255,.9)";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, (inRange ? 24 : 20) * cam.zoom, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // Node-Form statt austauschbarem Kreis: Hexagon im Konzernbezirk (corp),
+      // Dreieck in Industrie/Slums (gang — passt zu den Gang-Encounters dort),
+      // Fünfeck überall sonst (civ). Glow reagiert auf globalen Heat-Wert,
+      // Auswahl-Ring ist jetzt Teil von drawNode() selbst.
+      const distId = nodeDistrict(n).id;
+      const nodeType = distId === "corporate" ? "corp" : (distId === "industrial" || distId === "slums") ? "gang" : "civ";
+      drawNode(ctx, p.x, p.y, (inRange ? 20 : 16) * cam.zoom, nodeType, active, getWorldIntensity());
     }
 
     // Namensschild mit dunklem Hintergrund — sonst geht weißer Text auf

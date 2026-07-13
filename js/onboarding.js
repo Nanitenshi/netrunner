@@ -50,7 +50,6 @@ function injectStyle() {
   const style = document.createElement("style");
   style.id = "singlePrimaryGoalStyle";
   style.textContent = `
-    /* Die alte Zusatzkarte existiert nur noch als interner Aktions-Host. */
     #onboardingTask { display: none !important; }
 
     #hudGoal.onboardingPrimary {
@@ -81,8 +80,6 @@ function injectStyle() {
       box-shadow: 0 0 28px rgba(252,238,10,.34);
     }
 
-    /* Sekundäre Werkzeuge bleiben erreichbar, konkurrieren optisch aber nicht
-       mit der einen aktuellen Handlung. */
     #bottomBar.onboardingSecondary .btn {
       opacity: .62;
       filter: saturate(.72);
@@ -104,10 +101,6 @@ function injectStyle() {
 }
 
 function pressInternalAction(action) {
-  // Der bestehende bindFastPress-Handler hört primär auf pointerup. Diesen Pfad
-  // verwenden wir ebenfalls, statt .click() zu erzeugen: Ein synthetischer Click
-  // könnte sonst nach einem kurz zuvor benutzten Button vom Android-Guard als
-  // vermeintlicher Doppeltipp verworfen werden.
   if (typeof PointerEvent === "function") {
     action.dispatchEvent(new PointerEvent("pointerup", {
       bubbles: true,
@@ -126,10 +119,6 @@ function runPrimaryAction() {
   const action = $("btnOnboardingAction");
   if (stage >= PRIMARY_GOALS.length || !action) return;
 
-  // Auftrag 01 muss immer zum ersten Terminal führen. Nach einem tiefen, aber
-  // gescheiterten Dive können missionsDone/bestLayer bereits weiter sein als der
-  // echte Onboarding-Fortschritt. Nur während dieses synchronen Aufrufs geben wir
-  // routeGoal deshalb den passenden alten Wert; der Save-State wird nicht verändert.
   if (stage === 0) {
     const previousMissionsDone = game.missionsDone;
     try {
@@ -141,8 +130,6 @@ function runPrimaryAction() {
     return;
   }
 
-  // Für spätere Stufen nutzt derselbe interne Handler die bereits vorhandenen
-  // Crew-/Build-/Skills-/Gear-Freischaltungen. Keine zweite Aktionslogik.
   pressInternalAction(action);
 }
 
@@ -165,8 +152,6 @@ function bindPrimaryGoal() {
   if (!goal) return;
 
   goalBound = true;
-  // Capture ist Absicht: ui.js hat bereits bindFastPress(routeGoal) registriert.
-  // Während des Onboardings darf nur die gemeinsame Onboarding-Aktion feuern.
   goal.addEventListener("pointerup", handlePrimaryPress, { capture: true, passive: false });
   goal.addEventListener("click", handlePrimaryPress, { capture: true, passive: false });
 }
@@ -225,7 +210,6 @@ function sync() {
   }
 
   if (near) {
-    // Direkt am Terminal gibt es genau eine dominante Aktion: DIVE starten.
     goal?.classList.add("primarySuppressed");
     diveButton?.classList.add("primaryDive");
     diveButton?.classList.remove("hidden");
@@ -236,8 +220,6 @@ function sync() {
     return;
   }
 
-  // Unterwegs ist das AUFTRAG-Banner die einzige dominante Aktion. Ein eventuell
-  // vorher am Terminal gesetzter Quick-Start-Glow wird sofort entfernt.
   goal?.classList.remove("primarySuppressed");
   diveButton?.classList.remove("primaryDive");
   diveButton?.classList.add("hidden");

@@ -236,9 +236,11 @@ function sync() {
     return;
   }
 
-  // Unterwegs ist das AUFTRAG-Banner die einzige dominante Aktion.
+  // Unterwegs ist das AUFTRAG-Banner die einzige dominante Aktion. Ein eventuell
+  // vorher am Terminal gesetzter Quick-Start-Glow wird sofort entfernt.
   goal?.classList.remove("primarySuppressed");
   diveButton?.classList.remove("primaryDive");
+  diveButton?.classList.add("hidden");
 }
 
 function init() {

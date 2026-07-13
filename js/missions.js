@@ -4,15 +4,15 @@
 // MIND SWEEPER wird hier ersetzt: mehr Denkzeit, sicherer erster Tap und ein
 // Abschluss, der aus dem tatsächlichen Feldzustand statt einem fragilen Zähler
 // berechnet wird.
-export * from "./missions_core.js?v=46d518af";
+export * from "./missions_core.js?v=e3f5efb3";
 
-import { game } from "./core.js?v=46d518af";
-import { sfx } from "./sfx.js?v=46d518af";
+import { game } from "./core.js?v=e3f5efb3";
+import { sfx } from "./sfx.js?v=e3f5efb3";
 import {
   createMinigame as createCoreMinigame,
   localPos,
   playRect
-} from "./missions_core.js?v=46d518af";
+} from "./missions_core.js?v=e3f5efb3";
 
 const $ = (id) => document.getElementById(id);
 const COUNT_COLORS = ["", "#00f3ff", "#7dff8a", "#ff5c8a", "#c792ff", "#ffcf5c", "#ff9628", "#ff3c3c", "#ffffff"];

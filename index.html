@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#05070a"/>
   <title>NEON ALLEY — Netrunner</title>
 
-  <link rel="manifest" href="manifest.webmanifest?v=46d518af">
+  <link rel="manifest" href="manifest.webmanifest?v=e3f5efb3">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=46d518af">
-  <script type="module" src="js/core.js?v=46d518af"></script>
+  <link rel="stylesheet" href="css/style.css?v=e3f5efb3">
+  <script type="module" src="js/core.js?v=e3f5efb3"></script>
 </head>
 
 <body>
@@ -171,6 +171,30 @@
             <button type="button" id="btnCloseCrew" class="btn small pink closeBtn">✕</button>
           </div>
 
+          <!-- Eigenes, dauerhaft sichtbares Guthaben im Einkaufsmenü. Das obere
+               Stadt-HUD liegt auf kleinen Displays hinter dem Overlay und war
+               beim Kaufen dadurch nicht lesbar. -->
+          <div id="shopWallet" class="panel" aria-live="polite" style="
+            position:sticky;
+            top:0;
+            z-index:6;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            flex-wrap:wrap;
+            gap:8px 16px;
+            margin:0 0 12px;
+            padding:9px 12px;
+            border-color:rgba(252,238,10,.35);
+            background:linear-gradient(180deg,rgba(10,16,24,.98),rgba(5,9,14,.98));
+            box-shadow:0 0 18px rgba(252,238,10,.12);">
+            <span class="muted small" style="font-weight:800;letter-spacing:1px">GUTHABEN</span>
+            <span style="display:flex;gap:16px;font-weight:900">
+              <span style="color:var(--yellow)">💰 <b id="shopMoney">0</b> E$</span>
+              <span class="pinkText">◆ <b id="shopFrags">0</b></span>
+            </span>
+          </div>
+
           <div id="tabBuild" class="tabPage hidden">
             <p class="muted small">
               Dein Hacker-Build: eine dauerhafte Spielstil-Wahl, unabhängig von Crew und Gear.
@@ -305,6 +329,27 @@
   <!-- extra hardening: verhindert Double-Tap-Zoom auf manchen Androids -->
   <script>
     document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+
+    // Das Guthaben im Einkaufs-Overlay spiegelt die bereits vom Spiel gepflegten
+    // HUD-Werte. Ein kleines Intervall vermeidet Änderungen in der Spiellogik und
+    // hält Eddies/Frags auch direkt nach einem Kauf sichtbar aktuell.
+    (() => {
+      const syncShopWallet = () => {
+        const overlay = document.getElementById("crewOverlay");
+        if (!overlay || overlay.classList.contains("hidden")) return;
+
+        const hudMoney = document.getElementById("hudMoney");
+        const hudFrags = document.getElementById("hudFrags");
+        const shopMoney = document.getElementById("shopMoney");
+        const shopFrags = document.getElementById("shopFrags");
+
+        if (hudMoney && shopMoney) shopMoney.textContent = hudMoney.textContent;
+        if (hudFrags && shopFrags) shopFrags.textContent = hudFrags.textContent;
+      };
+
+      syncShopWallet();
+      window.setInterval(syncShopWallet, 250);
+    })();
   </script>
 </body>
-                                        </html>
+</html>

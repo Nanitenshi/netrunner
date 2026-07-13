@@ -160,8 +160,11 @@ function parsePercent(text) {
 
 function onChoiceShown() {
   const trace = parsePercent($("dcTrace")?.textContent);
-  const next = $("dcNext")?.textContent || "";
-  const boss = /BOSS|ICE-KERN|WÄCHTER/.test(next);
+  // mHudType beschreibt den gerade abgeschlossenen Gegner. dcNext beschreibt
+  // bereits den nächsten Layer und darf deshalb keinen verfrühten Boss-Sieg
+  // auslösen.
+  const clearedType = $("mHudType")?.textContent || "";
+  const boss = /ICE-KERN PRIME|ICE-WÄCHTER|BOSS/i.test(clearedType);
   const dangerous = trace >= 75;
 
   const choice = $("diveChoice");

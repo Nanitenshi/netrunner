@@ -4,6 +4,7 @@
 import "./crewOverlayMobile.js";
 import "./overworldPolish.js";
 import "./shopPolish.js";
+import "./hudPolish.js";
 import "./saveTools.js";
 import "./pwa.js";
 import "./qualityPass.js";

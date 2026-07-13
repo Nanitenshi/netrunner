@@ -1,9 +1,9 @@
 // js/npc.js
-import { game, checkDailyReset } from "./core.js?v=c1cdd6ab";
-import { toast, renderStoryLog } from "./ui.js?v=c1cdd6ab";
-import { getNodeById } from "./world.js?v=c1cdd6ab";
-import { crewTick } from "./crew.js?v=c1cdd6ab";
-import { saveNow } from "./save.js?v=c1cdd6ab";
+import { game, checkDailyReset } from "./core.js?v=d2e18f59";
+import { toast, renderStoryLog } from "./ui.js?v=d2e18f59";
+import { getNodeById } from "./world.js?v=d2e18f59";
+import { crewTick } from "./crew.js?v=d2e18f59";
+import { saveNow } from "./save.js?v=d2e18f59";
 
 const $ = (id) => document.getElementById(id);
 

@@ -4,9 +4,9 @@
 // Straßen-Alltag), ausgelöst mit Cooldown während man in der Stadt läuft.
 // Bewusst dieselbe zwei-Optionen-Choice-UI wie die Dive-Events/Firewalls
 // (dive.js) — bewährtes, getestetes Muster, nur auf die Overworld gemünzt.
-import { game, getWorldIntensity } from "./core.js?v=44d0021d";
-import { toast, bindFastPress, renderStoryLog } from "./ui.js?v=44d0021d";
-import { saveNow } from "./save.js?v=44d0021d";
+import { game, getWorldIntensity } from "./core.js?v=f1640fb9";
+import { toast, bindFastPress, renderStoryLog } from "./ui.js?v=f1640fb9";
+import { saveNow } from "./save.js?v=f1640fb9";
 
 const $ = (id) => document.getElementById(id);
 

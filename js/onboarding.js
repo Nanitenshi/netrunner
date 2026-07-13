@@ -2,10 +2,11 @@
 //
 // Dünne Führungsschicht über den bestehenden Systemen: immer genau ein
 // sichtbarer Auftrag, echte Freischaltungen und ein kontrollierter erster Dive.
-// Fortschritt zählt nur saubere Jack Outs — ein Dump ist kein verdammter Sieg.
-import { game } from "./core.js?v=44d0021d";
-import { routeGoal } from "./world.js?v=44d0021d";
-import { toast, setComms, bindFastPress } from "./ui.js?v=44d0021d";
+// Fortschritt zählt saubere Jack Outs; alte Saves behalten ihren Fortschritt.
+import { game } from "./core.js?v=f1640fb9";
+import { routeGoal } from "./world.js?v=f1640fb9";
+import { openCrewOverlay } from "./crew.js?v=f1640fb9";
+import { toast, setComms, bindFastPress } from "./ui.js?v=f1640fb9";
 
 const $ = (id) => document.getElementById(id);
 const SEEN_KEY = "neonAlley_onboarding_seen_v2";
@@ -57,14 +58,24 @@ const TUTORIAL_COPY = [
   }
 ];
 
+let initialized = false;
 let lastStage = -1;
 let taskBox = null;
 let firstDiveChoiceAnnounced = false;
+let tickTimer = 0;
 
 function successfulDives() {
   const dives = Number(game.stats?.dives || 0);
   const dumps = Number(game.stats?.dumps || 0);
-  return Math.max(0, dives - dumps);
+  const trackedWins = Math.max(0, dives - dumps);
+
+  // Saves aus Versionen vor den Dive-Statistiken besitzen nur missionsDone.
+  // Sie dürfen durch das neue Onboarding nicht wieder eingesperrt werden.
+  if (dives === 0 && dumps === 0 && Number(game.missionsDone || 0) > 0) {
+    return Math.max(0, Number(game.missionsDone || 0));
+  }
+
+  return trackedWins;
 }
 
 function stage() {
@@ -73,7 +84,8 @@ function stage() {
 
 function seenStages() {
   try {
-    return JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+    const value = JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
   } catch {
     return [];
   }
@@ -86,8 +98,20 @@ function markStageSeen(value) {
   try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch {}
 }
 
+function isVisible(id) {
+  const el = $(id);
+  return !!el && !el.classList.contains("hidden");
+}
+
+function modalOpen() {
+  return isVisible("crewOverlay")
+    || isVisible("pauseMenu")
+    || isVisible("tutorial")
+    || isVisible("result");
+}
+
 function ensureTaskBox() {
-  if (taskBox) return taskBox;
+  if (taskBox?.isConnected) return taskBox;
   const app = $("app");
   if (!app) return null;
 
@@ -127,19 +151,43 @@ function ensureTaskBox() {
   return taskBox;
 }
 
+function activateCrewTab(name) {
+  const tab = document.querySelector(`.tabBtn[data-tab="${name}"]`);
+  if (!tab || tab.dataset.onboardingLocked === "1" || tab.disabled) return false;
+
+  for (const id of ["build", "skills", "broker", "crew", "gear"]) {
+    const page = $("tab" + id.charAt(0).toUpperCase() + id.slice(1));
+    page?.classList.toggle("hidden", id !== name);
+  }
+  document.querySelectorAll(".tabBtn").forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === name);
+  });
+  return true;
+}
+
+function openCrewTab(name) {
+  openCrewOverlay();
+  return activateCrewTab(name);
+}
+
 function runTaskAction() {
-  const s = stage();
-  if (s === 0) {
+  const current = stage();
+  if (current === 0) {
     routeGoal?.();
     return;
   }
 
-  $("btnCrew")?.click();
-  const wanted = s === 1 ? "crew" : s === 2 ? "build" : s === 3 ? "skills" : "gear";
-  setTimeout(() => {
-    const tab = document.querySelector(`.tabBtn[data-tab="${wanted}"]`);
-    if (tab && tab.dataset.onboardingLocked !== "1") tab.click();
-  }, 80);
+  const wanted = current === 1
+    ? "crew"
+    : current === 2
+      ? "build"
+      : current === 3
+        ? "skills"
+        : "gear";
+
+  // Kein .click(): bindFastPress blockiert synthetische Folge-Clicks auf Android
+  // absichtlich. Direkter Funktionsaufruf vermeidet diese Selbstblockade.
+  if (!openCrewTab(wanted)) toast("DIESER BEREICH IST NOCH GESPERRT.");
 }
 
 function gateTab(name, unlocked, message) {
@@ -151,9 +199,6 @@ function gateTab(name, unlocked, message) {
   tab.disabled = !unlocked;
   tab.dataset.onboardingLocked = unlocked ? "0" : "1";
   tab.title = unlocked ? "" : message;
-
-  // Falls ein alter UI-Zustand auf einer inzwischen gesperrten Seite steht,
-  // diese Seite hart schließen. Nur den Tab zu verstecken wäre keine echte Sperre.
   if (!unlocked) page?.classList.add("hidden");
 }
 
@@ -168,12 +213,15 @@ function ensureUnlockedTabVisible() {
     ? document.querySelector(`.tabBtn[data-tab="${visibleName}"]`)
     : null;
 
-  if (visibleTab && visibleTab.dataset.onboardingLocked !== "1") return;
+  if (visibleTab && visibleTab.dataset.onboardingLocked !== "1" && !visibleTab.disabled) return;
 
   const fallback = ["broker", "crew", "build", "skills", "gear"]
-    .map((name) => document.querySelector(`.tabBtn[data-tab="${name}"]`))
-    .find((tab) => tab && tab.dataset.onboardingLocked !== "1");
-  fallback?.click();
+    .find((name) => {
+      const tab = document.querySelector(`.tabBtn[data-tab="${name}"]`);
+      return tab && tab.dataset.onboardingLocked !== "1" && !tab.disabled;
+    });
+
+  if (fallback) activateCrewTab(fallback);
 }
 
 function applyUnlocks() {
@@ -197,23 +245,21 @@ function applyUnlocks() {
 
 function applyFirstDiveGuidance() {
   const firstRun = successfulDives() === 0;
-  const choice = $("diveChoice");
+  const choiceVisible = isVisible("diveChoice");
   const deeper = $("btnDeeper");
   const jackOut = $("btnJackOut");
   const hint = $("dcBossHint");
-  const choiceVisible = choice && !choice.classList.contains("hidden");
 
   if (!firstRun) {
     if (deeper) deeper.style.display = "";
-    if (jackOut && jackOut.dataset.onboardingLabel === "1") {
+    if (jackOut?.dataset.onboardingLabel === "1") {
       jackOut.textContent = "JACK OUT — sichern";
       delete jackOut.dataset.onboardingLabel;
     }
+    firstDiveChoiceAnnounced = false;
     return;
   }
 
-  // Der erste Dive lehrt genau eine Entscheidung: Beute sichern. GO DEEPER
-  // kommt erst danach. So bekommt ein Neuling erst einen Erfolg, dann Freiheit.
   if (deeper) deeper.style.display = "none";
   if (jackOut) {
     jackOut.textContent = "JACK OUT — ERSTEN JOB ABSCHLIESSEN";
@@ -234,7 +280,7 @@ function applyFirstDiveGuidance() {
 function applyTutorialCopy() {
   const box = $("tutorial");
   if (!box || box.classList.contains("hidden")) return;
-  const copy = TUTORIAL_COPY[game.tutorialStep];
+  const copy = TUTORIAL_COPY[Number(game.tutorialStep || 0)];
   if (!copy) return;
 
   const title = $("tutTitle");
@@ -247,19 +293,14 @@ function renderTask() {
   const box = ensureTaskBox();
   if (!box) return;
 
-  const s = stage();
-  const overlayOpen = !$("crewOverlay")?.classList.contains("hidden")
-    || !$("pauseMenu")?.classList.contains("hidden")
-    || !$("tutorial")?.classList.contains("hidden")
-    || !$("result")?.classList.contains("hidden");
-
-  if (s >= TASKS.length || game.mode !== "WORLD" || overlayOpen) {
+  const current = stage();
+  if (current >= TASKS.length || game.mode !== "WORLD" || modalOpen()) {
     box.style.display = "none";
     return;
   }
 
-  const task = TASKS[s];
-  $("onboardingTaskTitle").textContent = `AUFTRAG 0${s + 1} // ${task.title}`;
+  const task = TASKS[current];
+  $("onboardingTaskTitle").textContent = `AUFTRAG 0${current + 1} // ${task.title}`;
   $("onboardingTaskText").textContent = task.text;
   $("btnOnboardingAction").textContent = task.action;
 
@@ -270,25 +311,29 @@ function renderTask() {
 }
 
 function announceStage() {
-  const s = stage();
-  if (s === lastStage) return;
-  lastStage = s;
-  if (s >= TASKS.length || seenStages().includes(s)) return;
+  // Result- und Tutorial-Texte haben Vorrang. Der neue Auftrag wird erst in der
+  // Stadt ausgesprochen, statt gleichzeitig mit Jack-Out-Feedback zu kämpfen.
+  if (game.mode !== "WORLD" || modalOpen()) return;
 
-  const task = TASKS[s];
-  const line = s === 0
+  const current = stage();
+  if (current === lastStage) return;
+  lastStage = current;
+  if (current >= TASKS.length || seenStages().includes(current)) return;
+
+  const task = TASKS[current];
+  const line = current === 0
     ? "NYX: „Erster Job. Folge dem gelben Auftrag und versuch, nicht schon an der Tür zu verrecken.“"
-    : s === 1
+    : current === 1
       ? "JUNO: „Du lebst noch. Öffne CREW. Ich erklär dir, warum das kein Zufall war.“"
-      : s === 2
+      : current === 2
         ? "NYX: „Zwei saubere Ausstiege. Reicht für eine Meinung. Wähl jetzt deinen Build.“"
-        : s === 3
+        : current === 3
           ? "GHOST: „Skills sind offen. Kauf mit Hirn, nicht mit diesem nervösen Finger.“"
           : "RUST: „Gear-Markt ist offen. Eddies rein, bessere Überlebenschancen raus.“";
 
   setComms(line);
   toast(`NEU: ${task.title}`);
-  markStageSeen(s);
+  markStageSeen(current);
 }
 
 function tick() {
@@ -300,13 +345,26 @@ function tick() {
 }
 
 function init() {
+  if (initialized) return;
+  initialized = true;
   ensureTaskBox();
   tick();
-  window.setInterval(tick, 250);
+  tickTimer = window.setInterval(tick, 250);
+
+  window.__NEON_ONBOARDING = {
+    stage,
+    successfulDives,
+    tick,
+    stop: () => window.clearInterval(tickTimer)
+  };
 }
 
-if (document.readyState === "loading") {
-  window.addEventListener("DOMContentLoaded", init, { once: true });
-} else {
-  init();
+function scheduleInit() {
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    window.setTimeout(init, 0);
+  }
 }
+
+scheduleInit();

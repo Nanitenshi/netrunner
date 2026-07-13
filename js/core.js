@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=44d0021d";
+} from "./threeScene.js?v=f1640fb9";
 
 import {
   initWorld,
@@ -18,16 +18,16 @@ import {
   nearMissionNode,
   worldIsManualPan,
   worldRecenterCamera
-} from "./world.js?v=44d0021d";
+} from "./world.js?v=f1640fb9";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=44d0021d";
-import { loadSave, saveNow, resetSave } from "./save.js?v=44d0021d";
-import { openNpcDialog, npcTick } from "./npc.js?v=44d0021d";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=44d0021d";
-import { initEncounters } from "./encounters.js?v=44d0021d";
-import { unlockAudio } from "./sfx.js?v=44d0021d";
-import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=44d0021d";
-import { freshSkillLevels } from "./skills.js?v=44d0021d";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=f1640fb9";
+import { loadSave, saveNow, resetSave } from "./save.js?v=f1640fb9";
+import { openNpcDialog, npcTick } from "./npc.js?v=f1640fb9";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=f1640fb9";
+import { initEncounters } from "./encounters.js?v=f1640fb9";
+import { unlockAudio } from "./sfx.js?v=f1640fb9";
+import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=f1640fb9";
+import { freshSkillLevels } from "./skills.js?v=f1640fb9";
 
 import {
   startDive,
@@ -37,7 +37,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=44d0021d";
+} from "./dive.js?v=f1640fb9";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 

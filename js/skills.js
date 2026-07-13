@@ -4,10 +4,11 @@
 // eine dauerhafte Investition on top von Build/Crew/Gear. Jeder Skill hängt
 // an einem Stat, den computeMods() in crew.js bereits kennt.
 //
-// onboarding.js hängt bewusst hier als kleine Seiteneffekt-Initialisierung:
-// core.js importiert skills.js ohnehin beim Boot, dadurch braucht das geführte
-// Tutorial keinen weiteren Script-Tag und kein zusätzliches Gewicht in core.js.
+// onboarding.js und gamefeel.js hängen bewusst hier als kleine Seiteneffekt-
+// Initialisierungen: core.js importiert skills.js ohnehin beim Boot. So bleiben
+// Führung und Präsentations-Feedback getrennt vom eigentlichen Gameplay-State.
 import "./onboarding.js";
+import "./gamefeel.js";
 
 export const SKILL_TREES = {
   general: {

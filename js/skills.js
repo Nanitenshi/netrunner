@@ -10,10 +10,10 @@
 // vor boot() mit einer TDZ-Exception stoppen. Deshalb erst nach Abschluss des
 // aktuellen Modulladevorgangs nachladen und Fehler ausdrücklich abfangen.
 window.setTimeout(() => {
-  import("./onboarding.js?v=e277f022").catch((error) => {
+  import("./onboarding.js?v=423ba706").catch((error) => {
     console.error("[ONBOARDING] Optionales Modul konnte nicht geladen werden:", error);
   });
-  import("./gamefeel.js?v=e277f022").catch((error) => {
+  import("./gamefeel.js?v=423ba706").catch((error) => {
     console.error("[GAMEFEEL] Optionales Modul konnte nicht geladen werden:", error);
   });
 }, 0);

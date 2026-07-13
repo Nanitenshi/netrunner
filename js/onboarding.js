@@ -103,6 +103,24 @@ function injectStyle() {
   document.head.appendChild(style);
 }
 
+function pressInternalAction(action) {
+  // Der bestehende bindFastPress-Handler hört primär auf pointerup. Diesen Pfad
+  // verwenden wir ebenfalls, statt .click() zu erzeugen: Ein synthetischer Click
+  // könnte sonst nach einem kurz zuvor benutzten Button vom Android-Guard als
+  // vermeintlicher Doppeltipp verworfen werden.
+  if (typeof PointerEvent === "function") {
+    action.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true
+    }));
+    return;
+  }
+  action.click();
+}
+
 function runPrimaryAction() {
   const stage = onboardingStage();
   const action = $("btnOnboardingAction");
@@ -116,7 +134,7 @@ function runPrimaryAction() {
     const previousMissionsDone = game.missionsDone;
     try {
       game.missionsDone = 0;
-      action.click();
+      pressInternalAction(action);
     } finally {
       game.missionsDone = previousMissionsDone;
     }
@@ -125,7 +143,7 @@ function runPrimaryAction() {
 
   // Für spätere Stufen nutzt derselbe interne Handler die bereits vorhandenen
   // Crew-/Build-/Skills-/Gear-Freischaltungen. Keine zweite Aktionslogik.
-  action.click();
+  pressInternalAction(action);
 }
 
 function handlePrimaryPress(event) {

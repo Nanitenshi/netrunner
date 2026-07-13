@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          for file in js/*.js; do
+          for file in js/*.js sw.js; do
             node --check "$file"
           done
 
@@ -71,7 +71,7 @@ jobs:
       - name: Assemble web assets
         run: |
           mkdir -p www
-          cp -r index.html css js icon.svg manifest.webmanifest www/
+          cp -r index.html css js icon.svg manifest.webmanifest sw.js www/
 
       - name: Init Capacitor project
         run: |

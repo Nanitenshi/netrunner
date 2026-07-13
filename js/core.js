@@ -27,6 +27,7 @@ import { initCrewUI, closeCrewOverlay } from "./crew.js";
 import { initEncounters } from "./encounters.js";
 import { unlockAudio } from "./sfx.js";
 import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js";
+import { freshSkillLevels } from "./skills.js";
 
 import {
   startDive,
@@ -74,6 +75,9 @@ export const game = {
   // Hacker-Build: permanente, jederzeit wechselbare Spielstil-Wahl
   // (GHOST RUNNER / COMBAT RUNNER / DATA THIEF) — siehe builds.js
   build: null,
+  // Skilltrees: dauerhafte, mit Frags gekaufte Stufen, unabhängig vom
+  // aktuell gewählten Build wirksam — siehe skills.js
+  skillLevels: freshSkillLevels(),
   // Programme: verbrauchbare Dive-Items, mit E$ gekauft, im Dive verbraucht
   programsOwned: { panic: 0, boost: 0, decoy: 0 },
 
@@ -364,6 +368,17 @@ function boot() {
       if (crew.roster) game.crew.roster = crew.roster;
       if (Array.isArray(crew.equipped)) game.crew.equipped = crew.equipped;
       if (typeof crew.pity === "number") game.crew.pity = crew.pity;
+    }
+    // Nur bekannte Trees/Skills übernehmen — neue Skills aus einem Update
+    // bleiben so bei 0, statt dass ein alter Save-Blob sie überschreibt
+    if (saved.skillLevels) {
+      for (const treeId of Object.keys(game.skillLevels)) {
+        const savedTree = saved.skillLevels[treeId];
+        if (!savedTree) continue;
+        for (const skillId of Object.keys(game.skillLevels[treeId])) {
+          if (typeof savedTree[skillId] === "number") game.skillLevels[treeId][skillId] = savedTree[skillId];
+        }
+      }
     }
   } else {
     // Frischer Start: Nyx schickt dir JUNO + genug Frags für 2 Pulls

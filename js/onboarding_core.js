@@ -3,10 +3,10 @@
 // Dünne Führungsschicht über den bestehenden Systemen: immer genau ein
 // sichtbarer Auftrag, echte Freischaltungen und ein kontrollierter erster Dive.
 // Fortschritt zählt saubere Jack Outs; alte Saves behalten ihren Fortschritt.
-import { game } from "./core.js?v=260111c3";
-import { routeGoal } from "./world.js?v=260111c3";
-import { openCrewOverlay } from "./crew.js?v=260111c3";
-import { toast, setComms, bindFastPress } from "./ui.js?v=260111c3";
+import { game } from "./core.js?v=e277f022";
+import { routeGoal } from "./world.js?v=e277f022";
+import { openCrewOverlay } from "./crew.js?v=e277f022";
+import { toast, setComms, bindFastPress } from "./ui.js?v=e277f022";
 
 const $ = (id) => document.getElementById(id);
 const SEEN_KEY = "neonAlley_onboarding_seen_v2";

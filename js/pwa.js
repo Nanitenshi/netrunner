@@ -2,6 +2,7 @@
 
 let refreshing = false;
 let installPrompt = null;
+const hadControllerAtLoad = !!navigator.serviceWorker?.controller;
 
 function toast(message, duration = 2600) {
   const el = document.getElementById("toast");
@@ -58,7 +59,9 @@ function registerServiceWorker() {
   }, { once: true });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (refreshing) return;
+    // First installation should not interrupt a running session. Automatic
+    // reload is only useful when an older worker was already controlling it.
+    if (!hadControllerAtLoad || refreshing) return;
     refreshing = true;
     location.reload();
   });

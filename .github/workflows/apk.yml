@@ -27,6 +27,38 @@ jobs:
         with:
           node-version: 20
 
+      - name: Validate web assets
+        run: |
+          set -euo pipefail
+
+          for file in js/*.js; do
+            node --check "$file"
+          done
+
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          JSON.parse(fs.readFileSync('manifest.webmanifest', 'utf8'));
+
+          const files = fs.readdirSync('js').filter((name) => name.endsWith('.js'));
+          const missing = [];
+          const importPattern = /(?:from\s+)?["'](\.\/[A-Za-z0-9_.-]+\.js)(?:\?[^"']*)?["']/g;
+
+          for (const name of files) {
+            const source = fs.readFileSync(path.join('js', name), 'utf8');
+            for (const match of source.matchAll(importPattern)) {
+              const target = path.resolve('js', match[1]);
+              if (!fs.existsSync(target)) missing.push(`${name} -> ${match[1]}`);
+            }
+          }
+
+          if (missing.length) {
+            console.error('Missing module imports:\n' + missing.join('\n'));
+            process.exit(1);
+          }
+          NODE
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -49,12 +81,15 @@ jobs:
           {
             "appId": "io.github.nanitenshi.neonalley",
             "appName": "NEON ALLEY",
-            "webDir": "www"
+            "webDir": "www",
+            "android": {
+              "backgroundColor": "#05070a"
+            }
           }
           CFG
           npx cap add android
 
-      - name: Generate app icon + splash from icon.svg
+      - name: Generate app icon and splash from icon.svg
         continue-on-error: true
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q librsvg2-bin
@@ -67,8 +102,7 @@ jobs:
 
       - name: Align Kotlin stdlib versions
         run: |
-          # Fix für "Duplicate class kotlin.*": BOM gleicht kotlin-stdlib und
-          # das transitiv reingezogene alte kotlin-stdlib-jdk8 aneinander an
+          # Fix for duplicate kotlin.* classes: BOM aligns stdlib variants.
           cat >> android/app/build.gradle << 'EOF'
 
           dependencies {

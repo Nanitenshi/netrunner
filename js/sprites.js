@@ -245,3 +245,36 @@ export function drawIceSprite(ctx, x, y, size, iceType, strength) {
 
   ctx.restore();
 }
+
+// Hacker-Cursor: rotierendes Fadenkreuz mit leuchtendem Zentrum, folgt dem
+// Finger/Zeiger während eines Dives — wächst und leuchtet stärker während
+// aktiver Eingabe.
+export function drawHackerSprite(ctx, x, y, size, hackingStatus) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Der Cursor rotiert ständig, um "Aktivität" zu signalisieren
+  const rotation = (Date.now() / 100) % Math.PI;
+  ctx.rotate(rotation);
+
+  // Fadenkreuz aus vier Linien
+  ctx.beginPath();
+  ctx.moveTo(-size, 0); ctx.lineTo(size, 0);
+  ctx.moveTo(0, -size); ctx.lineTo(0, size);
+  ctx.strokeStyle = "rgba(0, 255, 255, 0.9)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Leuchtpunkt in der Mitte, größer während aktiver Eingabe — Shadow MUSS
+  // vor fill() gesetzt werden, sonst greift der Glow nicht (Canvas wendet
+  // Schatten beim Zeichnen an, nicht rückwirkend)
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = "cyan";
+  ctx.beginPath();
+  const pointSize = hackingStatus === "active" ? size * 0.7 : size * 0.4;
+  ctx.arc(0, 0, pointSize, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.fill();
+
+  ctx.restore();
+}

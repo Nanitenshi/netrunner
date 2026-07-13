@@ -1,16 +1,16 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=24fd6bb4";
-import { toast, bindFastPress } from "./ui.js?v=24fd6bb4";
-import { createMinigame, MG_TYPES, clearParticles, playRect } from "./missions.js?v=24fd6bb4";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=24fd6bb4";
-import { getBuild } from "./builds.js?v=24fd6bb4";
-import { ICE_CLASSES, iceLabel, iceStrength } from "./ice.js?v=24fd6bb4";
-import { PROGRAMS } from "./programs.js?v=24fd6bb4";
-import { getArchetype } from "./archetypes.js?v=24fd6bb4";
-import { saveNow } from "./save.js?v=24fd6bb4";
-import { sfx } from "./sfx.js?v=24fd6bb4";
-import { musicSetTension } from "./music.js?v=24fd6bb4";
-import { drawIceSprite } from "./sprites.js?v=24fd6bb4";
+import { game } from "./core.js?v=1d12397a";
+import { toast, bindFastPress } from "./ui.js?v=1d12397a";
+import { createMinigame, MG_TYPES, clearParticles, playRect, localPos } from "./missions.js?v=1d12397a";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=1d12397a";
+import { getBuild } from "./builds.js?v=1d12397a";
+import { ICE_CLASSES, iceLabel, iceStrength } from "./ice.js?v=1d12397a";
+import { PROGRAMS } from "./programs.js?v=1d12397a";
+import { getArchetype } from "./archetypes.js?v=1d12397a";
+import { saveNow } from "./save.js?v=1d12397a";
+import { sfx } from "./sfx.js?v=1d12397a";
+import { musicSetTension } from "./music.js?v=1d12397a";
+import { drawIceSprite, drawHackerSprite } from "./sprites.js?v=1d12397a";
 
 const $ = (id) => document.getElementById(id);
 
@@ -20,6 +20,10 @@ let dive = null;
 // GO DEEPER / RESUME gedrückt hat, darf nicht als Spiel-Tap durchschlagen
 // (gemeldeter Bug: "random Berührung, die ich nicht getätigt habe")
 let inputGraceUntil = 0;
+// Zeigerposition für den Hacker-Cursor (rein kosmetisch, nie spiellogik-
+// relevant) — folgt Maus/Finger unabhängig von der Eingabesperre oben
+let cursorPos = null;
+let cursorDown = false;
 
 export function diveSetPaused(p) {
   paused = !!p;
@@ -789,6 +793,13 @@ function checkTensionWarnings() {
 /* ---------------- Public API ---------------- */
 export function handleDivePointer(type, e) {
   if (!dive || paused || dive.phase !== "play") return;
+
+  // Cursor-Tracking läuft unabhängig von der Eingabesperre — rein optisch,
+  // soll nie beeinflussen, ob ein Tap als Spiel-Eingabe zählt
+  if (type === "down" || type === "move") cursorPos = localPos(e);
+  if (type === "down") cursorDown = true;
+  else if (type === "up" || type === "cancel") cursorDown = false;
+
   if (type === "down" && performance.now() < inputGraceUntil) return;
   dive.mg.pointer(type, e);
 }
@@ -802,6 +813,7 @@ export function diveTick(dt, onFinish) {
       const ctx = game.ctx.mission;
       if (ctx) {
         drawIceBadge(ctx);
+        if (cursorPos) drawHackerSprite(ctx, cursorPos.x, cursorPos.y, 16, cursorDown ? "active" : "idle");
         drawTensionOverlay(ctx, window.innerWidth, window.innerHeight);
       }
       checkTensionWarnings();

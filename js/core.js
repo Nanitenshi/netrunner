@@ -4,7 +4,7 @@ import {
   setMoodProgress,
   setPaused as setThreePaused,
   setQuality as setThreeQuality
-} from "./threeScene.js?v=dd71de14";
+} from "./threeScene.js?v=c3a9ba95";
 
 import {
   initWorld,
@@ -18,15 +18,15 @@ import {
   nearMissionNode,
   worldIsManualPan,
   worldRecenterCamera
-} from "./world.js?v=dd71de14";
+} from "./world.js?v=c3a9ba95";
 
-import { initUI, uiTick, toast, setComms } from "./ui.js?v=dd71de14";
-import { loadSave, saveNow, resetSave } from "./save.js?v=dd71de14";
-import { openNpcDialog, npcTick } from "./npc.js?v=dd71de14";
-import { initCrewUI, closeCrewOverlay } from "./crew.js?v=dd71de14";
-import { initEncounters } from "./encounters.js?v=dd71de14";
-import { unlockAudio } from "./sfx.js?v=dd71de14";
-import { musicSetEnabled, musicSetIntensity } from "./music.js?v=dd71de14";
+import { initUI, uiTick, toast, setComms } from "./ui.js?v=c3a9ba95";
+import { loadSave, saveNow, resetSave } from "./save.js?v=c3a9ba95";
+import { openNpcDialog, npcTick } from "./npc.js?v=c3a9ba95";
+import { initCrewUI, closeCrewOverlay } from "./crew.js?v=c3a9ba95";
+import { initEncounters } from "./encounters.js?v=c3a9ba95";
+import { unlockAudio } from "./sfx.js?v=c3a9ba95";
+import { musicSetEnabled, musicSetIntensity, musicSetTension } from "./music.js?v=c3a9ba95";
 
 import {
   startDive,
@@ -36,7 +36,7 @@ import {
   diveSetPaused,
   diveAbort,
   initDive
-} from "./dive.js?v=dd71de14";
+} from "./dive.js?v=c3a9ba95";
 
 const DAY_CYCLE = 220; // seconds for a full day/night loop
 
@@ -159,6 +159,7 @@ export function setMode(next) {
 
   // Musik: dichter im Dive, ruhiger in der Stadt
   musicSetIntensity(next === "MISSION" ? 1 : 0);
+  if (next !== "MISSION") musicSetTension(0);
 
   // Erstes Mal in der Stadt: kurzes Tutorial statt kryptischem Einzeiler —
   // erklärt WAS man tut und WARUM (gemeldetes Problem: keine Orientierung)

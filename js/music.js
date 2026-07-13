@@ -1,9 +1,9 @@
 // js/music.js — generative Ambient-Musik über WebAudio, keine Audio-Assets.
 // A-Moll-Pentatonik-Arpeggio über einem langsamen Pad; MISSION-Modus spielt dichter.
 
-import { getAudioCtx } from "./sfx.js?v=dd71de14";
-import { game } from "./core.js?v=dd71de14";
-import { toast } from "./ui.js?v=dd71de14";
+import { getAudioCtx } from "./sfx.js?v=c3a9ba95";
+import { game } from "./core.js?v=c3a9ba95";
+import { toast } from "./ui.js?v=c3a9ba95";
 
 const SCALE = [110, 130.81, 146.83, 164.81, 196, 220, 261.63, 293.66, 329.63]; // A-Pentatonik
 const PAD_ROOTS = [110, 87.31, 130.81, 98]; // A2 → F2 → C3 → G2
@@ -25,6 +25,9 @@ const WHISPER_LINES = [
 let enabled = false;
 let running = false;
 let intensity = 0; // 0 = World, 1 = Mission
+// Trace-Eskalation innerhalb eines Dives (0-1) — die ICE "lernt" hörbar:
+// dichtere Plucks, wachsende Verstimmung, gelegentliche dissonante Einwürfe
+let tension = 0;
 
 let master = null;
 let nextStep = 0;
@@ -58,12 +61,13 @@ function ensureGraph(ac) {
   comp.connect(ac.destination);
 }
 
-function pluck(ac, t, freq, vol) {
+function pluck(ac, t, freq, vol, detune = 0) {
   const osc = ac.createOscillator();
   const g = ac.createGain();
 
   osc.type = "triangle";
   osc.frequency.value = freq;
+  osc.detune.value = detune;
 
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
@@ -180,18 +184,39 @@ function schedule() {
     stepCount += 1;
     // Dichter als vorher — bei niedriger Trefferchance blieben zu große
     // stille Lücken zwischen den Plucks, was leise wirkt, egal wie laut
-    // die einzelne Note ist
-    const density = intensity === 1 ? 0.6 : 0.34;
+    // die einzelne Note ist. Tension (steigender Trace im Dive) macht die
+    // Läufe zusätzlich dichter — die ICE "hört" näher.
+    const density = (intensity === 1 ? 0.6 : 0.34) + tension * 0.22;
 
     if (Math.random() < density) {
       // Random Walk über die Skala, bleibt melodisch statt chaotisch
       scaleIdx += Math.random() < 0.5 ? -1 : 1;
       scaleIdx = Math.max(1, Math.min(SCALE.length - 1, scaleIdx));
 
-      pluck(ac, nextStep, SCALE[scaleIdx], intensity === 1 ? 0.05 : 0.035);
+      // Verstimmung wächst mit Tension — Tonhöhe wird zunehmend "instabil",
+      // hörbares Äquivalent zum wachsenden Bildschirm-Glitch
+      const wobble = tension * (Math.random() - 0.5) * 30;
+      pluck(ac, nextStep, SCALE[scaleIdx], intensity === 1 ? 0.05 : 0.035, wobble);
       // Echo eine punktierte Achtel später, leiser — billiger Delay-Effekt
-      pluck(ac, nextStep + STEP * 1.5, SCALE[scaleIdx], 0.015);
+      pluck(ac, nextStep + STEP * 1.5, SCALE[scaleIdx], 0.015, wobble);
     }
+
+    // Dissonanter Einwurf ab hoher Tension — ein rohes, tiefes Sägezahn-
+    // Stakkato, das signalisiert: die ICE holt auf
+    if (tension > 0.6 && Math.random() < (tension - 0.6) * 0.15) {
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.value = SCALE[scaleIdx] * 0.5;
+      osc.detune.value = -35;
+      g.gain.setValueAtTime(0.0001, nextStep);
+      g.gain.exponentialRampToValueAtTime(0.045, nextStep + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, nextStep + 0.35);
+      osc.connect(g).connect(master);
+      osc.start(nextStep);
+      osc.stop(nextStep + 0.4);
+    }
+
     nextStep += STEP;
   }
 
@@ -234,4 +259,8 @@ export function musicEnabled() {
 
 export function musicSetIntensity(i) {
   intensity = i;
+}
+
+export function musicSetTension(t) {
+  tension = Math.max(0, Math.min(1, t));
 }

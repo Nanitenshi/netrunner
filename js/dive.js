@@ -1,14 +1,15 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=dd71de14";
-import { toast, bindFastPress } from "./ui.js?v=dd71de14";
-import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=dd71de14";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=dd71de14";
-import { getBuild } from "./builds.js?v=dd71de14";
-import { ICE_CLASSES, iceLabel } from "./ice.js?v=dd71de14";
-import { PROGRAMS } from "./programs.js?v=dd71de14";
-import { getArchetype } from "./archetypes.js?v=dd71de14";
-import { saveNow } from "./save.js?v=dd71de14";
-import { sfx } from "./sfx.js?v=dd71de14";
+import { game } from "./core.js?v=c3a9ba95";
+import { toast, bindFastPress } from "./ui.js?v=c3a9ba95";
+import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=c3a9ba95";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=c3a9ba95";
+import { getBuild } from "./builds.js?v=c3a9ba95";
+import { ICE_CLASSES, iceLabel } from "./ice.js?v=c3a9ba95";
+import { PROGRAMS } from "./programs.js?v=c3a9ba95";
+import { getArchetype } from "./archetypes.js?v=c3a9ba95";
+import { saveNow } from "./save.js?v=c3a9ba95";
+import { sfx } from "./sfx.js?v=c3a9ba95";
+import { musicSetTension } from "./music.js?v=c3a9ba95";
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,6 +31,7 @@ export function diveCancelPointer() {}
 export function diveAbort() {
   if (!dive) return;
   dive = null;
+  musicSetTension(0);
   hideAbilityBar();
   hideProgramBar();
   clearParticles();
@@ -429,7 +431,8 @@ export function startDive(firstType, tier = 1, hot = false, special = null, arch
     event: null,
     phase: "play",
     pending: null,
-    abilities: []
+    abilities: [],
+    tensionWarned: {}
   };
 
   if (hot) dive.mods = { ...mods, lootMult: mods.lootMult * 1.5 };
@@ -729,6 +732,47 @@ function shakeScreen() {
   app.classList.add("shake");
 }
 
+// Trace-Eskalation: die ICE "lernt" spürbar, statt dass der Trace nur eine
+// Zahl im HUD ist. Gemalt NACH dem Minigame-Tick, also über dessen Frame —
+// dive-weit statt pro Minigame, deshalb hier zentral statt in missions.js.
+const TENSION_WARNINGS = [
+  { at: 0.5, text: "⚠ DIE ICE PASST SICH AN — SIE LERNT DEIN MUSTER." },
+  { at: 0.8, text: "⚠⚠ TRACE FAST VOLL — SIE HAT DICH FAST." }
+];
+
+function drawTensionOverlay(ctx, W, H) {
+  const t = Math.max(0, Math.min(1, dive.trace / 100));
+  if (t < 0.4) return;
+
+  const k = (t - 0.4) / 0.6; // 0..1 zwischen 40% und 100% Trace
+
+  const grd = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+  grd.addColorStop(0, "rgba(255,0,40,0)");
+  grd.addColorStop(1, `rgba(255,0,40,${(0.08 + k * 0.22).toFixed(2)})`);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  if (Math.random() < k * 0.25) {
+    ctx.fillStyle = `rgba(255,0,60,${(0.05 + k * 0.1).toFixed(2)})`;
+    ctx.fillRect(0, Math.random() * H, W, 2 + Math.random() * 22 * k);
+  }
+  if (Math.random() < k * 0.12) {
+    ctx.fillStyle = `rgba(160,0,255,${(0.04 + k * 0.08).toFixed(2)})`;
+    ctx.fillRect(Math.random() * W, 0, 2 + Math.random() * 10, H);
+  }
+}
+
+function checkTensionWarnings() {
+  const t = dive.trace / 100;
+  for (const w of TENSION_WARNINGS) {
+    if (t >= w.at && !dive.tensionWarned[w.at]) {
+      dive.tensionWarned[w.at] = true;
+      toast(w.text);
+      sfx.bad();
+    }
+  }
+}
+
 /* ---------------- Public API ---------------- */
 export function handleDivePointer(type, e) {
   if (!dive || paused || dive.phase !== "play") return;
@@ -741,13 +785,20 @@ export function diveTick(dt, onFinish) {
 
   if (dive.phase === "play") {
     dive.mg.tick(paused ? 0 : dt, paused, onReport);
+    if (!paused) {
+      const ctx = game.ctx.mission;
+      if (ctx) drawTensionOverlay(ctx, window.innerWidth, window.innerHeight);
+      checkTensionWarnings();
+    }
   }
 
+  musicSetTension(dive.trace / 100);
   setDiveHud();
 
   if (dive.pending) {
     const p = dive.pending;
     dive = null;
+    musicSetTension(0);
     hideAbilityBar();
     hideProgramBar();
     onFinish(p);

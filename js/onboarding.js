@@ -3,9 +3,9 @@
 // Dünne Führungsschicht über den bestehenden Systemen: immer genau ein
 // sichtbarer Auftrag, echte Freischaltungen und ein kontrollierter erster Dive.
 // Fortschritt zählt nur saubere Jack Outs — ein Dump ist kein verdammter Sieg.
-import { game } from "./core.js?v=63da5883";
-import { routeGoal } from "./world.js?v=63da5883";
-import { toast, setComms, bindFastPress } from "./ui.js?v=63da5883";
+import { game } from "./core.js?v=44d0021d";
+import { routeGoal } from "./world.js?v=44d0021d";
+import { toast, setComms, bindFastPress } from "./ui.js?v=44d0021d";
 
 const $ = (id) => document.getElementById(id);
 const SEEN_KEY = "neonAlley_onboarding_seen_v2";

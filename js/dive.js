@@ -1,14 +1,14 @@
 // js/dive.js — Push-your-luck Dive-Loop mit Layer-Modifikatoren, Events und Crew-Actives
-import { game } from "./core.js?v=59782255";
-import { toast, bindFastPress } from "./ui.js?v=59782255";
-import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=59782255";
-import { computeMods, banter, banterLine, getChar } from "./crew.js?v=59782255";
-import { getBuild } from "./builds.js?v=59782255";
-import { ICE_CLASSES, iceLabel } from "./ice.js?v=59782255";
-import { PROGRAMS } from "./programs.js?v=59782255";
-import { getArchetype } from "./archetypes.js?v=59782255";
-import { saveNow } from "./save.js?v=59782255";
-import { sfx } from "./sfx.js?v=59782255";
+import { game } from "./core.js?v=dd71de14";
+import { toast, bindFastPress } from "./ui.js?v=dd71de14";
+import { createMinigame, MG_TYPES, clearParticles } from "./missions.js?v=dd71de14";
+import { computeMods, banter, banterLine, getChar } from "./crew.js?v=dd71de14";
+import { getBuild } from "./builds.js?v=dd71de14";
+import { ICE_CLASSES, iceLabel } from "./ice.js?v=dd71de14";
+import { PROGRAMS } from "./programs.js?v=dd71de14";
+import { getArchetype } from "./archetypes.js?v=dd71de14";
+import { saveNow } from "./save.js?v=dd71de14";
+import { sfx } from "./sfx.js?v=dd71de14";
 
 const $ = (id) => document.getElementById(id);
 

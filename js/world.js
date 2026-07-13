@@ -1,12 +1,12 @@
 // js/world.js
-import { game } from "./core.js?v=59782255";
-import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=59782255";
-import { openNpcDialog } from "./npc.js?v=59782255";
-import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir } from "./sprites.js?v=59782255";
-import { sfx } from "./sfx.js?v=59782255";
-import { saveNow } from "./save.js?v=59782255";
-import { encounterTick } from "./encounters.js?v=59782255";
-import { getArchetype } from "./archetypes.js?v=59782255";
+import { game } from "./core.js?v=dd71de14";
+import { toast, updateNodeList, openSignalPanel, closeNodesPanel } from "./ui.js?v=dd71de14";
+import { openNpcDialog } from "./npc.js?v=dd71de14";
+import { PALETTES, makeCitizenPalette, getSprites, drawCharacterAt, facingToDir, drawNodeSprite } from "./sprites.js?v=dd71de14";
+import { sfx } from "./sfx.js?v=dd71de14";
+import { saveNow } from "./save.js?v=dd71de14";
+import { encounterTick } from "./encounters.js?v=dd71de14";
+import { getArchetype } from "./archetypes.js?v=dd71de14";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1624,15 +1624,19 @@ function draw() {
       ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = active ? "#ffffff" : "rgba(0,243,255,.85)";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, (inRange ? 20 : 16) * cam.zoom, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(255,255,255,.9)";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, (inRange ? 20 : 16) * cam.zoom, 0, Math.PI * 2);
-      ctx.stroke();
+      // Node-Form statt austauschbarem Kreis: Hexagon im Konzernbezirk,
+      // Raute überall sonst; Hot Zones glitchen zusätzlich
+      const nodeType = nodeDistrict(n).id === "corporate" ? "corp" : "other";
+      const nodeState = n.hot ? "critical" : "normal";
+      drawNodeSprite(ctx, p.x, p.y, (inRange ? 20 : 16) * cam.zoom, nodeType, nodeState);
+
+      if (active) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255,255,255,.9)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, (inRange ? 24 : 20) * cam.zoom, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     // Namensschild mit dunklem Hintergrund — sonst geht weißer Text auf

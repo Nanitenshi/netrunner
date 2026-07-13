@@ -1,4 +1,4 @@
-const CACHE_NAME = "neon-alley-runtime-v1";
+const CACHE_NAME = "neon-alley-runtime-v2";
 const CORE_FALLBACKS = ["./", "./index.html", "./css/style.css", "./js/core.js", "./icon.svg", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -20,25 +20,33 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+async function putSafe(cache, request, response) {
+  if (response && response.ok && response.type === "basic") {
+    await cache.put(request, response.clone()).catch(() => undefined);
+  }
+  return response;
+}
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
 
   try {
     const response = await fetch(request);
-    if (response && response.ok && response.type === "basic") {
-      cache.put(request, response.clone()).catch(() => undefined);
-    }
-    return response;
+    return putSafe(cache, request, response);
   } catch (error) {
     const cached = await cache.match(request, { ignoreSearch: false });
     if (cached) return cached;
-
-    if (request.mode === "navigate") {
-      return cache.match("./index.html") || cache.match("./");
-    }
-
-    throw error;
+    return cache.match("./index.html") || cache.match("./") || Promise.reject(error);
   }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request, { ignoreSearch: false });
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  return putSafe(cache, request, response);
 }
 
 self.addEventListener("fetch", (event) => {
@@ -48,5 +56,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(networkFirst(request));
+  // HTML stays network-first so deployments appear immediately. Versioned
+  // CSS/JS URLs are safe to cache-first and make repeat launches much faster.
+  event.respondWith(request.mode === "navigate" ? networkFirst(request) : cacheFirst(request));
 });

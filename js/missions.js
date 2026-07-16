@@ -1,13 +1,13 @@
 // js/missions.js — kompatible Hülle um die bestehende Minigame-Bibliothek
 //
-// Alle bisherigen Minigames bleiben unverändert in missions_core.js. Nur der
-// MIND SWEEPER wird hier ersetzt: mehr Denkzeit, sicherer erster Tap und ein
-// Abschluss, der aus dem tatsächlichen Feldzustand statt einem fragilen Zähler
-// berechnet wird.
+// MIND SWEEPER besitzt weiterhin seine mobile, sicher abschließende Variante.
+// Danach erhält jedes Minigame zentral seine passende Fairness-Regel:
+// Denkspiele = Fehlerbudget, Reflexspiele = Countdown, beide = Tempo-Bonus.
 export * from "./missions_core.js";
 
 import { game } from "./core.js";
 import { sfx } from "./sfx.js";
+import { applyMinigameRules } from "./minigameRules.js";
 import {
   createMinigame as createCoreMinigame,
   localPos,
@@ -35,9 +35,7 @@ function makeMindSweeper({ diff, mods, timeMult = 1, corrupt = false }) {
   const trapCount = Math.min(9, 3 + Math.round(diff * 3) + (corrupt ? 2 : 0));
   const safeGoal = total - trapCount;
 
-  // Ein Logikspiel braucht Denkzeit. Der alte Wert von ungefähr 14–22 Sekunden
-  // war für 25 Felder faktisch ein Reflexspiel. Selbst DUNKEL-LAYER behalten
-  // jetzt ein spielbares Minimum, ohne Zeit-Boni zu entwerten.
+  // Nur noch Leistungsreferenz für den Adapter; kein tödlicher Countdown.
   const scaledTime = (40 - diff * 6 + mods.timeBonus + (corrupt ? 4 : 0)) * timeMult;
   let timeLimit = Math.max(28, scaledTime);
 
@@ -113,8 +111,6 @@ function makeMindSweeper({ diff, mods, timeMult = 1, corrupt = false }) {
   }
 
   function updateSolvedState() {
-    // Nicht der hochgezählte Wert entscheidet, sondern der reale Zustand des
-    // Feldes. Damit endet das Spiel auch nach Flood-Fills und Assists zuverlässig.
     solved = cells.length > 0 && safeRemaining() === 0;
   }
 
@@ -145,8 +141,6 @@ function makeMindSweeper({ diff, mods, timeMult = 1, corrupt = false }) {
     const hit = cells[index];
     if (!firstPick || !hit?.trap) return;
 
-    // Der erste Tap ist garantiert sicher. Die Mine wird auf ein anderes,
-    // geschlossenes Feld verschoben und die Zahlen werden neu berechnet.
     const candidates = cells
       .map((cell, candidateIndex) => ({ cell, candidateIndex }))
       .filter(({ cell, candidateIndex }) => candidateIndex !== index && !cell.trap && !cell.revealed);
@@ -219,8 +213,6 @@ function makeMindSweeper({ diff, mods, timeMult = 1, corrupt = false }) {
       const hit = cells[index];
 
       if (hit.trap) {
-        // Eine bereits entdeckte Falle ist bekanntes Terrain. Wiederholtes
-        // Tippen darf nicht erneut Fehler stapeln oder Sounds spammen.
         if (hit.knownTrap) {
           sfx.tap();
           return;
@@ -295,7 +287,7 @@ function makeMindSweeper({ diff, mods, timeMult = 1, corrupt = false }) {
       const revealed = safeRevealed();
       const hint = timerStarted
         ? "ZAHLEN = FALLEN IM UMKREIS · NUR SICHERE FELDER ÖFFNEN"
-        : "ERSTER TAP IST SICHER · DANN LÄUFT DIE ZEIT";
+        : "ERSTER TAP IST SICHER · KEIN ZEITLIMIT";
       setHud(`${revealed} / ${safeGoal}`, timer, timeLimit, hint);
 
       if (paused || finished) return;
@@ -305,9 +297,6 @@ function makeMindSweeper({ diff, mods, timeMult = 1, corrupt = false }) {
       if (solved) {
         finished = true;
         report({ success: true, score: safeGoal * 3, misses });
-      } else if (timer >= timeLimit) {
-        finished = true;
-        report({ success: false, score: 0, misses });
       }
     }
   };
@@ -318,7 +307,7 @@ export function createMinigame(type, options) {
     ? makeMindSweeper(options)
     : createCoreMinigame(type, options);
 
-  // Gleicher Debug-Hook wie bisher, auch für die ersetzte Variante.
-  window.__NEON_MG = instance.debug;
-  return instance;
+  const ruled = applyMinigameRules(instance, type, options, { game, localPos, playRect });
+  window.__NEON_MG = ruled.debug;
+  return ruled;
 }

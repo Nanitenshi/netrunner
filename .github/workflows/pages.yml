@@ -17,14 +17,15 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Validate web build
         run: |
@@ -62,6 +63,23 @@ jobs:
           test -f css/style.css
           test -f icon.svg
           test -f sw.js
+
+      - name: Install smoke-test dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run runtime smoke tests
+        run: npm run test:smoke
+
+      - name: Upload failed smoke-test report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: pages-smoke-report
+          path: playwright-report/
+          retention-days: 7
 
       - name: Cache-bust CSS and module graph
         env:
@@ -106,4 +124,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
-          exclude_assets: ".github"
+          exclude_assets: ".github,node_modules,tests,playwright-report,test-results,package.json,package-lock.json,playwright.config.js"

@@ -1,7 +1,7 @@
 # BatusMTG – optional Forge integration prototype
 
 This is a separate experimental match engine, not a replacement for the casual table.
-`BatusForge.java` is licensed under GPL-3.0-or-later (see LICENSE). It links against
+The Java bridge sources are licensed under GPL-3.0-or-later (see LICENSE). It links against
 Card-Forge 2.0.15. Forge and its card scripts are supplied separately:
 https://github.com/Card-Forge/forge/releases/tag/forge-2.0.15
 
@@ -12,7 +12,9 @@ priority and cleanup discards. Forge pays actual mana and resolves the results.
 The standard fixture still contains Grizzly Bears, Swords to Plowshares,
 Counterspell, Raise the Alarm and Divination. The new **Effektentscheidungen**
 fixture contains Preordain, Impulse, Innocent Blood, You Meet in a Tavern,
-Raise the Alarm and Man-o'-War, with Soul's Attendant on the battlefield.
+Raise the Alarm and Man-o'-War, with Soul's Attendant on the battlefield. The separate **Kampf** fixture provides
+Grizzly Bears, Air Elemental, Silvercoat Lion, Fencing Ace, Vampire Nighthawk and
+Colossal Dreadmaw for human combat decisions.
 
 HumanDecisions bridges synchronous Forge callbacks to online input. The game
 executor pauses for Scry/Surveil, card/entity selections, ordering, sacrifices
@@ -41,9 +43,19 @@ Forge's land/timing restrictions and land counts reset on actual turn changes.
 The single-phase adapter pins Forge 2.0.15 private hook names via reflection;
 it never resets the game to fake a new turn. Regression tests are mandatory
 before upgrading Forge.
-No commander selection, interactive combat, mulligans, arbitrary decks,
+No commander selection, mulligans, arbitrary decks,
 four-player games or persistence are implemented.
-Combat phases currently pass with no attackers. This is not a full game yet.
+The combat fixture exposes an explicit attack action, human attacker and blocker
+selection on the board, and damage allocation for multiple recipients or trample.
+Forge checks attack/block constraints, handles first/double strike, flying,
+deathtouch, lifelink, simultaneous damage and state-based deaths. Both players
+receive response windows before declarations and damage. Invalid global block
+or damage combinations require a corrected choice. Simultaneous graveyard moves
+may require the owner to order cards. Damage choices are limited to 128 points.
+Only the opposing player can be attacked in this fixture; planeswalkers, battles,
+banding, special attack costs and unusual damage assignment are not validated.
+The original fixtures continue to skip attacking when ending a turn.
+This is still not a full Commander game.
 Both clients' match ends if either explicitly leaves. Reload reconnects to the
 in-memory match; server restart loses experimental matches.
 
@@ -55,7 +67,7 @@ request IDs prevent racing and duplicate casts. Maximum two experimental rooms.
 ## Opt-in setup
 
 Requires Java 17, the unpacked official Forge 2.0.15 desktop release including
-`res`, and compiled BatusForge classes. Compile **both BatusForge.java and HumanDecisions.java** using Java 17 with explicit UTF-8 source encoding (`-encoding UTF-8`)
+`res`, and compiled BatusForge classes. Compile **all three BatusForge.java, HumanDecisions.java and HumanCombat.java** using Java 17 with explicit UTF-8 source encoding (`-encoding UTF-8`)
 against `forge-gui-desktop-2.0.15-jar-with-dependencies.jar`.
 
 Set **all three** server environment variables to absolute paths:
@@ -74,9 +86,10 @@ linked bridge. MTG card images and scripts have separate third-party rights.
 
 ## Next milestone
 
-Implement human combat, audit remaining controller callbacks and non-mana costs,
+Audit remaining controller callbacks, special combat rules and non-mana costs,
 then validate genuine Commander decks before general release.
 
 With FORGE_JAVA, FORGE_RUNTIME and FORGE_CLASSES set, run
-`node scripts/test-forge.mjs` and `node scripts/test-forge-decisions.mjs`
+`node scripts/test-forge.mjs`, `node scripts/test-forge-decisions.mjs` and
+`node scripts/test-forge-combat.mjs`
 for the real engine regression tests.

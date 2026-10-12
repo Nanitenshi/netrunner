@@ -2,7 +2,7 @@ import {spawn,type ChildProcessWithoutNullStreams} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {delimiter,resolve} from 'node:path';
 import type {ForgeAction,ForgeState} from '../shared/forge-protocol.ts';
-export interface ForgeConfig {java:string;runtime:string;classes:string;scenario?:'standard'|'decisions'}
+export interface ForgeConfig {java:string;runtime:string;classes:string;scenario?:'standard'|'decisions'|'combat'}
 export class ForgeWorker {
  private process:ChildProcessWithoutNullStreams;
  private pending=new Map<string,{resolve:(v:any)=>void;reject:(e:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
@@ -11,7 +11,7 @@ export class ForgeWorker {
  readonly ready:Promise<ForgeState>;
  constructor(config:ForgeConfig,onFailure:()=>void,onUpdate:(state:ForgeState,error?:string)=>void=()=>{}){
   this.onFailure=onFailure;
-  this.process=spawn(config.java,['-Xmx768m','-Dfile.encoding=UTF-8','-Djava.awt.headless=true','-cp',[resolve(config.runtime,'forge-gui-desktop-2.0.15-jar-with-dependencies.jar'),config.classes].join(delimiter),'BatusForge',...(config.scenario==='decisions'?['--decisions']:[])],{cwd:config.runtime,windowsHide:true});
+  this.process=spawn(config.java,['-Xmx768m','-Dfile.encoding=UTF-8','-Djava.awt.headless=true','-cp',[resolve(config.runtime,'forge-gui-desktop-2.0.15-jar-with-dependencies.jar'),config.classes].join(delimiter),'BatusForge',...(config.scenario==='decisions'?['--decisions']:config.scenario==='combat'?['--combat']:[])],{cwd:config.runtime,windowsHide:true});
   this.ready=this.wait('ready',60000);
   // Drain Forge diagnostics without exposing card data or Java internals to clients.
   this.process.stderr.on('data',()=>{});

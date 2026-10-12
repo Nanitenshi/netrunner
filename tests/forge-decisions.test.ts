@@ -9,6 +9,15 @@ test('Scry snapshots hide options, private prompts and their source from the oth
  assert(!JSON.stringify(projectForge(state,1)).includes('Hidden source'));
  assert.equal(projectForge(state,0).choice?.options[0].name,'Private card');
 });
+
+test('discard cost candidates and prompts remain private while a spell is being announced',()=>{
+ const state:ForgeState={cards:[],stack:[],life:[40,40],active:0,priority:0,passes:0,turn:1,log:[],choice:{id:'cost',seat:0,kind:'cost',count:1,min:1,max:1,title:'Private cost prompt',source:'Tormenting Voice',options:[{id:'hand-secret',name:'Private hand card',kind:'card'}]}};
+ const opponent=projectForge(state,1);
+ assert(!JSON.stringify(opponent).includes('hand-secret'));
+ assert(!JSON.stringify(opponent).includes('Private'));
+ assert.equal(projectForge(state,0).choice?.options[0].id,'hand-secret');
+ assert(forgeActionSchema.safeParse({type:'choose',choiceId:'b40d1f76-c75b-44a3-920f-1026c9ff095f',answer:false}).success);
+});
 test('decision answers have strict bounded inputs without a client-provided player or game state',()=>{
  const id='b40d1f76-c75b-44a3-920f-1026c9ff095f';
  assert(forgeActionSchema.safeParse({type:'choose',choiceId:id,answer:false}).success);

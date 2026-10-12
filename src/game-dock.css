@@ -1,0 +1,132 @@
+/* Game controls stay close to the table, with large targets and quiet labels. */
+.tabletop-app {--dock-bottom:calc(clamp(195px,25vh,230px) * var(--hand-scale,1) + 34px);}
+.tabletop-app .mechanics {height:0;min-height:0;border:0;position:static;flex:0 0 0;}
+.tabletop-app .mechanics-bar {position:fixed;z-index:55;left:0;right:0;margin:0 auto;bottom:var(--dock-bottom);transform:none;width:max-content;max-width:calc(100vw - 32px);min-height:62px;padding:8px 10px;gap:8px;justify-content:center;border:1px solid #91cbbb50;border-radius:23px;background:linear-gradient(140deg,#132d32f5,#171e30f5);backdrop-filter:none;box-shadow:0 10px 38px #0009,0 0 26px #7ad2b616;}
+.tabletop-app .mechanics-bar button {min-width:44px;min-height:44px;border-radius:15px;padding:10px;justify-content:center;gap:7px;}
+.tabletop-app .mechanics-bar .dock-label,.tabletop-app .stack-top-title,.tabletop-app .mana-mini {display:none;}
+.tabletop-app .mechanics-bar svg {width:23px;height:23px;flex-shrink:0;}
+.tabletop-app .mechanics-bar .phase-controls button {font-size:13px;min-height:44px;padding:10px 16px;color:#e3f6e8;border:1px solid #80d3b357;background:linear-gradient(120deg,#316250,#254048);}
+.tabletop-app .mechanics-bar .phase-controls {order:8;}
+.tabletop-app .mechanics-bar .priority-pass {order:9;background:#9cdcc3;color:#132824;border:0;}
+.tabletop-app .mechanics-bar .priority-pass .dock-label {display:inline;font-size:13px;}
+.tabletop-app .mechanics-bar .priority-state {position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px);width:max-content;min-width:0;padding:6px 12px;font-size:12px;border-radius:20px;background:#0d1a28ed;border:1px solid #79c8b633;}
+.tabletop-app .mana-quick {gap:5px;padding:0 4px;}
+.tabletop-app .mechanics-bar .mana-quick button {min-width:38px;min-height:38px;width:38px;height:38px;padding:3px;border-radius:50%;font-size:12px;gap:3px;}
+.tabletop-app .mana-quick b {font-size:13px;}
+.tabletop-app .mechanics-bar .mana-toggle,.tabletop-app .mechanics-bar .stack-toggle {font-size:13px;}
+.tabletop-app .stack-toggle b {font-size:16px;}
+.tabletop-app .mana-popover,.tabletop-app .correction-popover,.tabletop-app .effect-popover {position:fixed!important;z-index:65;left:0!important;right:0!important;margin:0 auto;top:auto!important;bottom:calc(var(--dock-bottom) + 86px)!important;transform:none!important;animation:none!important;max-width:calc(100vw - 24px);max-height:calc(100vh - var(--dock-bottom) - 160px);overflow:auto;border-radius:20px;}
+.tabletop-app .choice-tray {bottom:calc(var(--dock-bottom) + 82px);border-radius:20px;max-height:calc(100vh - var(--dock-bottom) - 170px);}
+.tabletop-app .stack-panel {top:104px;bottom:calc(var(--dock-bottom) + 80px);max-height:none;height:auto;border-radius:22px;overflow:auto;}
+.tabletop-app .tt-shell {position:relative;padding-bottom:78px;}
+.tabletop-app .tt-toolbar {position:absolute;z-index:60;bottom:82px;left:16px;right:auto;width:min(440px,calc(100% - 32px));height:auto;min-height:80px;display:flex;flex-wrap:wrap;gap:12px;padding:16px;border-radius:20px;background:#14252bf5;border:1px solid #93c6b94a;box-shadow:0 12px 40px #0008;}
+.tabletop-app .tt-view-tools,.tabletop-app .tt-layout-tools {flex-wrap:wrap;gap:8px;}
+.tabletop-app .tt-toolbar button {min-height:40px;min-width:40px;font-size:12px;border-radius:10px;}
+.tabletop-app .tt-toolbar select {min-height:40px;font-size:12px;}
+.camera-tools-trigger {position:absolute;z-index:50;bottom:15px;left:18px;width:48px;height:48px;display:grid;place-items:center;border:1px solid #93c6b94a;border-radius:50%;background:#152b33e8;color:#b7d7d1;box-shadow:0 6px 20px #0005;}
+.tabletop-app .tt-random-tools {position:absolute;top:auto!important;right:18px!important;bottom:15px!important;left:auto!important;z-index:60;}
+.tabletop-app .tt-random-tools>button {width:48px;height:48px;min-width:48px;display:grid;place-items:center;padding:0;border-radius:50%;border:1px solid #cfb79050;background:#2b2a34ed;color:#e6d2a7;}
+.tabletop-app .random-panel {top:auto;bottom:64px;right:0;border-radius:20px;max-height:calc(100vh - var(--dock-bottom) - 100px);overflow:auto;}
+.tabletop-app .tt-player-nav {padding:8px 14px;border:0;background:none;gap:10px;}
+.tabletop-app .tt-player-tab {border-radius:22px;min-height:42px;padding:5px 12px;box-shadow:none;}
+.tabletop-app .tt-player-tab img {width:30px;height:30px;border-radius:50%;}
+.tabletop-app .tt-player-tab small,.tabletop-app .tt-player-tab kbd {display:none;}
+.tabletop-app .tt-player-tab strong {font-size:23px;}
+.tabletop-app .tt-player-tab b {font-size:12px;}
+.tabletop-app .tt-overview-button {width:44px;min-width:44px;border-radius:50%;padding:9px;justify-content:center;}
+.tabletop-app .tt-overview-button span,.tabletop-app .tt-overview-button kbd {display:none;}
+.tabletop-app .tt-view-caption {display:none;}
+.tabletop-app .hand-actions {display:flex;flex-wrap:wrap;gap:8px;width:110px;right:16px;top:50%;bottom:auto!important;height:auto;transform:translateY(-50%);}
+.tabletop-app .hand-actions button {width:48px!important;height:48px!important;min-width:48px!important;max-width:48px;flex:0 0 48px;margin:0!important;padding:0;display:grid;place-items:center;border-radius:15px;font-size:0;background:#153136aa;border:1px solid #98cdb63b;}
+.tabletop-app .hand-actions button.primary {background:#29564c;color:#d1eee1;}
+.tabletop-app .hand-cards {width:calc(100% - 140px);}
+.tabletop-app .cast-commander {width:38px;height:34px;display:grid;place-items:center;margin:4px auto;border-radius:12px;}
+.card-near-actions {position:fixed!important;z-index:58;transform:translateX(-50%);width:max-content;max-width:min(480px,calc(100vw - 16px));height:auto!important;min-height:54px;display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:7px!important;background:#15272ff5!important;border:1px solid #a0d8c06b!important;border-radius:18px!important;box-shadow:0 8px 26px #0008;backdrop-filter:blur(20px);}
+.card-near-actions>span {display:none;}
+.card-near-actions button {width:38px;min-width:38px;min-height:38px;padding:7px;display:flex;justify-content:center;align-items:center;border:0;border-radius:11px;background:#709f9730;color:#d9eee6;}
+.card-near-actions button span {display:none;}
+.card-near-actions .selection-counter-pair {display:flex;align-items:center;gap:4px;padding:0 4px;border-left:1px solid #ffffff25;border-right:1px solid #ffffff25;}
+.card-near-actions .selection-counter-pair>span {font-size:12px;color:#d9eee6;}
+.tabletop-app button:focus-visible,.card-near-actions button:focus-visible {outline:2px solid #9adeca;outline-offset:3px;}
+.tabletop-app .choice-tray {position:fixed;z-index:66;top:auto;left:0;right:0;margin:0 auto;transform:none!important;animation:none!important;max-height:calc(100dvh - var(--dock-bottom) - 160px);overflow:auto;}
+.tabletop-app .choice-tray.search-tray {max-height:calc(100dvh - var(--dock-bottom) - 160px);overflow:auto;}
+.tabletop-app .mana-popover {width:min(530px,calc(100vw - 24px));}
+.tabletop-app .random-panel {position:fixed;top:auto!important;right:18px;bottom:calc(var(--dock-bottom) + 86px);width:min(420px,calc(100vw - 36px));max-height:calc(100dvh - var(--dock-bottom) - 160px);animation:none!important;transform:none!important;}
+.tabletop-app .game-activity {top:144px;bottom:auto;right:18px;padding:9px 13px;border-radius:14px;pointer-events:none;}
+.tabletop-app .game-activity small {display:none;}
+.tabletop-app .hand-actions svg {width:24px;height:24px;}
+@media(max-width:600px){.tabletop-app .hand-actions button{width:40px!important;height:40px!important;min-width:40px!important;max-width:40px;flex-basis:40px}.tabletop-app .mechanics-bar{max-width:calc(100vw - 132px)}.tabletop-app .mechanics-actions svg:last-child{display:block}.tabletop-app .stack-toggle::before,.tabletop-app .priority-pass::before{content:none}}
+@media(max-width:900px){.tabletop-app .mechanics-bar{gap:5px;padding:7px;max-width:calc(100vw - 144px);flex-wrap:wrap}.tabletop-app .mechanics-bar button{min-width:40px;min-height:40px;padding:8px}.tabletop-app .mechanics-bar .mana-quick button{min-width:32px;min-height:32px;width:32px;height:32px}.tabletop-app .mechanics-bar .phase-controls button{padding:8px 10px;font-size:12px}.tabletop-app .tt-player-tab b{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tabletop-app .tt-shell{padding-bottom:112px}.tabletop-app .tt-player-nav{gap:5px;padding:6px}.tabletop-app .tt-player-tab{padding:4px 8px;gap:5px}.tabletop-app .tt-player-tab strong{font-size:19px}.tabletop-app .mechanics-bar .priority-pass .dock-label{display:none}}
+@media(max-width:600px){.tabletop-app .mechanics-bar{max-width:calc(100vw - 132px);gap:4px}.tabletop-app .mechanics-bar .mana-quick button{min-width:28px;min-height:32px;width:28px}.tabletop-app .tt-player-tab b{display:none}.tabletop-app .tt-player-tab img{width:24px;height:24px}.tabletop-app .tt-shell{padding-bottom:112px}.tabletop-app .hand-actions{width:88px;right:10px;gap:4px}.tabletop-app .hand-actions button{width:40px;height:40px;min-width:40px}.tabletop-app .hand-cards{width:calc(100% - 100px)}.camera-tools-trigger{left:10px}.tabletop-app .tt-random-tools{right:10px}.card-near-actions{gap:3px}.card-near-actions button{min-width:34px;min-height:34px;width:34px}}
+.tabletop-app .hand-actions {flex-direction:row;padding-top:0}.tabletop-app .hand-actions .snap-toggle {display:grid;}
+.tabletop-app .hand-dock,.tabletop-app .hand-dock.with-selection {--hand-height:calc(clamp(195px,25vh,230px)*var(--hand-scale,1));height:var(--hand-height);min-height:var(--hand-height);max-height:var(--hand-height)}
+.tabletop-app .hand-slot {width:calc(clamp(100px,12vh,130px)*var(--hand-scale,1))}
+.tabletop-app .hand-cards .hand-slot .card {--w:calc(clamp(100px,12vh,130px)*var(--hand-scale,1));width:var(--w)}
+.tabletop-app .choice-card {width:160px;min-width:160px;border-radius:14px;padding:8px}
+.tabletop-app .choice-card img {width:144px;height:201px;border-radius:8px}
+.tabletop-app .choice-card b {font-size:12px;line-height:1.3}
+.tabletop-app .choice-cards {max-height:300px;overflow:auto;gap:12px}
+.tabletop-app .library-search-results.choice-cards {grid-template-columns:repeat(auto-fill,minmax(145px,1fr))}
+.tabletop-app .library-search-results .choice-card {width:auto;min-width:0}
+.token-tools {display:grid;grid-template-columns:1fr 85px;gap:12px;align-items:end}
+.token-grid {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.mechanics .token-grid button {padding:12px;justify-content:flex-start;background:#91c2b312;border:1px solid #91c2b335;border-radius:12px;min-height:52px}
+.token-grid button>span {flex:1;text-align:left}.token-grid small {display:block;font-size:11px;opacity:.7;margin-top:4px}
+.token-panel>small {font-size:11px;line-height:1.5;color:#9fb8bc}
+.hidden-card-play {max-width:240px;margin:8px 0;font-size:12px}.hidden-card-play label {display:flex;gap:6px;align-items:start;line-height:1.5}.hidden-card-play button {padding:10px;border:1px solid #85c8b44a;border-radius:10px;background:#315347;margin-top:8px}
+.tabletop-app .pile-cards {position:relative;display:block;border-radius:6px;border:1px solid #b3c6b74a;box-shadow:3px 3px 0 #25444d,5px 5px 0 #131f29,7px 7px 0 #6c8a8c55;transform:rotate(-3deg)}
+.tabletop-app .tt-deck-back {width:48px;height:67px}.tabletop-app .pile-cards img {width:100%;height:100%;object-fit:cover;border-radius:5px}
+.tabletop-app .public-pile {width:43px;height:60px;margin:2px auto 8px}.tabletop-app .empty-pile {display:grid;place-items:center;box-shadow:none;transform:none;border-style:dashed}
+.tabletop-app .tt-public-zones>button {min-height:105px}.tabletop-app .tt-library-pile {min-height:85px}
+.card-action-menu>button {min-height:40px;font-size:13px}.card-action-menu {border-radius:18px!important}
+@media(max-height:800px){.tabletop-app .choice-card {width:145px;min-width:145px}.tabletop-app .choice-card img {width:129px;height:180px}.tabletop-app .tt-command-zone .card {--w:50px}.tabletop-app .public-pile {width:32px;height:45px}.tabletop-app .tt-public-zones>button {min-height:82px}.tabletop-app .tt-deck-back {width:36px;height:50px}}
+.tabletop-app {--dock-bottom:164px}
+.tabletop-app .hand-dock,.tabletop-app .hand-dock.with-selection {position:absolute;left:0;right:0;bottom:22px;z-index:50;height:205px;min-height:0;max-height:none;border:0;padding:20px 145px 4px 12px;overflow:visible;background:linear-gradient(0deg,#08111ddd,transparent 90%);pointer-events:none}
+.tabletop-app .hand-cards {width:100%;height:100%;justify-content:center;align-items:flex-end;padding:0 0 6px;overflow:visible;gap:0;pointer-events:none}
+.tabletop-app .hand-slot {width:calc(clamp(100px,14vh,140px)*var(--hand-scale,1.1));margin-left:calc(-1 * var(--hand-overlap,0px));transform:translateY(var(--fan-rise,0px)) rotate(var(--fan-angle,0deg));transform-origin:50% 100%;transition:transform .14s;pointer-events:auto}
+.tabletop-app .hand-slot:first-child {margin-left:0}.tabletop-app .hand-slot:hover,.tabletop-app .hand-slot:focus-within {transform:translateY(-24px) rotate(0deg);z-index:60!important}
+.tabletop-app .hand-cards .hand-slot .card {--w:calc(clamp(100px,14vh,140px)*var(--hand-scale,1.1));width:var(--w)}
+.tabletop-app .hand-slot>span {display:none}.tabletop-app .hand-label {top:auto;bottom:4px;left:15px;right:auto}.tabletop-app .hand-label>span:last-child {display:none}
+.tabletop-app .hand-actions {pointer-events:auto;top:auto;bottom:18px!important;transform:none}
+.tabletop-app .tt-shell {padding-bottom:130px}
+.tabletop-app .mana-popover,.tabletop-app .effect-popover,.tabletop-app .correction-popover,.tabletop-app .choice-tray,.tabletop-app .choice-tray.search-tray,.tabletop-app .random-panel {top:146px!important;bottom:auto!important;max-height:min(650px,calc(100dvh - 170px))!important;overflow:auto}
+@media(min-width:1000px){.tabletop-app .mechanics-bar {top:145px;bottom:auto;min-height:54px;padding:5px 8px}.tabletop-app .mechanics-bar .priority-state {bottom:auto;top:calc(100% + 5px)}}
+@media(max-width:999px){.tabletop-app .tt-shell {padding-bottom:190px}.tabletop-app .hand-dock {padding-right:115px}.tabletop-app .hand-actions {right:8px}.tabletop-app .mechanics-bar {bottom:210px}}
+.tabletop-app .hand-dock {padding-left:145px}.tabletop-app .hover-zoom {width:min(320px,calc(100vw - 24px))}.tabletop-app .hand-cards .card {box-shadow:0 6px 22px #000a} @media(max-width:999px){.tabletop-app .hand-dock{padding-left:115px}} @media(max-width:800px){.tabletop-app .hand-actions .quick-counters,.tabletop-app .hand-actions .snap-toggle,.tabletop-app .hand-actions>button:nth-child(3){display:none}.tabletop-app .hand-actions{width:48px}}
+@media(min-width:1000px){.tabletop-app .mana-popover,.tabletop-app .effect-popover,.tabletop-app .correction-popover,.tabletop-app .choice-tray,.tabletop-app .choice-tray.search-tray,.tabletop-app .random-panel{top:215px!important;max-height:min(650px,calc(100dvh - 240px))!important}.tabletop-app .stack-panel{top:215px}} @media(max-width:999px){.tabletop-app .mana-popover,.tabletop-app .effect-popover,.tabletop-app .correction-popover,.tabletop-app .choice-tray,.tabletop-app .choice-tray.search-tray,.tabletop-app .random-panel{top:140px!important;max-height:calc(100dvh - 440px)!important}}
+
+.tabletop-app .hand-cards {justify-content:safe center;overflow-x:auto;overflow-y:hidden;height:calc(100% + 42px);margin-top:-42px;padding-top:42px;scrollbar-width:thin;scrollbar-color:#80b8aa55 transparent}
+
+.tabletop-app .hand-actions {position:absolute}.tabletop-app .hand-cards {padding:42px 28px 6px;min-width:0}
+
+/* Compact frame leaves more room for the shared table at every player count. */
+.tabletop-app .tt-shell {padding-bottom:100px}
+.tabletop-app .tt-mat-body {grid-template-columns:minmax(0,1fr) 118px;gap:10px}
+.tabletop-app .tt-mat {padding-left:12px;padding-right:12px}
+.tabletop-app .tt-mat-heading {height:48px;min-height:48px}
+.tabletop-app .tt-mat-footer {height:22px;min-height:22px}
+.tabletop-app .reaction-modes {display:flex;align-items:center;gap:3px;border-left:1px solid #97c9ba30;padding-left:8px}
+.tabletop-app .reaction-modes>span {font-size:10px;color:#a2bbb7;margin-right:5px}
+.tabletop-app .reaction-modes button {min-width:43px!important;min-height:35px!important;border:0;border-radius:10px;padding:5px 8px!important;font-size:12px!important;background:transparent}
+.tabletop-app .reaction-modes button[aria-pressed=true] {background:#8bdbbf30;color:#ccf3de;box-shadow:inset 0 0 0 1px #9fd9c862}
+.tabletop-app .tt-board-zoom {display:flex;align-items:center;gap:6px;font-size:11px}.tt-board-zoom input {width:70px}
+.tabletop-app .life-total {width:auto;height:auto;border:0;background:none;padding:0 4px;border-radius:12px}
+.life-popover {position:fixed;z-index:68;top:215px;right:20px;width:min(340px,calc(100vw - 24px));background:#12242ef5;border:1px solid #9edbc26b;border-radius:20px;padding:16px;box-shadow:0 18px 60px #000a}
+.life-popover header {display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.life-popover button {min-height:38px;border-radius:10px;border:1px solid #91bdb344;background:#72af9922;color:#d7eee4;padding:6px 10px}.life-popover input {width:80px;margin-left:8px}.life-presets {display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}.life-popover form {display:flex;flex-wrap:wrap;gap:7px}.life-popover label {width:100%;display:flex;align-items:center;justify-content:space-between}.life-popover small {display:block;margin-top:12px;color:#a3bfb7;font-size:11px}
+.tabletop-app .tt-deck-back {border-color:var(--pile-color,#8dd6c0);box-shadow:4px 3px 0 #142637,7px 5px 0 var(--pile-color,#526f67);overflow:hidden;position:relative}
+.tabletop-app .tt-deck-back img {width:100%;height:100%;object-fit:cover;filter:brightness(.65) saturate(.8)}
+.tabletop-app .tt-deck-back i {position:absolute;inset:0;display:grid;place-items:center;color:#effaf2;background:linear-gradient(0deg,#081926b0,transparent);font-size:22px;text-shadow:0 2px 8px #000}
+.tabletop-app .tt-public-zones>button:first-child {background:#211b2533;border-color:#c5a4ab44}.tabletop-app .empty-pile {color:#a994a6;border-color:#b095a455}.tabletop-app .public-pile.has-cards {box-shadow:4px 3px 0 #332d39,7px 5px 0 #544653}
+.token-grid button img {width:58px;height:80px;object-fit:cover;border-radius:7px}.token-grid button {min-height:94px!important}.token-grid {grid-template-columns:repeat(2,minmax(0,1fr))!important}
+@media(max-width:999px){.tabletop-app .tt-shell{padding-bottom:170px}.tabletop-app .reaction-modes>span{display:none}.tabletop-app .mechanics-bar{max-width:calc(100vw - 24px)}.tabletop-app .tt-mat-body{grid-template-columns:minmax(0,1fr) 100px}.tabletop-app .reaction-modes{padding-left:5px}.life-popover{top:145px}}
+
+.tabletop-app .mechanics {z-index:62}
+.tabletop-app .reaction-modes button[aria-pressed=false] {background:transparent!important;border-color:transparent!important;color:#97b2aa}.tabletop-app .reaction-modes button[aria-pressed=true] {font-weight:700;color:#e6ffee;box-shadow:inset 0 0 0 1px #a1e9ca,0 0 14px #69be981c}
+.tabletop-app .tt-public-zones>button {min-height:84px}.tabletop-app .public-pile {width:32px;height:45px}.tabletop-app .tt-library-pile {min-height:65px}.tabletop-app .tt-mat-rail {gap:7px}
+.tabletop-app:has(.tt-overview) .hand-cards {transform:translateY(105px);transition:transform .2s}.tabletop-app:has(.tt-overview) .hand-cards:hover,.tabletop-app:has(.tt-overview) .hand-cards:focus-within {transform:translateY(0)}
+
+.tabletop-app .tt-public-zones {min-height:104px}.tabletop-app .tt-public-zones small {font-size:8px;letter-spacing:.2px}
+.tabletop-app .tt-focus:not(.tt-freecam) .tt-mat:not(.tt-mat-focused) {visibility:hidden}
+
+.tabletop-app .token-panel {width:min(740px,calc(100vw - 24px))}.token-tabs {display:flex;gap:6px;margin-bottom:12px}.token-tabs button {flex:1;justify-content:center;border-radius:12px!important;padding:10px!important}.token-tabs button[aria-pressed=true] {background:#8acbb72a;border-color:#8dcab17a;color:#e0f4e9}.token-filters {display:flex;align-items:center;justify-content:space-between;gap:14px}.token-filters label {min-width:130px}.token-filters>span {font-size:12px;color:#a8c8bd}.tabletop-app .token-panel .token-grid {grid-template-columns:repeat(3,minmax(0,1fr))!important}.token-grid button>span {min-width:0;white-space:normal}.token-grid .token-ability {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;font-size:10px;white-space:normal}.token-grid button img {flex-shrink:0}.token-pages {display:flex;justify-content:center;gap:12px;align-items:center;margin:14px 0}.token-pages button {padding:8px!important}.token-pages span {color:#bfd8cd;font-size:12px}
+@media(max-width:800px){.tabletop-app .token-panel .token-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

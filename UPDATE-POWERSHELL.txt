@@ -1,0 +1,21 @@
+Diese drei Befehle nacheinander in derselben PowerShell ausführen.
+Die Datei batusmtg-server.tar.gz muss nicht geöffnet oder entpackt werden.
+
+1. Schlüsselpfad:
+
+$gameKey = 'C:\Users\Batuh\Documents\Codex\2026-10-04\ic\work\hosting\batusmtg_ed25519'
+
+2. Update hochladen:
+
+& "C:\Windows\System32\OpenSSH\scp.exe" -o IdentitiesOnly=yes -i "$gameKey" "C:\Users\Batuh\Documents\Codex\2026-10-04\ic\outputs\commander\releases\server\batusmtg-server.tar.gz" root@2.29.40.106:/root/batusmtg-server.tar.gz
+
+3. Sichern und installieren:
+
+& "C:\Windows\System32\OpenSSH\ssh.exe" -o IdentitiesOnly=yes -i "$gameKey" root@2.29.40.106 "cd /opt/batusmtg && docker compose --env-file .env.production exec -T app node scripts/backup.mjs && tar -xzf /root/batusmtg-server.tar.gz -C /opt/batusmtg && docker compose --env-file .env.production up -d --build && docker compose --env-file .env.production ps"
+
+4. Prüfen:
+
+Invoke-RestMethod 'https://batusmtg.2-29-40-106.sslip.io/healthz'
+
+Bei ok = True das Spiel öffnen und Strg + F5 drücken:
+https://batusmtg.2-29-40-106.sslip.io/

@@ -1,0 +1,44 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
+    environment:
+      NODE_ENV: production
+      PUBLIC_URL: https://${DOMAIN:?Domain in .env.production eintragen}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?Discord Client ID fehlt}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:?Discord Client Secret fehlt}
+      ENABLE_GUEST: "false"
+      TRUST_PROXY: "true"
+      DATABASE_PATH: /app/data/nexus.sqlite
+    volumes:
+      - nexus_data:/app/data
+    networks: [backend]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Domain fehlt}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [backend]
+    depends_on:
+      app:
+        condition: service_healthy
+volumes:
+  nexus_data:
+  caddy_data:
+  caddy_config:
+networks:
+  backend:

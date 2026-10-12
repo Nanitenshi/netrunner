@@ -1,0 +1,7 @@
+{$DOMAIN} {
+ encode zstd gzip
+ header Strict-Transport-Security "max-age=31536000"
+ reverse_proxy app:5173 {
+  header_up X-Nexus-Client-IP {remote_host}
+ }
+}

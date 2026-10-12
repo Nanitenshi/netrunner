@@ -1,0 +1,28 @@
+.phase-controls{display:flex;align-items:center;gap:7px;min-height:34px;padding:4px 12px;background:linear-gradient(90deg,#142831aa,#111d29dd);border-bottom:1px solid #86b5bb29;flex-shrink:0}.phase-controls button{font-size:10px;border:1px solid #8baeb83f;background:#81b5b613;border-radius:9px;padding:5px 10px;white-space:nowrap}.phase-controls button[aria-pressed=true]{border-color:#8bd4b777;color:#b5e1cd}.phase-controls small{font-size:9px;color:#9ab4b8;margin-left:auto}.tabletop-app .hand-dock,.tabletop-app .hand-dock.with-selection{--hand-height:calc(clamp(155px,21vh,185px) * var(--hand-scale,1));height:var(--hand-height);min-height:var(--hand-height);max-height:var(--hand-height);padding:32px 12px 5px;overflow:hidden}.tabletop-app .hand-cards{display:flex;align-items:flex-start;justify-content:flex-start;gap:10px;width:calc(100% - 184px);height:100%;padding:4px 6px 12px;margin:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}.hand-slot{flex:0 0 auto;display:flex;align-items:center;flex-direction:column;width:calc(clamp(76px,10vh,100px) * var(--hand-scale,1));min-width:0;gap:4px}.tabletop-app .hand-cards .hand-slot .card{--w:calc(clamp(76px,10vh,100px) * var(--hand-scale,1));width:var(--w);height:auto;max-height:none;aspect-ratio:5/7;flex-shrink:0;margin:0!important;transform:none!important;position:relative;left:auto;top:auto;border-radius:7px;transition:box-shadow .15s;touch-action:none}.tabletop-app .hand-cards .hand-slot .card:hover{box-shadow:0 0 0 2px #a3d7cd,0 0 20px #80bfc344}.hand-slot>span{display:block;max-width:100%;font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c4d6d3}.tabletop-app .hand-label{top:8px}.tabletop-app .choice-tray{bottom:calc(clamp(155px,21vh,185px) * var(--hand-scale,1) + 26px)}.phase-stop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.phase-stop-grid fieldset{border:1px solid #91b4ae38;border-radius:12px;padding:12px}.phase-stop-grid legend{font-size:12px;color:#d5d9c5}.phase-stop-grid label{display:flex;align-items:center;gap:8px;font-size:11px;margin:7px 0}.phase-settings .setting{gap:12px}
+@media(max-width:800px){.phase-controls small{display:none}.phase-controls{padding:4px 7px;gap:5px}.phase-controls button{font-size:9px;padding:5px 7px}.tabletop-app .hand-cards{width:calc(100% - 105px)}.phase-stop-grid{grid-template-columns:1fr}}
+
+/* One toolbar for actions, phase shortcuts and resources. */
+.mechanics-bar {flex-wrap:wrap;gap:6px;}
+.mechanics-bar .phase-controls {height:auto;min-height:0;border:0;padding:0;flex-shrink:0;background:none;}
+.mechanics-bar .phase-controls small {display:none;}
+.mechanics-bar .phase-controls button {font-size:10px;}
+.mechanics-bar .priority-pass small {display:none;}
+.mana-tool {display:flex;align-items:center;gap:5px;position:relative;}
+.mana-quick {display:flex;gap:3px;}
+.mana-quick button {height:27px;min-width:30px;display:flex;align-items:center;gap:4px;padding:3px 5px;border-radius:50%;border:1px solid #ffffff35;font-size:10px;}
+.mana-quick b {font-size:11px;}
+.mana-quick .mana-W {background:#eee0ab;color:#27241e;}
+.mana-quick .mana-U {background:#1c628d;color:white;}
+.mana-quick .mana-B {background:#393343;color:white;}
+.mana-quick .mana-R {background:#953f39;color:white;}
+.mana-quick .mana-G {background:#266751;color:white;}
+.mana-quick .mana-C {background:#495361;color:white;}
+.action-help {font-size:11px;opacity:.8;margin:5px 0;}
+.action-help summary {cursor:pointer;}
+.action-help p {font-size:11px;line-height:1.45;}
+@media(max-width:1100px){.mechanics-bar .priority-state{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mana-quick button{min-width:25px;padding:3px}.mechanics-bar{padding:5px 8px;}.phase-controls kbd{display:none;}}
+
+.direct-targets {display:flex;flex-wrap:wrap;gap:6px;max-height:180px;overflow:auto;margin:8px 0;}
+.direct-targets small {flex-basis:100%;color:#a8bcc7;}
+.direct-targets button {border:1px solid #70d3cc55;background:#17433c70;border-radius:10px;padding:8px 10px;font-size:12px;}
+.direct-targets button:hover {background:#24665b;border-color:#80e2cb;}

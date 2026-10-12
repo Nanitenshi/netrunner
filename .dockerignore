@@ -1,0 +1,16 @@
+node_modules
+dist
+data
+.env
+.env.*
+*.tsbuildinfo
+.git
+milestones
+tests
+work
+*.zip
+
+desktop-runtime
+releases
+desktop
+electron-builder.cjs

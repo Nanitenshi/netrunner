@@ -1,0 +1,46 @@
+import DeckActions from './DeckActions';
+import EffectSourceTags from './EffectSourceTags';
+import {Fragment} from 'react';
+import {Link2} from 'lucide-react';
+import {useState} from 'react';
+import {Search,X,ArrowDownToLine,Shuffle,Maximize2} from 'lucide-react';
+import type {CardInstance,GameAction,GameView,Zone} from '../shared/game';
+import {definition} from './seed';
+import {cardImage} from './artworks';
+import HiddenCardPlay from './HiddenCardPlay';
+import {useTablePanel} from './useTablePanel';
+
+export default function ZoneBrowser({zone,player,seat,view,dispatch,onClose,onInspect,onHover,onHoverEnd}:{zone:Zone;player:string;seat:string;view:GameView;dispatch:(a:GameAction)=>void;onClose:()=>void;onInspect:(c:CardInstance)=>void;onHover:(c:CardInstance,r:DOMRect)=>void;onHoverEnd:()=>void}){
+ const [linking,setLinking]=useState(false),[source,setSource]=useState(''),[label,setLabel]=useState(''),[groupSources,setGroupSources]=useState(false);
+ const [query,setQuery]=useState(''),[type,setType]=useState(''),[selected,setSelected]=useState<string[]>([]),[destination,setDestination]=useState<'hand'|'battlefield'|'graveyard'|'exile'|'library'>('hand'),[shuffle,setShuffle]=useState(true),[tapped,setTapped]=useState(false);
+ useTablePanel('zone-browser',true,onClose,'.zone-browser,.tt-library-pile,.tt-public-zones');
+ const own=player===seat,library=zone==='library';
+ const all=library?(own?view.libraryCards??[]:[]):view.cards.filter(c=>c.ownerId===player&&c.zone===zone).sort((a,b)=>(b.zoneOrder??0)-(a.zoneOrder??0));
+ const normalize=(v:string)=>v.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
+ const terms=normalize(query).trim().split(/\s+/).filter(Boolean);
+ let results=all.filter(c=>{const d=definition(c.cardId);return (!type||d.type.includes(type))&&terms.every(t=>normalize(`${d.name} ${d.type} ${d.text} ${(c.effectLinks??[]).map(l=>`${l.sourceName} ${l.label} ${view.players.find(p=>p.id===(l.causedById??l.actorId))?.name??''}`).join(' ')}`).includes(t));});
+const sourceKey=(c:CardInstance)=>c.effectLinks?.map(l=>l.sourceName==='Manueller Effekt'?l.label:l.sourceName).join(' · ')||'Ohne Quelle';
+ const sourceGroup=(c:CardInstance)=>c.effectLinks?.map(l=>`${l.causedById??l.actorId}:${l.sourceId??l.label}:${l.sourceIncarnation??0}`).sort().join('|')||'none';
+ if(groupSources)results=results.slice().sort((a,b)=>`${sourceKey(a)}:${sourceGroup(a)}`.localeCompare(`${sourceKey(b)}:${sourceGroup(b)}`));
+ const sources=view.cards.filter(c=>c.cardId!=='hidden-card'&&!c.faceDown&&!['hand','library'].includes(c.zone));
+ const chosen=selected.filter(id=>all.some(c=>c.id===id));
+ const r=view.rules,canMove=own&&r?.stage==='playing'&&!r.lost.includes(seat)&&(!r.pending&&!r.resolving||r.pending?.kind==='manual'&&r.pending.ownerId===seat);
+ const title=library?'Bibliothek':zone==='graveyard'?'Friedhof':'Exil';
+ const transfer=(ids=chosen)=>{dispatch({type:'libraryPick',cardIds:ids,destination,shuffle,tapped});onClose();};
+ return <section className="zone-browser" aria-label={`${title} durchsehen`}>
+  <header><div><small>{view.players.find(p=>p.id===player)?.name}</small><h2>{title}<span>{library?view.hiddenCounts[player].library:all.length}</span></h2></div><button aria-label="Kartenfenster schließen" onClick={onClose}><X size={20}/></button></header>
+  {library?<DeckActions player={player} seat={seat} view={view} dispatch={dispatch} onInspect={onInspect} onHover={onHover} onHoverEnd={onHoverEnd}/>:<>
+   <div className="zone-browser-tools"><label><Search size={18}/><input autoFocus aria-label="Karten in der Zone suchen" placeholder="Name, Typ oder Kartentext …" value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label="Suche leeren" onClick={()=>setQuery('')}><X size={14}/></button>}</label><select aria-label="Kartentyp" value={type} onChange={e=>setType(e.target.value)}><option value="">Alle Typen</option>{[['Land','Länder'],['Creature','Kreaturen'],['Artifact','Artefakte'],['Enchantment','Verzauberungen'],['Instant','Spontanzauber'],['Sorcery','Hexereien'],['Planeswalker','Planeswalker']].map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></div>
+   {!library&&<div className="zone-link-toolbar"><button aria-pressed={linking} onClick={()=>{setLinking(v=>!v);setSelected([]);}}><Link2 size={14}/>{linking?'Auswahl beenden':'Quellen zuordnen'}</button><label><input type="checkbox" checked={groupSources} onChange={e=>setGroupSources(e.target.checked)}/> Nach Quelle gruppieren</label></div>}
+   <div className="zone-browser-meta"><span>{results.length} Karten{zone==='graveyard'?' · neueste zuerst':''}</span>{library&&<span>{chosen.length?`${chosen.length} ausgewählt`:'Nur für dich sichtbar'}</span>}</div>
+   <div className="zone-browser-grid">{results.map((c,index)=>{const d=definition(c.cardId),picked=chosen.includes(c.id);return <Fragment key={c.id}>{groupSources&&(index===0||sourceGroup(results[index-1])!==sourceGroup(c))&&<div className="zone-source-heading"><Link2 size={14}/><span>{sourceKey(c)}</span><small>{[...new Set((c.effectLinks??[]).map(l=>view.players.find(p=>p.id===(l.causedById??l.actorId))?.name??'Spieler'))].join(', ')}</small></div>}<article data-zone-card-id={c.id} className={picked?'picked':''} onPointerEnter={e=>onHover(c,e.currentTarget.getBoundingClientRect())} onPointerLeave={onHoverEnd}>
+    <button className="zone-card-image" aria-label={`${d.name}${library?' auswählen':' ansehen'}`} aria-pressed={library||linking?picked:undefined} onClick={()=>library||linking?setSelected(picked?chosen.filter(id=>id!==c.id):[...chosen,c.id]):onInspect(c)} onDoubleClick={()=>{if(library&&canMove)transfer([c.id]);}} onContextMenu={e=>{e.preventDefault();onInspect(c);}}><img src={cardImage(d)} alt={d.name} loading="lazy"/>{picked&&<span className={linking?'zone-link-selected':'zone-selected'}>{linking?'✓':chosen.indexOf(c.id)+1}</span>}</button>
+    <div className="zone-card-caption"><span>{d.name}</span><button aria-label={`${d.name} vergrößern`} onClick={()=>onInspect(c)}><Maximize2 size={14}/></button></div>
+    {!library&&<><EffectSourceTags card={c} view={view} seat={seat} dispatch={dispatch} onInspect={onInspect}/><button className="zone-card-link" onClick={()=>{setLinking(true);setSelected([c.id]);}}><Link2 size={12}/> Quelle zuordnen</button></>}
+    {!library&&(own||c.exilePlayer===seat)&&(c.faceDown?<HiddenCardPlay card={c} view={view} dispatch={dispatch}/>:<div className="zone-card-actions"><button disabled={!canMove} onClick={()=>dispatch({type:'move',cardId:c.id,zone:'hand'})}>Hand</button><button disabled={!canMove} onClick={()=>dispatch({type:'move',cardId:c.id,zone:'battlefield'})}>Spielfeld</button></div>)}
+   </article></Fragment>;})}{!results.length&&<p className="zone-empty">{all.length?'Keine passenden Karten.':'Hier liegen keine Karten.'}</p>}</div>
+   {!library&&linking&&<section className="zone-source-editor" aria-label="Effektquelle zuordnen"><header><b>{chosen.length} Karte(n) ausgewählt</b><button aria-label="Quellenzuordnung schließen" onClick={()=>{setLinking(false);setSelected([]);}}><X size={16}/></button></header><div><select aria-label="Verknüpfte Effektquelle" value={source} onChange={e=>setSource(e.target.value)}><option value="">Ohne Karte · nur Beschriftung</option>{sources.map(c=><option key={c.id} value={c.id}>{definition(c.cardId).name} · {view.players.find(p=>p.id===c.controllerId)?.name}</option>)}</select><input aria-label="Verknüpfung Beschreibung" maxLength={80} placeholder="z. B. spielbar bis Zugende" value={label} onChange={e=>setLabel(e.target.value)}/></div><button disabled={!chosen.length||!source&&!label.trim()||!own&&sources.find(c=>c.id===source)?.controllerId!==seat} onClick={()=>{dispatch({type:'effectLink',cardIds:chosen,...(source?{sourceId:source}:{}),label:label.trim()||'Effekt'});setSelected([]);setLinking(false);}}>Verknüpfen</button></section>}
+   {library&&<footer><div className="zone-destination"><select aria-label="Gewählte Karten verschieben nach" value={destination} onChange={e=>setDestination(e.target.value as typeof destination)}><option value="hand">Auf die Hand</option><option value="battlefield">Aufs Spielfeld</option><option value="graveyard">In den Friedhof</option><option value="exile">Ins Exil</option><option value="library">Oben aufs Deck</option></select><label><input type="checkbox" checked={shuffle} onChange={e=>setShuffle(e.target.checked)}/><Shuffle size={14}/> Rest mischen</label>{destination==='battlefield'&&<label><input type="checkbox" checked={tapped} onChange={e=>setTapped(e.target.checked)}/> Getappt</label>}</div><button title="Ohne Karten zu entnehmen mischen" disabled={!canMove} onClick={()=>{dispatch({type:'libraryPick',cardIds:[],destination:'hand',shuffle:true,tapped:false});onClose();}}><Shuffle size={16}/> Mischen</button><button className="zone-transfer" disabled={!canMove||!chosen.length||chosen.length>100} onClick={()=>transfer()}><ArrowDownToLine size={18}/>{chosen.length?`${chosen.length} übernehmen`:'Karten auswählen'}</button><small>{!canMove?'Laufende Auswahl zuerst abschließen.':'Doppelklick übernimmt eine Karte direkt. Schließen verändert das Deck nicht.'}</small></footer>}
+  </>}
+ </section>;
+}

@@ -1,0 +1,43 @@
+{
+  "name": "commander-client",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite --configLoader native --host 127.0.0.1",
+    "build": "tsc -b && vite build --configLoader native",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "preview": "vite preview --configLoader native --host 127.0.0.1 --port 5173",
+    "server": "node --env-file-if-exists=.env server/main.ts",
+    "desktop:prepare": "pnpm build && node scripts/prepare-desktop.mjs",
+    "desktop:dev": "pnpm desktop:prepare && electron .",
+    "desktop:build": "pnpm desktop:prepare && electron-builder --config electron-builder.cjs --win nsis --x64",
+    "check:production": "node --env-file-if-exists=.env.production scripts/check-production.ts",
+    "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
+    "catalogue:update": "node scripts/update-catalogue.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  },
+  "main": "desktop/main.cjs",
+  "description": "Nexus Commander \u00e2\u20ac\u201c ein gemeinsamer Commander-Tisch f\u00c3\u00bcr Windows"
+}

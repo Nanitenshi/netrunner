@@ -1,0 +1,26 @@
+.forge-phase{position:absolute;top:70px;left:32px;right:290px;display:flex;gap:18px;align-items:center;z-index:2;font-size:13px;color:#aacbc7}
+.forge-phase b{color:#e7f2ef}.forge-table{top:105px}.forge-arena .forge-player-target{padding:4px 8px;font-weight:700}
+.forge-history{font-size:12px;color:#b4cbc8}.forge-history summary{cursor:pointer;padding:6px 0}.forge-history ol{max-height:180px;overflow:auto;padding-left:20px;margin:8px 0}.forge-history li{padding:4px 0;line-height:1.5}
+.forge-arena button:focus-visible{outline:3px solid #ffe09a;outline-offset:3px}
+.forge-decision>header{flex-wrap:wrap}.forge-decision>header>div:first-child{flex:1 1 240px;min-width:0}.forge-decision>header>div:last-child{flex-wrap:wrap}
+@media(max-width:1000px){.forge-phase{left:12px;right:220px}}
+@media(max-width:650px){
+ .forge-arena>header{height:auto;min-height:64px;padding:10px 12px;gap:10px;flex-wrap:wrap}
+ .forge-arena>header strong{font-size:14px}.forge-arena>header button{padding:8px 10px}
+ .forge-lobby{margin:24px 12px;padding:20px}.forge-lobby form{flex-wrap:wrap}.forge-lobby input{min-width:0;width:140px}
+ .forge-phase{position:relative;inset:auto;flex-wrap:wrap;gap:6px 14px;margin:12px}
+ .forge-table{position:relative;inset:auto;margin:12px;gap:12px;perspective:none}
+ .forge-mat{transform:none;min-height:180px;padding:10px;grid-template-rows:auto 1fr 1fr;gap:12px}
+ .forge-player{gap:12px;font-size:13px;flex-wrap:wrap}.forge-player>span{font-size:11px}
+ .forge-creatures,.forge-lands{justify-content:flex-start;gap:10px;flex-wrap:wrap}
+ .forge-arena .forge-card{width:62px;flex-shrink:0}.forge-card.tapped{margin:6px}
+ .forge-stack{position:relative;inset:auto;width:auto;margin:12px;padding:14px;gap:10px}
+ .forge-hand{position:relative;inset:auto;height:auto;min-height:100px;margin:18px 12px 28px;justify-content:flex-start;align-items:start;flex-wrap:wrap;gap:10px}
+ .forge-hand .forge-card{width:76px}.forge-preview{display:none}
+ .forge-decision{position:fixed;left:12px;right:12px;top:90px;bottom:auto;width:auto;min-width:0;max-width:none;max-height:70vh;z-index:11;padding:14px}
+ .forge-decision>header{gap:12px;align-items:flex-start;flex-wrap:wrap}.forge-decision h2{font-size:17px}
+ .forge-decision-groups{gap:14px}.forge-arena .forge-decision-item>button,.forge-arena .forge-decision-options>button:has(img){width:88px}
+ .forge-combat-controls{position:fixed;left:12px;right:12px;bottom:12px;transform:none;max-width:none;z-index:11;padding:12px;gap:10px}
+ .forge-damage-row{gap:8px;flex-wrap:wrap}.forge-damage-row span{min-width:0;flex:1 1 100%}
+ .forge-error{position:relative;inset:auto;margin:12px;padding:12px}
+}

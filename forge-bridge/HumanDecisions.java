@@ -23,7 +23,8 @@ public final class HumanDecisions {
    var d=p.descriptor;BatusForge.require(!p.answered,"Entscheidung wurde bereits beantwortet");BatusForge.require(who==(int)d.get("seat"),"Der andere Spieler entscheidet");BatusForge.require(a.get("choiceId").getAsString().equals(d.get("id")),"Entscheidung nicht mehr aktuell");
    var first=ids(a,"first");var second=ids(a,"second");var all=new ArrayList<String>(first);all.addAll(second);
    BatusForge.require(p.allowed.containsAll(all),"Ungültige Auswahl");String kind=(String)d.get("kind");
-   if(kind.equals("confirm")){BatusForge.require(a.has("answer")&&all.isEmpty(),"Bestätigung fehlt");}
+   if(kind.equals("cost")&&a.has("answer")){BatusForge.require(!a.get("answer").getAsBoolean()&&all.isEmpty(),"Kostenabbruch ist ungültig");}
+   else if(kind.equals("confirm")){BatusForge.require(a.has("answer")&&all.isEmpty(),"Bestätigung fehlt");}
    else {BatusForge.require(!a.has("answer"),"Diese Entscheidung ist keine Bestätigung");
     if(!(boolean)d.get("repeat"))BatusForge.require(new HashSet<>(all).size()==all.size(),"Doppelte Auswahl");
     if(kind.equals("scry")||kind.equals("surveil")){BatusForge.require(new HashSet<>(all).equals(p.allowed)&&all.size()==p.allowed.size(),"Alle angesehenen Karten zuordnen");}

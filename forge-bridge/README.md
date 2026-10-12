@@ -14,7 +14,9 @@ Counterspell, Raise the Alarm and Divination. The new **Effektentscheidungen**
 fixture contains Preordain, Impulse, Innocent Blood, You Meet in a Tavern,
 Raise the Alarm and Man-o'-War, with Soul's Attendant on the battlefield. The separate **Kampf** fixture provides
 Grizzly Bears, Air Elemental, Silvercoat Lion, Fencing Ace, Vampire Nighthawk and
-Colossal Dreadmaw for human combat decisions.
+Colossal Dreadmaw for human combat decisions. The **Zusatzkosten** fixture supplies
+Village Rites, Tormenting Voice and Fling, two differently sized creatures,
+Counterspell and enough basic lands to exercise actual payments and responses.
 
 HumanDecisions bridges synchronous Forge callbacks to online input. The game
 executor pauses for Scry/Surveil, card/entity selections, ordering, sacrifices
@@ -31,8 +33,16 @@ Leaving kills the match process; reload restores the outstanding choice.
 Identical life-gain triggers from the same Soul Warden/Attendant keep their
 existing order to avoid an unnecessary ordering prompt. Other simultaneous
 abilities require human ordering, and targets are chosen before adding triggers
-to the stack. Basic mana payment still uses the Forge AI cost solver. Non-mana
-cost decisions, numbers/colors, divided targets, special reveal rules and other
+to the stack. Basic mana payment still uses the Forge AI cost solver. Ordinary
+discard-one-card and sacrifice-one-creature spell costs now use HumanCosts:
+the player chooses a legal card or cancels before payment. The spell cannot pay
+its own discard cost. Choices remain private, survive reload and reject stale,
+foreign or malformed answers. Forge collects the decisions before paying costs;
+only then does the opponent get priority. Countering a spell does not refund
+its paid costs. Fling can target either player or a legal creature and uses the
+sacrificed creature's last-known power. Unsupported additional spell costs are
+rejected rather than silently selected by the AI. Other non-mana costs,
+numbers/colors, divided targets, special reveal rules and other
 unimplemented controller callbacks are not validated for arbitrary decks.
 
 Predefined hands/lands/libraries remain. Turns now advance through Forge's own
@@ -67,7 +77,7 @@ request IDs prevent racing and duplicate casts. Maximum two experimental rooms.
 ## Opt-in setup
 
 Requires Java 17, the unpacked official Forge 2.0.15 desktop release including
-`res`, and compiled BatusForge classes. Compile **all three BatusForge.java, HumanDecisions.java and HumanCombat.java** using Java 17 with explicit UTF-8 source encoding (`-encoding UTF-8`)
+`res`, and compiled BatusForge classes. Compile **all four BatusForge.java, HumanDecisions.java, HumanCombat.java and HumanCosts.java** using Java 17 with explicit UTF-8 source encoding (`-encoding UTF-8`)
 against `forge-gui-desktop-2.0.15-jar-with-dependencies.jar`.
 
 Set **all three** server environment variables to absolute paths:
@@ -81,6 +91,12 @@ these variables the mode is disabled. The production Docker image does not inclu
 Java, Forge assets or compiled bridge classes. Do not deploy that image expecting
 Forge automation to be available.
 
+The UI shows the current phase, who needs to act and the latest public actions.
+Player targets are selected through highlighted player names. Cost windows do
+not overlap card previews, and the table/choices adapt to narrow phone screens.
+Selections cannot be submitted while disconnected; reconnect/reload retrieves
+the engine's outstanding decision.
+
 Keep Forge's GPL license and provide corresponding source when distributing a
 linked bridge. MTG card images and scripts have separate third-party rights.
 
@@ -90,6 +106,12 @@ Audit remaining controller callbacks, special combat rules and non-mana costs,
 then validate genuine Commander decks before general release.
 
 With FORGE_JAVA, FORGE_RUNTIME and FORGE_CLASSES set, run
-`node scripts/test-forge.mjs`, `node scripts/test-forge-decisions.mjs` and
-`node scripts/test-forge-combat.mjs`
+`node scripts/test-forge.mjs`, `node scripts/test-forge-decisions.mjs`,
+`node scripts/test-forge-combat.mjs` and `node scripts/test-forge-costs.mjs`
 for the real engine regression tests.
+
+After building the client, `node scripts/test-forge-costs-browser.mjs` exercises
+two authenticated browsers, reconnect, payments, responses and a 390px viewport.
+It requires Playwright (or `PLAYWRIGHT_MODULE` pointing to its ESM entry) and a
+Chromium browser; `CHROME_PATH` can select a locally installed executable.
+Screenshots go to the ignored `.local/browser` directory.

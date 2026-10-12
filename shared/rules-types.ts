@@ -29,7 +29,7 @@ export type RulesAction =
   | {type:'setLandBonus';count:number}
   | {type:'castHidden';cardId:string;conditionsMet:boolean;costsPaid:boolean;targetId?:string}
   | {type:'endTurn'} | {type:'concede'} | {type:'mulligan'} | {type:'keep'} | {type:'pass'} | {type:'shuffle'}
-  | {type:'cast';faceIndex?:number;cardId:string;targetId?:string;costsPaid:boolean;passPriority?:boolean;payFromPool?:boolean}
+  | {type:'cast';faceIndex?:number;cardId:string;targetId?:string;costsPaid:boolean;passPriority?:boolean;payFromPool?:boolean;autoTapSources?:string[]}
   | {type:'effect';effect:LibraryEffect;sourceId?:string}
   | {type:'ability';label:string;sourceCardId?:string;abilityType?:'activated'|'triggered'}
   | {type:'counterStack';choiceId:string;stackId:string}

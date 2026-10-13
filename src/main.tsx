@@ -40,3 +40,4 @@ import './physical-counters.css';
 import './effect-links.css';
 
 import './dense-board.css';
+import './mobile-play.css';

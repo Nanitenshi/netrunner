@@ -1,4 +1,5 @@
 import EffectSourceTags from './EffectSourceTags';
+import {useTouchLayout} from './useTouchLayout';
 import CardEditor from './CardEditor';
 import {instanceDefinition} from '../shared/card-state';
 import ZoneBrowser from './ZoneBrowser';
@@ -35,6 +36,8 @@ const zoneNames: Record<Zone,string> = {library:'Bibliothek',hand:'Hand',battlef
 type Modal = 'settings' | 'help' | 'account' | 'zoom' | 'log' | 'counters' | 'playerCounters' | null;
 
 export default function App({active,settings,setSettings,onExit,online}:{online?:{view:GameView;seat:string;connected:boolean;code:string;dispatch:(action:GameAction)=>void;error:string;revision:number;combat:boolean;autoPass:(revision:number,policy:AutoPriorityPolicy)=>Promise<boolean>;isHost:boolean;leave:()=>Promise<boolean>;finish:()=>Promise<boolean>};active:boolean;settings:Settings;setSettings:React.Dispatch<React.SetStateAction<Settings>>;onExit:()=>void}) {
+  const {touch,height:mobileHeight}=useTouchLayout();
+  const lastPointerTouch=useRef(false),handSwipe=useRef<{x:number;y:number}|null>(null);
   const [localGame, setGame] = useState(()=>{const state=enableRules(initialGame());state.rules!.turnOnly=true;state.phase=3;return state;});
   const game=online?.view??localGame;
   const [castId,setCastId]=useState<string|null>(null);const [holdCast,setHoldCast]=useState(false);
@@ -133,6 +136,8 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
   });
   function pointerDown(e:ReactPointerEvent,card:CardInstance) {
     if(e.button!==0||attaching)return;
+    lastPointerTouch.current=e.pointerType==='touch';lastDrag.current=0;
+    if(e.pointerType==='touch'&&card.zone==='hand'){handSwipe.current={x:e.clientX,y:e.clientY};return;}
     lastDrag.current=0;clearHover();
     setPreview(card.cardId);setPreviewInstance(card.id);
     if(e.pointerType==='touch')longPress.current=setTimeout(()=>{drag.current=null;setModal('zoom');},550);
@@ -144,6 +149,7 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
     e.currentTarget.setPointerCapture(e.pointerId);
   }
   function pointerMove(e:ReactPointerEvent) {
+    if(handSwipe.current){if(Math.hypot(e.clientX-handSwipe.current.x,e.clientY-handSwipe.current.y)>10)lastDrag.current=performance.now();return;}
     const d=drag.current;if(!d)return;
     if(Math.hypot(e.clientX-d.x,e.clientY-d.y)<7&&!d.moved)return;
     d.moved=true;
@@ -153,6 +159,7 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
     setGhost({card:d.card,x:e.clientX,y:e.clientY,point});
   }
   function pointerUp(e:ReactPointerEvent) {
+    if(handSwipe.current){handSwipe.current=null;return;}
     if(longPress.current)clearTimeout(longPress.current);
     const d=drag.current;drag.current=null;setGhost(null);
     if(!d?.moved)return;
@@ -182,10 +189,10 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
       style={positioned?{left:`${position.x*100}%`,top:`${position.y*100}%`}:undefined}
       data-card-id={card.id} title={`${data.name}${own?card.zone==='battlefield'?' · T / Doppelklick: tappen':' · Doppelklick / Ziehen: spielen · Umschalt: Priorität halten':''}`} aria-label={`${data.name}${card.tapped?' (getappt)':''}`}
       onPointerEnter={e=>{hoveredCard.current=card.id;if(editorId||drag.current||document.querySelector('.effect-popover,.mana-popover,.correction-popover,.random-panel,.stack-panel,.choice-tray,.tt-toolbar')||e.pointerType==='touch')return;showHover(card,e.currentTarget.getBoundingClientRect());}} onPointerLeave={()=>{hoveredCard.current=null;clearHover();}}
-      onClick={e=>{if(attaching&&editorId&&card.zone==='battlefield'){e.stopPropagation();dispatch({type:'attach',cardId:editorId,targetId:card.id});setAttaching(false);return;}if(performance.now()-lastDrag.current<350)return;setPreview(card.cardId);setPreviewInstance(card.id);if(!own){setModal('zoom');return;}if(own&&settings.quickTap&&data.type.includes('Land')&&card.zone==='battlefield'&&!e.shiftKey&&e.detail<2)dispatch({type:'tap',cardId:card.id});if(own)setSelected(old=>e.shiftKey?(old.includes(card.id)?old.filter(id=>id!==card.id):[...old,card.id]):[card.id]);}}
-      onDoubleClick={e=>{if(attaching||editorId||performance.now()-lastDrag.current<350)return;if(own&&settings.quickTap&&data.type.includes('Land')&&card.zone==='battlefield')return;if(own&&card.zone==='battlefield')dispatch({type:'tap',cardId:card.id});else if(own&&['hand','commander'].includes(card.zone))playCard(card,e.shiftKey);else setModal('zoom');}}
+      onClick={e=>{if(attaching&&editorId&&card.zone==='battlefield'){e.stopPropagation();dispatch({type:'attach',cardId:editorId,targetId:card.id});setAttaching(false);return;}if(performance.now()-lastDrag.current<350)return;setPreview(card.cardId);setPreviewInstance(card.id);if(!own){setModal('zoom');return;}if(own&&settings.quickTap&&!lastPointerTouch.current&&data.type.includes('Land')&&card.zone==='battlefield'&&!e.shiftKey&&e.detail<2)dispatch({type:'tap',cardId:card.id});if(own)setSelected(old=>e.shiftKey?(old.includes(card.id)?old.filter(id=>id!==card.id):[...old,card.id]):[card.id]);}}
+      onDoubleClick={e=>{if(lastPointerTouch.current)return;if(attaching||editorId||performance.now()-lastDrag.current<350)return;if(own&&settings.quickTap&&!lastPointerTouch.current&&data.type.includes('Land')&&card.zone==='battlefield')return;if(own&&card.zone==='battlefield')dispatch({type:'tap',cardId:card.id});else if(own&&['hand','commander'].includes(card.zone))playCard(card,e.shiftKey);else setModal('zoom');}}
       onContextMenu={e=>{e.preventDefault();e.stopPropagation();setPreview(card.cardId);setPreviewInstance(card.id);setMenu({id:card.id,x:Math.max(8,Math.min(e.clientX,window.innerWidth-286)),y:Math.max(8,Math.min(e.clientY,window.innerHeight-440))});}}
-      onPointerDown={e=>pointerDown(e,card)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{drag.current=null;setGhost(null);if(longPress.current)clearTimeout(longPress.current);}}>
+      onPointerDown={e=>pointerDown(e,card)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{if(handSwipe.current)lastDrag.current=performance.now();handSwipe.current=null;drag.current=null;setGhost(null);if(longPress.current)clearTimeout(longPress.current);}}>
       <img src={cardImage(data)} alt={data.name} draggable={false}/>
       {card.combat&&<span className="combat-card-label" title={card.combat.kind==='attack'?'Greift an':'Blockt'}>{card.combat.kind==='attack'?'→':'↳'} {view.players.find(p=>p.id===card.combat?.targetId)?.name??(view.cards.find(c=>c.id===card.combat?.targetId)?instanceDefinition(view.cards.find(c=>c.id===card.combat?.targetId)!).name:'—')}</span>}
       {(view.timedEffects??[]).some(e=>e.targets.some(t=>t.id===card.id&&t.version===(card.incarnation??0)))&&<span className="card-temporary-effect" title={(view.timedEffects??[]).filter(e=>e.targets.some(t=>t.id===card.id&&t.version===(card.incarnation??0))).map(e=>e.label).join(' · ')}>⌛</span>}
@@ -209,8 +216,8 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
   const handIds=reconcileHand(handOrder,getCards(seat,'hand').map(c=>c.id));
   const handWidth=Math.max(100,Math.min(140,windowSize.height*.14))*(settings.handScale??1.1);
   const handOverlap=Math.min(handWidth*.68,Math.max(0,(handIds.length*handWidth-(windowSize.width-(settings.preview?650:windowSize.width<1000?290:350)))/Math.max(1,handIds.length-1)));
-  const css={'--accent':settings.accent,'--card-scale':settings.cardScale,'--ui-scale':settings.uiScale,'--hand-scale':settings.handScale??1} as CSSProperties;
-  return <div className={`app tabletop-app ${settings.effects?'atmosphere':''} ${settings.preview?'':'no-preview'}`} style={css} onClick={e=>{if(menu)setMenu(null);if(!(e.target as HTMLElement).closest('button,a,input,select,textarea,.card-near-actions,.hand-dock,.mechanics,.tt-toolbar,[role=dialog]'))setSelected([]);}}>
+  const css={'--mobile-vh':`${mobileHeight}px`,'--accent':settings.accent,'--card-scale':settings.cardScale,'--ui-scale':settings.uiScale,'--hand-scale':settings.handScale??1} as CSSProperties;
+  return <div className={`app tabletop-app ${touch?'touch-ui':''} ${settings.effects?'atmosphere':''} ${settings.preview?'':'no-preview'}`} style={css} onClick={e=>{if(menu)setMenu(null);if(!(e.target as HTMLElement).closest('button,a,input,select,textarea,.card-near-actions,.hand-dock,.mechanics,.tt-toolbar,[role=dialog]'))setSelected([]);}}>
     <header className="topbar">
       <a className="brand" href="#" onClick={e=>{e.preventDefault();onExit();}} aria-label="Zum Hauptmenü"><span className="brand-mark"><Diamond size={25}/><span/></span><b>BATUSMTG</b><span className="brand-sub">COMMANDER</span></a>
       <div className="top-nav"><span className="nav-active"><Swords size={15}/> Arena</span><MatchMenu onVisibilityChange={setMatchOpen} game={game} seat={seat} onHome={onExit} onConcede={()=>dispatch({type:'concede'})} online={online}/></div>

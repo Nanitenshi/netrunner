@@ -172,3 +172,9 @@ Einrichtung und Grenzen: [Forge-Anleitung](forge-bridge/README.md). Testergebnis
 Im Forge-Commander-Modus kann der Gastgeber den zweiten Platz mit einer KI belegen. Zur Wahl stehen alle fünf vorbereiteten und eigene gespeicherte Decks. **Leicht** begrenzt freiwillige Sprüche/Nichtmana-Aktivierungen auf eine pro eigenem Zug und verzichtet auf Aktionen im gegnerischen Zug; **Normal** erlaubt drei und Antworten; **Schwer** nutzt die native Forge-KI ohne dieses zusätzliche Limit. Länder, Mana und Effektentscheidungen zählen nicht zum Limit. Die Stufen sind Trainingsregeln, keine gemessenen Siegquoten. Kosten, Kampf, Ziele und menschliche Reaktionsfenster bleiben in Forge.
 
 Bedienung, Prüfszenarien und Grenzen: [KI-Prüfbericht](deploy/FORGE-AI-2026-10-13.md). Aktuell ein Mensch gegen eine KI; auf dem Server sind alle sieben Bridge-Dateien neu zu kompilieren.
+
+## Auf Handy und Tablet spielen
+
+Touch-Geräte bekommen eine wischbare Hand, große Aktionsknöpfe und eine gerade, scrollbar angeordnete Kartenübersicht. Karte antippen und die gewünschte Aktion wählen; Wischen und Doppeltippen spielen keine Karte aus. Im Forge-/KI-Modus öffnet der erste Tipp Bild und Kartentext, danach bestätigst du Spielen oder Wirken ausdrücklich. Stack, Kosten, Ziele und Kampf bleiben über Touch bedienbar, auch im Querformat.
+
+Bedienung, Browserprüfungen und Bereitstellung: [Mobile-Prüfbericht](deploy/MOBILE-PLAY-2026-10-13.md). Nach Zusammenführen und Aktualisieren des Servers über dessen vorhandene Adresse im Handy-Browser spielen. Die Touch-Prüfung erfolgte mit Browser-Emulation; echte Android-/iOS-Geräte sind noch nicht geprüft.

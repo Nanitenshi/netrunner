@@ -5,7 +5,7 @@ import type {ForgeAction,ForgeState,ForgeScenario} from '../shared/forge-protoco
 import type {ForgeDeckConfig} from '../shared/forge-decks.ts';
 export class ForgeDeckError extends Error {readonly issues:{seat:number;cards:string[]}[];constructor(issues:{seat:number;cards:string[]}[]){super('Ein Deck enthält Karten, die diese Forge-Version nicht kennt.');this.issues=issues;}}
 export class ForgeVersionError extends Error {constructor(){super('Der Forge-Server muss für eigene Decks aktualisiert werden.');}}
-export function checkForgeStartup(reply:{mode?:string;issues?:unknown;error?:unknown},scenario?:ForgeScenario){if(scenario==='commander'&&!reply.issues&&!reply.error&&reply.mode!=='commander')throw new ForgeVersionError();}
+export function checkForgeStartup(reply:{mode?:string;features?:string[];issues?:unknown;error?:unknown},scenario?:ForgeScenario,ai=false){if(!reply.issues&&!reply.error&&(scenario==='commander'&&reply.mode!=='commander'||ai&&!reply.features?.includes('ai')))throw new ForgeVersionError();}
 export interface ForgeConfig {java:string;runtime:string;classes:string;scenario?:ForgeScenario;decks?:ForgeDeckConfig[]}
 export class ForgeWorker {
  private process:ChildProcessWithoutNullStreams;
@@ -21,7 +21,7 @@ export class ForgeWorker {
   this.process.stderr.on('data',()=>{});
   createInterface({input:this.process.stdout}).on('line',line=>{
    if(!line.startsWith('@@BATUSFORGE@@'))return;
-   try{const reply=JSON.parse(line.slice(14));if(reply.update){onUpdate(reply.state,reply.error);return;}const key=reply.ready?'ready':reply.id;const p=this.pending.get(key);if(!p)return;clearTimeout(p.timer);this.pending.delete(key);if(reply.ready){try{checkForgeStartup(reply,config.scenario);}catch(e){p.reject(e as Error);this.stop();return;}}if(reply.ready&&reply.issues){p.reject(new ForgeDeckError(reply.issues));this.stop();}else if(reply.ready&&reply.error){p.reject(new Error('Forge konnte die Decks nicht starten.'));this.stop();}else p.resolve(reply.ready?reply.state:reply);}catch{this.stop();onFailure();}
+   try{const reply=JSON.parse(line.slice(14));if(reply.update){onUpdate(reply.state,reply.error);return;}const key=reply.ready?'ready':reply.id;const p=this.pending.get(key);if(!p)return;clearTimeout(p.timer);this.pending.delete(key);if(reply.ready){try{checkForgeStartup(reply,config.scenario,config.decks?.some(d=>Boolean(d.ai)));}catch(e){p.reject(e as Error);this.stop();return;}}if(reply.ready&&reply.issues){p.reject(new ForgeDeckError(reply.issues));this.stop();}else if(reply.ready&&reply.error){p.reject(new Error('Forge konnte die Decks nicht starten.'));this.stop();}else p.resolve(reply.ready?reply.state:reply);}catch{this.stop();onFailure();}
   });
   const failed=()=>{if(this.closed)return;this.stop();onFailure();};this.process.on('error',failed);this.process.on('exit',failed);
   if(config.scenario==='commander')this.process.stdin.write(JSON.stringify({decks:config.decks})+String.fromCharCode(10));

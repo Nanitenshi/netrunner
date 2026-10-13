@@ -2,7 +2,9 @@ import {checkDeck} from './deck-rules.ts';
 import {catalogueById} from './catalogue.ts';
 import type {DeckData} from './protocol.ts';
 export interface ForgeDeckCard {name:string;frontName?:string;count:number}
-export interface ForgeDeckConfig {name:string;playerName:string;commanders:ForgeDeckCard[];main:ForgeDeckCard[]}
+export type ForgeAiDifficulty='easy'|'normal'|'hard';
+export const forgeAiLevels={easy:{name:'Leicht',description:'Höchstens eine freiwillige Aktion pro eigenem Zug; keine freiwilligen Antworten im gegnerischen Zug.'},normal:{name:'Normal',description:'Bis zu drei freiwillige Aktionen pro eigenem Zug; reagiert auf gegnerische Aktionen.'},hard:{name:'Schwer',description:'Forge entscheidet ohne zusätzliches Aktionslimit; reagiert auch im gegnerischen Zug.'}} as const;
+export interface ForgeDeckConfig {name:string;playerName:string;commanders:ForgeDeckCard[];main:ForgeDeckCard[];ai?:{difficulty:ForgeAiDifficulty}}
 /** Catalog IDs become names on the trusted server, never executable scripts or file paths. */
 export function toForgeDeck(input:unknown,playerName:string):{deck:DeckData;config:ForgeDeckConfig}{
  const deck=checkDeck(input,true);

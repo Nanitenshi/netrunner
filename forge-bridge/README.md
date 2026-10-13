@@ -1,6 +1,6 @@
 # BatusMTG – optional Forge integration
 
-This experimental two-human engine runs separately from the casual table.
+This experimental two-seat engine supports two humans or one human and a Forge AI, separately from the casual table.
 The Java sources are GPL-3.0-or-later (see LICENSE) and link against the pinned
 [Card-Forge 2.0.15 release](https://github.com/Card-Forge/forge/releases/tag/forge-2.0.15).
 Forge and its card scripts are supplied separately.
@@ -70,9 +70,49 @@ Human combat includes attacker/blocker selection, ordering and damage assignment
 Native first/double strike, flying, deathtouch, lifelink, trample, simultaneous
 damage and deaths are tested. Damage assignments are limited to 128 points.
 
+## AI opponents and difficulty
+
+In Commander mode the host can fill the second seat with a Forge AI, choosing
+any of the five prepared decks or one of their own saved decks. The host can
+change deck/level or remove the AI before starting. An existing human is never
+replaced. Changing an opponent resets the host's readiness. The AI is ready
+automatically and takes at most three free opening mulligans for a 2–5-land hand.
+Missing scripts in the AI deck are reported to the host without substitutions.
+
+AI is driven by the native PlayerControllerAi with the Default profile on the
+same serialized game executor as human actions. Native targeting, cost payments,
+triggers, combat, blockers, damage and cleanup stay in Forge. Each non-mana stack
+action returns a human response window; AI lands and mana abilities retain
+priority. Human callbacks can suspend an AI turn without losing the outstanding
+decision. Reload reconnects to the same in-memory game. Clients cannot control
+an AI seat. Old bridges must advertise AI support before an AI match can start.
+
+The levels are deliberate training policies, not calibrated ratings or different
+Forge search algorithms:
+
+- **Leicht:** at most one proactive spell/non-mana activation per own turn;
+  no proactive actions in the human's turn.
+- **Normal:** at most three proactive spells/non-mana activations per own turn;
+  native responses during the human's turn.
+- **Schwer:** native decisions without an additional per-turn action limit,
+  including responses during the human's turn.
+
+Lands, mana abilities, triggers and choices during effects do not consume these
+limits. No extra starting life, mana, or cards are granted. Each uninterrupted
+AI executor burst is capped at 64 steps to prevent endless automatic actions;
+if that limit is exceeded, an error is shown and the match must be left/restarted.
+Forge AI has card-specific limitations, particularly with unusual combos; custom
+deck strength and perfect play are not guaranteed. The existing casual training
+bot remains independent. Multi-opponent AI pods are a later milestone.
+
+`node scripts/test-forge-ai.mjs` plays multi-turn scenarios for all five prepared
+decks at all three levels and an Isamaru combat control deck. After building,
+`node scripts/test-forge-ai-browser.mjs` tests solo setup, levels, own/prepared
+decks, readiness changes, remove, response windows, reload, resolution,
+concession and leaving. Browser prerequisites are the same as below.
 ## Remaining scope
 
-Experimental two-player matches are kept in memory and lost on server restart.
+Experimental two-seat matches are kept in memory and lost on server restart.
 There are at most two rooms. A user cannot join Forge and casual simultaneously.
 Hand/library privacy, queues, revisions and request IDs protect online actions.
 
@@ -96,10 +136,10 @@ The next automation increments should cover mechanics shared across decks:
 ## Setup and verification
 
 Requires Java 17, the unpacked official Forge desktop release including `res`,
-and all **six** bridge files compiled with UTF-8:
+and all **seven** bridge files compiled with UTF-8:
 
 ```sh
-javac -encoding UTF-8 -cp /path/to/forge-gui-desktop-2.0.15-jar-with-dependencies.jar -d /path/to/classes forge-bridge/BatusForge.java forge-bridge/HumanDecisions.java forge-bridge/HumanCombat.java forge-bridge/HumanCosts.java forge-bridge/CommanderDecks.java forge-bridge/FilterMana.java
+javac -encoding UTF-8 -cp /path/to/forge-gui-desktop-2.0.15-jar-with-dependencies.jar -d /path/to/classes forge-bridge/BatusForge.java forge-bridge/HumanDecisions.java forge-bridge/HumanCombat.java forge-bridge/HumanCosts.java forge-bridge/CommanderDecks.java forge-bridge/FilterMana.java forge-bridge/ForgeAi.java
 ```
 
 Set absolute `FORGE_JAVA`, `FORGE_RUNTIME` and `FORGE_CLASSES` paths on the server.
@@ -115,6 +155,8 @@ node scripts/test-forge-combat.mjs
 node scripts/test-forge-costs.mjs
 node scripts/test-forge-commander.mjs
 node scripts/test-forge-deck-mechanics.mjs
+node scripts/test-forge-ai.mjs
+node scripts/test-forge-ai-interactions.mjs
 ```
 
 After building, `node scripts/test-forge-commander-browser.mjs` tests two

@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import type {DeckData} from './protocol.ts';
+import type {ForgeAiDifficulty} from './forge-decks.ts';
 export type ForgeScenario='standard'|'decisions'|'combat'|'costs'|'commander';
 export const forgeActionSchema=z.discriminatedUnion('type',[
  z.object({type:z.literal('pass')}).strict(),
@@ -17,7 +18,7 @@ export interface ForgeCard {id:string;name:string;owner:number;controller:number
 export interface ForgeChoice {id:string;seat:number;kind:'cost'|'discard'|'scry'|'surveil'|'confirm'|'select'|'modes'|'targets'|'order'|'attackers'|'blockers'|'damage'|'number';count:number;min?:number;max?:number;repeat?:boolean;title?:string;source?:string;options:{id:string;name:string;kind:string;cardId?:string;targetId?:string}[]}
 export interface ForgeState {stage?:'mulligan'|'playing'|'finished';kept?:boolean[];mulligans?:number[];winners?:number[];commanderDamage?:{defender:number;commanderId:string;name:string;amount:number}[];cards:ForgeCard[];stack:{id:string;name:string;controller:number;description:string}[];life:number[];active:number;priority:number;passes:number;turn:number;log:string[];phase?:string;ending?:boolean;combatRunning?:boolean;combat?:{attackerId:string;defenderSeat:number;blockerIds:string[]}[];choice?:ForgeChoice|null}
 export interface ForgeView extends ForgeState {handCounts:number[];libraryCounts:number[]}
-export interface ForgeRoom {code:string;hostId:string;seat:number;players:{id:string;name:string;deckName?:string;commander?:string;cardCount?:number;ready?:boolean}[];myDeck?:DeckData;deckErrors?:string[];revision:number;starting:boolean;scenario?:ForgeScenario;error?:string;game:ForgeView|null}
+export interface ForgeRoom {code:string;hostId:string;seat:number;players:{id:string;name:string;deckName?:string;commander?:string;cardCount?:number;ready?:boolean;isAi?:boolean;difficulty?:ForgeAiDifficulty}[];aiOpponent?:{deckId:string;difficulty:ForgeAiDifficulty};myDeck?:DeckData;deckErrors?:string[];aiDeckErrors?:string[];revision:number;starting:boolean;scenario?:ForgeScenario;error?:string;game:ForgeView|null}
 /** Only the server receives the full snapshot. Hidden identities never leave it. */
 export function projectForge(state:ForgeState,seat:number):ForgeView {
  return {...state,choice:state.choice?{...state.choice,title:state.choice.seat===seat?state.choice.title:'Wartet auf Auswahl',source:state.choice.seat===seat?state.choice.source:undefined,options:state.choice.seat===seat?state.choice.options:[]}:null,cards:state.cards.filter(c=>c.zone!=='library'&&(c.zone!=='hand'||c.owner===seat)),handCounts:[0,1].map(s=>state.cards.filter(c=>c.zone==='hand'&&c.owner===s).length),libraryCounts:[0,1].map(s=>state.cards.filter(c=>c.zone==='library'&&c.owner===s).length)};

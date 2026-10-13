@@ -160,6 +160,7 @@ export function createNexusServer(config:Config={}){
   handle('forge:scenario',input=>forge.scenario(user,input));
   handle('forge:deck',input=>forge.deck(user,input));
   handle('forge:ready',input=>forge.ready(user,input));
+  handle('forge:opponent',input=>forge.opponent(user,input));
   handle('forge:start',input=>forge.start(user,input));
   handle('forge:action',input=>forge.action(user,input));
   handle('forge:leave',()=>forge.leave(user));

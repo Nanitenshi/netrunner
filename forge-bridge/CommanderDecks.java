@@ -28,12 +28,12 @@ final class CommanderDecks {
    for(var item:commanders)deck.getOrCreate(DeckSection.Commander).add(paper(item.getAsJsonObject()),1);
    for(var item:spec.getAsJsonArray("main")){var c=item.getAsJsonObject();int count=c.get("count").getAsInt();BatusForge.require(count>=1&&count<=99,"Ungültige Kartenanzahl");total+=count;deck.getMain().add(paper(c),count);}
    BatusForge.require(total>=100&&total<=250,"Commander-Deck benötigt 100 bis 250 Karten");
-   var rp=RegisteredPlayer.forCommander(deck);rp.setPlayer(new BatusForge.HumanLobby(spec.get("playerName").getAsString()));registered.add(rp);
+   var rp=RegisteredPlayer.forCommander(deck);rp.setPlayer(spec.has("ai")?ForgeAi.lobby(spec,registered.size()):new BatusForge.HumanLobby(spec.get("playerName").getAsString()));registered.add(rp);
   }
   var rules=new GameRules(GameType.Commander);rules.addAppliedVariant(GameType.Commander);
   BatusForge.game=new Match(rules,registered,"BatusMTG Commander").createGame();var g=BatusForge.game;BatusForge.seatedPlayers=g.getPlayers().toArray(new Player[0]);g.setNoGUIUser();g.setAge(GameStage.Mulligan);
   for(int i=0;i<2;i++){var p=BatusForge.player(i);p.setLife(40,null);p.initVariantsZones(registered.get(i));for(var paper:registered.get(i).getDeck().getMain().toFlatList()){var c=Card.fromPaperCard(paper,p);p.getZone(ZoneType.Library).add(c);}p.shuffle(null);p.drawCards(7);}
-  g.getAction().checkStaticAbilities(false);g.copyLastState();BatusForge.log.add("Eigene Commander-Decks · Starthände wählen");
+  g.getAction().checkStaticAbilities(false);g.copyLastState();BatusForge.log.add("Eigene Commander-Decks · Starthände wählen");ForgeAi.opening();
  }
  static boolean opening(){return BatusForge.commanderMode&&!(kept[0]&&kept[1]);}
  static void keep(int who){BatusForge.require(opening()&&!kept[who],"Starthand bereits behalten");kept[who]=true;if(!opening()){

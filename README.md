@@ -166,3 +166,9 @@ Bei konfigurierter Forge-Laufzeit kann der Gastgeber **Eigene Commander-Decks** 
 Allgemeine Aktivierungen erlauben unter anderem Fetchländer und Cycling. Einfache Filterquellen wie Ferrous Lake bezahlen ihr Startmana und liefern beide Farben; legale Friedhofsziele werden ebenfalls angeboten. Die Automatisierung wird schrittweise nach gemeinsamen Spielmechaniken erweitert. Der Modus bleibt experimentell: zwei Spieler, keine Neustart-Persistenz und noch offene Sonderkosten/Kartenentscheidungen. Alle fünf vorbereiteten Decks laden vollständig; nicht jede Kombination wurde bereits als Partie geprüft.
 
 Einrichtung und Grenzen: [Forge-Anleitung](forge-bridge/README.md). Testergebnisse und nächste Automatisierungsschritte: [Commander-Prüfbericht](deploy/FORGE-COMMANDER-2026-10-13.md).
+
+## KI-Gegner mit verschiedenen Decks
+
+Im Forge-Commander-Modus kann der Gastgeber den zweiten Platz mit einer KI belegen. Zur Wahl stehen alle fünf vorbereiteten und eigene gespeicherte Decks. **Leicht** begrenzt freiwillige Sprüche/Nichtmana-Aktivierungen auf eine pro eigenem Zug und verzichtet auf Aktionen im gegnerischen Zug; **Normal** erlaubt drei und Antworten; **Schwer** nutzt die native Forge-KI ohne dieses zusätzliche Limit. Länder, Mana und Effektentscheidungen zählen nicht zum Limit. Die Stufen sind Trainingsregeln, keine gemessenen Siegquoten. Kosten, Kampf, Ziele und menschliche Reaktionsfenster bleiben in Forge.
+
+Bedienung, Prüfszenarien und Grenzen: [KI-Prüfbericht](deploy/FORGE-AI-2026-10-13.md). Aktuell ein Mensch gegen eine KI; auf dem Server sind alle sieben Bridge-Dateien neu zu kompilieren.

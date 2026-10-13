@@ -1,117 +1,128 @@
-# BatusMTG – optional Forge integration prototype
+# BatusMTG – optional Forge integration
 
-This is a separate experimental match engine, not a replacement for the casual table.
-The Java bridge sources are licensed under GPL-3.0-or-later (see LICENSE). It links against
-Card-Forge 2.0.15. Forge and its card scripts are supplied separately:
-https://github.com/Card-Forge/forge/releases/tag/forge-2.0.15
+This experimental two-human engine runs separately from the casual table.
+The Java sources are GPL-3.0-or-later (see LICENSE) and link against the pinned
+[Card-Forge 2.0.15 release](https://github.com/Card-Forge/forge/releases/tag/forge-2.0.15).
+Forge and its card scripts are supplied separately.
 
-## Current scope
+## Own Commander decks
 
-Two authenticated human clients control casting, targets, modes, trigger ordering,
-priority and cleanup discards. Forge pays actual mana and resolves the results.
-The standard fixture still contains Grizzly Bears, Swords to Plowshares,
-Counterspell, Raise the Alarm and Divination. The new **Effektentscheidungen**
-fixture contains Preordain, Impulse, Innocent Blood, You Meet in a Tavern,
-Raise the Alarm and Man-o'-War, with Soul's Attendant on the battlefield. The separate **Kampf** fixture provides
-Grizzly Bears, Air Elemental, Silvercoat Lion, Fencing Ace, Vampire Nighthawk and
-Colossal Dreadmaw for human combat decisions. The **Zusatzkosten** fixture supplies
-Village Rites, Tormenting Voice and Fling, two differently sized creatures,
-Counterspell and enough basic lands to exercise actual payments and responses.
+The host chooses **Eigene Commander-Decks**. Each player selects a saved local,
+account, or prepared deck and marks themselves ready. Changing a deck or the
+shared mode clears the relevant readiness. Both players must be ready to start.
 
-HumanDecisions bridges synchronous Forge callbacks to online input. The game
-executor pauses for Scry/Surveil, card/entity selections, ordering, sacrifices
-by effects, modes, targets and optional confirmations. The stdin reader remains
-available for validated answers; it cannot mutate game objects. The first pause
-returns the original action, later pauses/completion publish snapshots. This
-keeps Socket.IO requests short while allowing the player time to decide.
-Each decision checks its ID, seat, allowed IDs, bounds, repeats and complete
-Scry partitions. Invalid responses leave the engine waiting. Private options,
-prompts and source names are excluded from opponents' projections.
+The server validates catalog IDs, commander/partner eligibility, singleton,
+color identity, and the existing house limit of 100–250 cards including commanders.
+Only catalog-derived names/counts enter Java through stdin; there are no client
+scripts or arbitrary deck paths. The opponent sees deck name, commanders and
+count, never the private list or notes. If the installed Forge release lacks a
+card script, the entire startup fails and the affected player receives their
+missing names privately. No cards are substituted. Old compiled bridges are
+rejected for Commander startup instead of silently loading a fixture.
 
-Mandatory choices have no automatic AI fallback or automatic timeout answer.
-Leaving kills the match process; reload restores the outstanding choice.
-Identical life-gain triggers from the same Soul Warden/Attendant keep their
-existing order to avoid an unnecessary ordering prompt. Other simultaneous
-abilities require human ordering, and targets are chosen before adding triggers
-to the stack. Basic mana payment still uses the Forge AI cost solver. Ordinary
-discard-one-card and sacrifice-one-creature spell costs now use HumanCosts:
-the player chooses a legal card or cancels before payment. The spell cannot pay
-its own discard cost. Choices remain private, survive reload and reject stale,
-foreign or malformed answers. Forge collects the decisions before paying costs;
-only then does the opponent get priority. Countering a spell does not refund
-its paid costs. Fling can target either player or a legal creature and uses the
-sacrificed creature's last-known power. Unsupported additional spell costs are
-rejected rather than silently selected by the AI. Other non-mana costs,
-numbers/colors, divided targets, special reveal rules and other
-unimplemented controller callbacks are not validated for arbitrary decks.
+Each player starts at 40 life with a shuffled actual library and seven cards.
+The free mulligan back to seven is the project's house rule. Both players keep
+before the host's first main phase. Native Forge commander permissions, partner
+command zones, return decisions, accumulated casting tax and commander damage
+are used. A concession ends the game while retaining stable client seat IDs.
 
-Predefined hands/lands/libraries remain. Turns now advance through Forge's own
-phase end/begin hooks: end-step response window, cleanup with human discards,
-untap/upkeep/draw and the next main phase. Empty steps advance automatically;
-stack entries stop advancement for responses. Basic lands can be played under
-Forge's land/timing restrictions and land counts reset on actual turn changes.
-The single-phase adapter pins Forge 2.0.15 private hook names via reflection;
-it never resets the game to fake a new turn. Regression tests are mandatory
-before upgrading Forge.
-No commander selection, mulligans, arbitrary decks,
-four-player games or persistence are implemented.
-The combat fixture exposes an explicit attack action, human attacker and blocker
-selection on the board, and damage allocation for multiple recipients or trample.
-Forge checks attack/block constraints, handles first/double strike, flying,
-deathtouch, lifelink, simultaneous damage and state-based deaths. Both players
-receive response windows before declarations and damage. Invalid global block
-or damage combinations require a corrected choice. Simultaneous graveyard moves
-may require the owner to order cards. Damage choices are limited to 128 points.
-Only the opposing player can be attacked in this fixture; planeswalkers, battles,
-banding, special attack costs and unusual damage assignment are not validated.
-The original fixtures continue to skip attacking when ending a turn.
-This is still not a full Commander game.
-Both clients' match ends if either explicitly leaves. Reload reconnects to the
-in-memory match; server restart loses experimental matches.
+The fixture spell-name whitelist does not apply to own decks. Native abilities
+and alternative costs are offered when legal and supported; spells cast from
+hand or the command zone, and abilities activate from battlefield, hand, or
+command zone when permitted. Explicit ability selection displays its
+costs before activation. Cycling discards its source; fetchlands pay life and
+sacrifice before a human library search. Ordinary mana abilities resolve
+immediately and retain priority. Graveyard/exile/command card targets are
+included when Forge allows them, alongside battlefield, player and stack targets.
 
-The existing casual engine is independent. A user cannot simultaneously join a
-Forge match and a casual room. Library identities and opponent hand identities
-are removed by the server before broadcasting. Action queues, revisions and
-request IDs prevent racing and duplicate casts. Maximum two experimental rooms.
+## Shared automation and human choices
 
-## Opt-in setup
+Forge resolves effects, actual payments, triggers, state actions and combat.
+HumanDecisions pauses synchronous callbacks for targets, modes, Scry/Surveil,
+card/entity selections, library searches, orders, optional confirmations,
+types, colors and bounded numeric input. Answers check choice ID, authenticated
+seat, legal IDs, counts, partitions and numeric bounds. Private options, prompts
+and source names are removed from the opponent's projection. Reload restores
+the outstanding choice; leaving stops the process. These supported choices have
+no timeout answer. The adapter still inherits unreviewed Forge AI callbacks:
+arbitrary card combinations are not yet fully validated.
 
-Requires Java 17, the unpacked official Forge 2.0.15 desktop release including
-`res`, and compiled BatusForge classes. Compile **all four BatusForge.java, HumanDecisions.java, HumanCombat.java and HumanCosts.java** using Java 17 with explicit UTF-8 source encoding (`-encoding UTF-8`)
-against `forge-gui-desktop-2.0.15-jar-with-dependencies.jar`.
+Supported costs currently include fixed mana, tap/untap, fixed life, and fixed
+discard/sacrifice costs. Non-source card costs use human selections/cancellation
+before payment. A spell cannot discard itself; source discard/sacrifice is
+deterministic. Countering a spell never refunds costs. Other cost families and X
+payments are rejected.
 
-Set **all three** server environment variables to absolute paths:
+Normal mana payment uses Forge's solver. A bounded fallback plans ordinary
+noncreature tap sources and fixed generic-cost filters such as Ferrous Lake or
+signets, including their activation mana and full output. It accepts a sequence
+only if the final cost is payable for every possible floating color spent on a
+generic activation. Replay uses native mana abilities and native payment.
+Restricted mana, output replacements/cost modifiers, complex mana abilities,
+hybrid-cost filters and extra-cost spells are outside this fallback; manually
+activate supported mana abilities when needed.
 
-- `FORGE_JAVA`: Java executable
-- `FORGE_RUNTIME`: unpacked Forge directory
-- `FORGE_CLASSES`: compiled class directory
+Turns advance through Forge's phase end/begin hooks, including cleanup with
+human discards, untap/upkeep/draw and the next main phase. Empty steps advance;
+stack objects stop advancement for responses. This single-phase adapter pins
+private Forge 2.0.15 hook names. Do not upgrade Forge without regressions.
+Human combat includes attacker/blocker selection, ordering and damage assignment.
+Native first/double strike, flying, deathtouch, lifelink, trample, simultaneous
+damage and deaths are tested. Damage assignments are limited to 128 points.
 
-Run the existing server. The lobby exposes “Automatik-Testtisch · Forge”. Without
-these variables the mode is disabled. The production Docker image does not include
-Java, Forge assets or compiled bridge classes. Do not deploy that image expecting
-Forge automation to be available.
+## Remaining scope
 
-The UI shows the current phase, who needs to act and the latest public actions.
-Player targets are selected through highlighted player names. Cost windows do
-not overlap card previews, and the table/choices adapt to narrow phone screens.
-Selections cannot be submitted while disconnected; reconnect/reload retrieves
-the engine's outstanding decision.
+Experimental two-player matches are kept in memory and lost on server restart.
+There are at most two rooms. A user cannot join Forge and casual simultaneously.
+Hand/library privacy, queues, revisions and request IDs protect online actions.
 
-Keep Forge's GPL license and provide corresponding source when distributing a
+Four-player Forge, persistence, advanced pre-opening actions such as Leylines,
+dynamic extra-color commanders, modal back-face land play, graveyard/exile casting permissions, divided
+spell targets, special reveal/controller callbacks and unusual combat rules
+(planeswalkers/battles, banding or attack costs) remain unvalidated or unavailable.
+Loading all five prepared decks proves script availability and physical deck
+sizes, not that every card combination already works correctly.
+
+The next automation increments should cover mechanics shared across decks:
+
+1. Review remaining controller choices with representative real cards and
+   private/reconnect checks, especially graveyard/exile and reveals.
+2. Add X, counters, reveal/exile/tap-other costs and alternative payments with
+   cancellation tests before enabling those abilities.
+3. Extend casting zones, special mana and trigger/replacement families.
+4. Add complete multi-turn scenarios for each prepared deck's main mechanics.
+5. Validate multiplayer and persistence before broad release.
+
+## Setup and verification
+
+Requires Java 17, the unpacked official Forge desktop release including `res`,
+and all **six** bridge files compiled with UTF-8:
+
+```sh
+javac -encoding UTF-8 -cp /path/to/forge-gui-desktop-2.0.15-jar-with-dependencies.jar -d /path/to/classes forge-bridge/BatusForge.java forge-bridge/HumanDecisions.java forge-bridge/HumanCombat.java forge-bridge/HumanCosts.java forge-bridge/CommanderDecks.java forge-bridge/FilterMana.java
+```
+
+Set absolute `FORGE_JAVA`, `FORGE_RUNTIME` and `FORGE_CLASSES` paths on the server.
+The lobby exposes **Automatik-Testtisch · Forge** when configured. The production
+Docker image does not bundle Java, Forge assets or compiled classes.
+
+Application checks: `pnpm test` and `pnpm build`. With Forge configured:
+
+```sh
+node scripts/test-forge.mjs
+node scripts/test-forge-decisions.mjs
+node scripts/test-forge-combat.mjs
+node scripts/test-forge-costs.mjs
+node scripts/test-forge-commander.mjs
+node scripts/test-forge-deck-mechanics.mjs
+```
+
+After building, `node scripts/test-forge-commander-browser.mjs` tests two
+authenticated browsers, local/account decks, privacy, readiness, mulligan,
+reload, cast/resolve and concession. `test-forge-costs-browser.mjs` covers the
+previous payment fixture. They require Playwright (or `PLAYWRIGHT_MODULE`) and
+Chromium (`CHROME_PATH` can select an installed executable). Screenshots go to
+ignored `.local/browser`. See the [Commander verification report](../deploy/FORGE-COMMANDER-2026-10-13.md).
+
+Keep Forge's GPL license and provide corresponding source when distributing the
 linked bridge. MTG card images and scripts have separate third-party rights.
-
-## Next milestone
-
-Audit remaining controller callbacks, special combat rules and non-mana costs,
-then validate genuine Commander decks before general release.
-
-With FORGE_JAVA, FORGE_RUNTIME and FORGE_CLASSES set, run
-`node scripts/test-forge.mjs`, `node scripts/test-forge-decisions.mjs`,
-`node scripts/test-forge-combat.mjs` and `node scripts/test-forge-costs.mjs`
-for the real engine regression tests.
-
-After building the client, `node scripts/test-forge-costs-browser.mjs` exercises
-two authenticated browsers, reconnect, payments, responses and a 390px viewport.
-It requires Playwright (or `PLAYWRIGHT_MODULE` pointing to its ESM entry) and a
-Chromium browser; `CHROME_PATH` can select a locally installed executable.
-Screenshots go to the ignored `.local/browser` directory.

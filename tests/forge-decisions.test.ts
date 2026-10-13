@@ -23,6 +23,6 @@ test('decision answers have strict bounded inputs without a client-provided play
  assert(forgeActionSchema.safeParse({type:'choose',choiceId:id,answer:false}).success);
  assert(forgeActionSchema.safeParse({type:'choose',choiceId:id,first:['a'],second:['b']}).success);
  for(const extra of [{seat:1},{state:{}},{command:'eval'}])assert(!forgeActionSchema.safeParse({type:'choose',choiceId:id,...extra}).success);
- assert(!forgeActionSchema.safeParse({type:'choose',choiceId:id,first:Array(129).fill('a')}).success);
+ assert(!forgeActionSchema.safeParse({type:'choose',choiceId:id,first:Array(513).fill('a')}).success);
  assert(!forgeActionSchema.safeParse({type:'choose',choiceId:'old'}).success);
 });

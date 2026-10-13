@@ -1,4 +1,5 @@
 import TableTools from './TableTools';
+import {useTouchLayout} from './useTouchLayout';
 import {createPortal} from 'react-dom';
 import {denseBoard} from './dense-board';
 import PhysicalCounters from './PhysicalCounters';
@@ -23,7 +24,8 @@ const WIDTH=2180,PADDING=40,GAP=36;
 const MAT_WIDTH=(WIDTH-PADDING*2-GAP)/2;
 
 export default function Tabletop({view,seat,active,settings,setSettings,ownArea,renderCard,dispatch,playCard,onInspect,openZone,openPlayerCounters,onSeatChange}:Props){
-  const [target,setTarget]=useState(settings.tableOverview!==false?'table':seat),[free,setFree]=useState(false),[zoom,setZoom]=useState(1),[rotation,setRotation]=useState(0),[pan,setPan]=useState({x:0,y:0});
+  const {touch}=useTouchLayout();
+  const [target,setTarget]=useState(!touch&&settings.tableOverview!==false?'table':seat),[free,setFree]=useState(false),[zoom,setZoom]=useState(1),[rotation,setRotation]=useState(0),[pan,setPan]=useState({x:0,y:0});
   const [pinnedCards,setPinnedCards]=useState<Record<string,number>>({});
   const [boardModes,setBoardModes]=useState<Record<string,'free'|'grouped'>>({}),[expandedGroups,setExpandedGroups]=useState<Set<string>>(new Set()),[groupMenu,setGroupMenu]=useState<{ids:string[];x:number;y:number}|null>(null);
   const groupMenuRef=useRef<HTMLElement>(null),[groupCounter,setGroupCounter]=useState<CardCounterType|'custom'>('plusOne'),[groupStep,setGroupStep]=useState('1'),[groupCustom,setGroupCustom]=useState('');
@@ -47,8 +49,8 @@ export default function Tabletop({view,seat,active,settings,setSettings,ownArea,
   const overview=target==='table';
   const focusPlayer=(id:string)=>{setCameraMoving(true);setSettings({...settings,tableOverview:id==='table'});setTarget(id);setFree(false);setZoom(1);setPan({x:0,y:0});setRotation(0);};
   useEffect(()=>{if(!cameraMoving)return;const timer=setTimeout(()=>setCameraMoving(false),380);return()=>clearTimeout(timer);},[cameraMoving,target]);
-  useEffect(()=>{setTarget(settings.tableOverview!==false?'table':seat);setLayout('free');},[seat]);
-  useEffect(()=>{if(size.width<600)setLayout('ordered');},[size.width<600]);
+  useEffect(()=>{setTarget(!touch&&settings.tableOverview!==false?'table':seat);setLayout('free');},[seat,touch]);
+  useEffect(()=>{if(touch||size.width<600)setLayout('ordered');},[touch,size.width<600]);
   useEffect(()=>{
     const el=viewport.current;if(!el)return;
     const resize=new ResizeObserver(entries=>{const {width,height}=entries[0].contentRect;if(width>0&&height>0){setCameraMoving(false);setSize({width,height});}});resize.observe(el);return()=>resize.disconnect();
@@ -95,9 +97,9 @@ export default function Tabletop({view,seat,active,settings,setSettings,ownArea,
         <div className="tt-mats" style={{gridTemplateColumns:columns===1?'1fr':'1fr 1fr',gridTemplateRows:'1fr 1fr',inset:PADDING,gap:GAP}}>
           {seating.map((p,slot)=>{
             const own=p.id===seat,commander=commanderFor(p),board=field(p.id),isFocused=p.id===target;
-            const dense=(boardModes[p.id]??(board.length>=16?'grouped':'free'))==='grouped';
+            const dense=!touch&&(boardModes[p.id]??(board.length>=16?'grouped':'free'))==='grouped';
             const denseLayout=denseBoard(board,MAT_WIDTH-205,MAT_HEIGHT-120,expandedGroups,new Set(board.filter(c=>pinnedCards[c.id]===(c.incarnation??0)).map(c=>c.id)));
-            const ordered=!dense&&!overview&&!free&&isFocused&&layout==='ordered';
+            const ordered=touch||!dense&&!overview&&!free&&isFocused&&layout==='ordered';
             return <article key={p.id} className={`tt-mat ${isFocused?'tt-mat-focused':''} ${own?'tt-own-mat':''} ${view.activePlayer===p.id?'tt-seat-active':''} ${slot%columns===0&&columns>1?'tt-outer-left':'tt-outer-right'}`} style={{'--seat-color':p.color,'--mat-art':`url('${matImage(commander)}')`,'--mat-art-opacity':settings.tableArt?'.26':'0'} as CSSProperties} data-player={p.id} data-table-slot={slot} aria-label={`Playmatte ${p.name}`}>
               <div className="tt-mat-art"/><div className="tt-mat-vignette"/>
               <header className="tt-mat-heading"><button className="tt-seat-title" title={`${p.name} · ${p.commander}`} onClick={()=>focusPlayer(p.id)}><img className="tt-seat-portrait" src={matImage(commander)} alt=""/><span><b>{own?'Du':p.name}</b>{view.activePlayer===p.id&&<small className="tt-turn-tag">Am Zug</small>}</span></button>{own?<LifeControl life={p.life} active={active} dispatch={dispatch}/>:<div className="tt-mat-life"><strong>{p.life}</strong></div>}<button className="tt-arrange-toggle" aria-pressed={dense} aria-label={`${own?'Dein Board':p.name}: ${dense?'freie Platzierung':'übersichtlich gruppieren'}`} title={dense?'Freie Platzierung':'Karten ordnen und gleiche Token zusammenfassen'} onClick={()=>setBoardModes(m=>({...m,[p.id]:dense?'free':'grouped'}))}><Grid2X2 size={16}/></button><span className="tt-hand-count" title={`${view.hiddenCounts[p.id].hand} Handkarten`}><Layers size={15}/>{view.hiddenCounts[p.id].hand}</span></header>

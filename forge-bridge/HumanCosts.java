@@ -14,13 +14,14 @@ final class HumanCosts extends AiCostDecision {
  private final SpellAbility spell;
  private boolean cancelled;
  HumanCosts(Player player,SpellAbility ability){super(player,ability,false);payer=player;spell=ability;}
+ static boolean canPay(SpellAbility sa,Player player){return ComputerUtilCost.canPayCost(sa,player,false)||FilterMana.canPay(sa,player);}
 
- // The fixture deliberately supports ordinary discard/sacrifice costs only.
- // Never silently delegate a new non-mana cost to the AI.
+ // Choices of cards stay human. Tap/untap, life, and a named source are deterministic.
+ // Other cost families remain explicitly unsupported.
  static boolean supported(SpellAbility sa){
-  return sa.getPayCosts().getCostParts().stream().allMatch(c->c instanceof CostPartMana||
-   c instanceof CostDiscard&&!c.payCostFromSource()&&c.getType().equals("Card")&&c.getAmount().matches("\\d+")||
-   c instanceof CostSacrifice&&!c.payCostFromSource()&&c.getType().equals("Creature")&&c.getAmount().matches("\\d+"));
+  return sa.getPayCosts()!=null&&sa.getPayCosts().getTotalMana().countX()==0&&sa.getPayCosts().getCostParts().stream().allMatch(c->c instanceof CostPartMana||c instanceof CostTap||c instanceof CostUntap||
+   c instanceof CostPayLife&&c.getAmount().matches("\\d+")||
+   (c instanceof CostDiscard||c instanceof CostSacrifice)&&c.getAmount().matches("\\d+")&&(!c.payCostFromSource()||c.getAmount().equals("1")));
  }
  PaymentDecision choose(CardCollectionView candidates,int count,String title){
   if(candidates.size()<count)return null;
@@ -30,21 +31,23 @@ final class HumanCosts extends AiCostDecision {
   return PaymentDecision.card(HumanDecisions.collect(candidates,HumanDecisions.ids(answer,"first")));
  }
  @Override public PaymentDecision visit(CostDiscard cost){
+  if(cost.payCostFromSource()){var cards=new CardCollection();cards.add(spell.getHostCard());return PaymentDecision.card(cards);}
   var cards=CardLists.getValidCards(payer.getCardsIn(ZoneType.Hand),cost.getType().split(";"),payer,spell.getHostCard(),spell);
   cards=CardLists.filter(cards,c->c.canBeDiscardedBy(spell,false));
   return choose(cards,cost.getAbilityAmount(spell),"Zusatzkosten · Karte abwerfen");
  }
  @Override public PaymentDecision visit(CostSacrifice cost){
+  if(cost.payCostFromSource()){var cards=new CardCollection();cards.add(spell.getHostCard());return PaymentDecision.card(cards);}
   var cards=CardLists.getValidCards(payer.getCardsIn(ZoneType.Battlefield),cost.getType().split(";"),payer,spell.getHostCard(),spell);
   cards=CardLists.filter(cards,CardPredicates.canBeSacrificedBy(spell,false));
-  return choose(cards,cost.getAbilityAmount(spell),"Zusatzkosten · Kreatur opfern");
+  return choose(cards,cost.getAbilityAmount(spell),cost.getType().equals("Creature")?"Zusatzkosten · Kreatur opfern":"Zusatzkosten · Karte opfern");
  }
  static boolean play(SpellAbility sa,Player player){
   BatusForge.require(supported(sa),"Diese Zusatzkosten sind noch nicht im Testumfang");
-  if(sa.getPayCosts().getCostParts().stream().allMatch(c->c instanceof CostPartMana)){BatusForge.require(ComputerUtil.playStack(sa,player,BatusForge.game),"Kosten konnten nicht bezahlt werden");return true;}
+  if(sa.getPayCosts().getCostParts().stream().allMatch(c->c instanceof CostPartMana)){if(!ComputerUtilCost.canPayCost(sa,player,false))FilterMana.prepare(sa,player);BatusForge.require(ComputerUtil.playStack(sa,player,BatusForge.game),"Kosten konnten nicht bezahlt werden");return true;}
   if(!ComputerUtilCost.canPayCost(sa,player,false))return false;
   var source=sa.getHostCard();var zone=source.getZone();int position=zone.getCards().indexOf(source);
-  sa.setHostCard(BatusForge.game.getAction().moveToStack(source,sa));
+  if(sa.isSpell())sa.setHostCard(BatusForge.game.getAction().moveToStack(source,sa));
   var payment=new CostPayment(sa.getPayCosts(),sa);
   var decisions=new HumanCosts(player,sa);
   if(!sa.checkRestrictions(player)||!payment.payComputerCosts(decisions)){

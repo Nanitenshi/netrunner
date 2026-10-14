@@ -36,7 +36,8 @@ final class HumanCosts extends AiCostDecision {
  @Override public PaymentDecision visit(CostReveal cost){
   var cards=CardLists.getValidCards(payer.getCardsIn(ZoneType.Hand),cost.getType().split(";"),payer,spell.getHostCard(),spell);int count=cost.getAbilityAmount(spell);
   if(cards.size()<count)return null;
-  var answer=HumanDecisions.ask(BatusForge.seat(payer),"reveal","Handkarte aufdecken",spell.getHostCard().getName(),count,count,false,HumanDecisions.cardOptions(cards));
+  boolean revealLand=count==1&&spell.getHostCard().isLand()&&java.util.Set.of("Port Town","Choked Estuary","Foreboding Ruins","Game Trail","Fortified Village").contains(spell.getHostCard().getName());
+  var answer=HumanDecisions.ask(BatusForge.seat(payer),"reveal","Handkarte aufdecken",spell.getHostCard().getName(),count,count,false,HumanDecisions.cardOptions(cards),revealLand?"reveal-land":null);
   if(answer.has("answer")){cancelled=true;return null;}
   return PaymentDecision.card(HumanDecisions.collect(cards,HumanDecisions.ids(answer,"first")));
  }

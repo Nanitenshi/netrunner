@@ -159,6 +159,7 @@ export function createNexusServer(config:Config={}){
   handle('forge:join',input=>{if(findRoom(user.id))throw new Error('Verlasse zuerst deinen Casual-Tisch');forge.join(user,input);});
   handle('forge:scenario',input=>forge.scenario(user,input));
   handle('forge:deck',input=>forge.deck(user,input));
+  handle('forge:automation',input=>forge.automation(user,input));
   handle('forge:ready',input=>forge.ready(user,input));
   handle('forge:opponent',input=>forge.opponent(user,input));
   handle('forge:start',input=>forge.start(user,input));

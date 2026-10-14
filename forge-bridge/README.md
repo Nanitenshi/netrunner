@@ -55,8 +55,9 @@ payments are rejected.
 
 Fixed hand-card reveals offered during an effect now use human selection and
 an explicit decline button. In particular Port Town, Choked Estuary, Foreboding
-Ruins, Game Trail and Fortified Village enter untapped only after the human
-chooses a legal card to reveal. Without a matching card or after declining,
+Ruins, Game Trail and Fortified Village enter untapped only after a legal card
+is revealed. This choice is manual by default; the narrowly scoped opt-in
+automation described below can answer reviewed unambiguous choices. Without a matching card or after declining,
 Forge applies the tapped-entry replacement. This does not enable reveal costs
 for ordinary spell casting or complex combined/variable reveal payments.
 
@@ -68,7 +69,7 @@ cards before selection, while the remaining library and hand stay private.
 The read-only **Aufgedeckte Karten** dialog can be opened from the action bar
 or a pending effect decision, without answering that decision. Reload restores
 the same pending decision and in-memory reveal records. Commander startup now
-requires the bridge feature `human-reveals`; recompile all seven files together.
+requires the bridge features `human-reveals` and `optional-reveal-automation`; recompile all seven files together.
 
 `node scripts/test-forge-reveals.mjs` covers all five reveal lands, decline,
 missing eligible cards, privacy, illegal answers, Cultivate assignment/reveal
@@ -133,6 +134,39 @@ decks at all three levels and an Isamaru combat control deck. After building,
 `node scripts/test-forge-ai-browser.mjs` tests solo setup, levels, own/prepared
 decks, readiness changes, remove, response windows, reload, resolution,
 concession and leaving. Browser prerequisites are the same as below.
+## Opt-in decision automation
+
+The **Entscheidungen** button opens settings in the lobby or during play, on
+phones and desktop. Settings belong to the authenticated human at this table;
+new tables default to manual. Reconnect restores the same preference and the
+last eight automatically answered decisions. No account-wide consent is inferred.
+
+The first reviewed family is the five reveal lands: Port Town, Choked Estuary,
+Foreboding Ruins, Game Trail and Fortified Village. Forge marks only their
+single-card reveal cost with `automation: 'reveal-land'`. Manual mode preserves
+both explicit card selection and declining (tapped entry). Opt-in automatic mode
+reveals one legal candidate only when every legal candidate has the same name.
+Distinct names stay manual because revealing information is a strategic choice.
+No eligible candidate follows native tapped entry without an impossible prompt.
+
+The server consumes only that player's projected pending options and answers
+through the same serial queue and native seat/choice/ID/count validation as
+manual choices. It rechecks consent and choice ID when queued work executes.
+Accepted answers are journaled privately; actual card reveals retain the existing
+viewer-scoped native journal. Each choice ID is attempted once. Rejected automatic
+answers switch that player to manual with an error notice; they are never blindly
+retried. The failed pending choice must be answered manually before opt-in can
+be enabled again. Turning automation off cannot undo an already accepted reveal.
+
+Other callback families are not enabled by this preference. Further increments
+must have their own opt-in, manual path, native examples, privacy and reconnect
+checks before being enabled. Existing unsupported callbacks remain subject to
+the limitations below; this is not a claim that every card is implemented.
+
+Run `node scripts/test-forge-automation.mjs` with Forge configured and, after
+building, `node scripts/test-forge-automation-browser.mjs` with the browser
+prerequisites below. See [optional automation verification](../deploy/FORGE-AUTOMATION-2026-10-14.md).
+
 ## Remaining scope
 
 Experimental two-seat matches are kept in memory and lost on server restart.

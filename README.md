@@ -184,3 +184,7 @@ Bedienung, Browserprüfungen und Bereitstellung: [Mobile-Prüfbericht](deploy/MO
 Bei Ländern wie Port Town und Game Trail entscheidet jetzt der Mensch, welche passende Handkarte er aufdeckt oder ob er ablehnt. Forge setzt das Land entsprechend ungetappt oder getappt ins Spiel. Diese Mechanik gilt für das entsprechende Land in jedem der fünf vorbereiteten und in eigenen Decks.
 
 **Aufgedeckte Karten** zeigt die letzten acht Aufdeckungen, die du sehen darfst. Private Bibliotheksansichten bleiben privat; öffentlich aufgedeckte Suchergebnisse sind für den berechtigten Gegner sichtbar. Das Fenster lässt sich auch während einer laufenden Auswahl öffnen und schließen. Für diesen Stand müssen alle sieben Java-Bridge-Dateien zusammen neu kompiliert werden. Details und Grenzen: [Aufdeck-Prüfbericht](deploy/FORGE-REVEALS-2026-10-14.md).
+
+## Entscheidungen schrittweise automatisieren
+
+Am Forge-Tisch öffnet **Entscheidungen** deine eigenen Einstellungen. Standard ist **Selbst entscheiden**. Für die fünf Aufdeck-Länder lässt sich **Automatisch, wenn eindeutig** einschalten: Eine erlaubte Handkarte wird aufgedeckt, wenn alle zulässigen Karten denselben Namen haben. Bei verschiedenen Namen bleibt die Auswahl manuell. Du kannst jederzeit zurückstellen und die letzten automatischen Entscheidungen ansehen. Die Einstellung gilt für diesen Tisch und überlebt Neuladen; ein neuer Tisch startet wieder manuell. Weitere Entscheidungsfamilien erhalten schrittweise eigene Einstellungen und Prüfungen. [Prüfbericht und Grenzen](deploy/FORGE-AUTOMATION-2026-10-14.md).

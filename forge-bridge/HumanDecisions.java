@@ -21,7 +21,10 @@ public final class HumanDecisions {
   Pending(Map<String,Object> d,List<Map<String,Object>> options){descriptor=d;allowed=new HashSet<>();for(var o:options)allowed.add((String)o.get("id"));}
  }
  static JsonObject ask(int seat,String kind,String title,String source,int min,int max,boolean repeat,List<Map<String,Object>> options){
-  var d=new LinkedHashMap<String,Object>();d.put("id",UUID.randomUUID().toString());d.put("seat",seat);d.put("kind",kind);d.put("title",title);d.put("source",source);d.put("min",min);d.put("max",max);d.put("repeat",repeat);d.put("count",min);d.put("options",options);
+  return ask(seat,kind,title,source,min,max,repeat,options,null);
+ }
+ static JsonObject ask(int seat,String kind,String title,String source,int min,int max,boolean repeat,List<Map<String,Object>> options,String automation){
+  var d=new LinkedHashMap<String,Object>();if(automation!=null)d.put("automation",automation);d.put("id",UUID.randomUUID().toString());d.put("seat",seat);d.put("kind",kind);d.put("title",title);d.put("source",source);d.put("min",min);d.put("max",max);d.put("repeat",repeat);d.put("count",min);d.put("options",options);
   var p=new Pending(d,options);pending=p;BatusForge.choice=d;BatusForge.publishPause();
   try{return p.answer.get();}catch(Exception e){throw new IllegalStateException("Entscheidung wurde unterbrochen",e);}finally{pending=null;BatusForge.choice=null;}
  }

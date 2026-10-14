@@ -6,6 +6,15 @@ import java.util.concurrent.CompletableFuture;
 
 public final class HumanDecisions {
  private static volatile Pending pending;
+ private static final List<Map<String,Object>> reveals=new ArrayList<>();
+ // Each callback is delivered by Forge to a specific permitted viewer.
+ // Keep a bounded journal per viewer; never infer publicity from the card's zone.
+ static void reveal(int viewer,String title,String source,List<Map<String,Object>> cards){
+  if(cards.isEmpty())return;
+  reveals.add(Map.of("id",UUID.randomUUID().toString(),"seat",viewer,"title",title==null||title.isBlank()?"Aufgedeckte Karten":title,"source",source,"cards",List.copyOf(cards)));
+  while(reveals.stream().filter(r->(int)r.get("seat")==viewer).count()>8){for(int i=0;i<reveals.size();i++)if((int)reveals.get(i).get("seat")==viewer){reveals.remove(i);break;}}
+ }
+ static List<Map<String,Object>> reveals(){return List.copyOf(reveals);}
  private static class Pending {
   final Map<String,Object> descriptor;final Set<String> allowed;
   final CompletableFuture<JsonObject> answer=new CompletableFuture<>();boolean answered;
@@ -25,7 +34,7 @@ public final class HumanDecisions {
    BatusForge.require(p.allowed.containsAll(all),"Ungültige Auswahl");String kind=(String)d.get("kind");
    if(!kind.equals("number"))BatusForge.require(!a.has("value"),"Diese Auswahl benötigt keine Zahl");
    if(kind.equals("number")){BatusForge.require(all.isEmpty()&&!a.has("answer")&&a.has("value"),"Zahl fehlt");double value=a.get("value").getAsDouble();BatusForge.require(Double.isFinite(value)&&value==Math.rint(value)&&value>=(int)d.get("min")&&value<=(int)d.get("max"),"Zahl außerhalb des erlaubten Bereichs");}
-   else if(kind.equals("cost")&&a.has("answer")){BatusForge.require(!a.get("answer").getAsBoolean()&&all.isEmpty(),"Kostenabbruch ist ungültig");}
+   else if((kind.equals("cost")||kind.equals("reveal"))&&a.has("answer")){BatusForge.require(!a.get("answer").getAsBoolean()&&all.isEmpty(),"Kostenabbruch ist ungültig");}
    else if(kind.equals("confirm")){BatusForge.require(a.has("answer")&&all.isEmpty(),"Bestätigung fehlt");}
    else {BatusForge.require(!a.has("answer"),"Diese Entscheidung ist keine Bestätigung");
     if(!(boolean)d.get("repeat"))BatusForge.require(new HashSet<>(all).size()==all.size(),"Doppelte Auswahl");

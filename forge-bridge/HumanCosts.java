@@ -13,7 +13,8 @@ final class HumanCosts extends AiCostDecision {
  private final Player payer;
  private final SpellAbility spell;
  private boolean cancelled;
- HumanCosts(Player player,SpellAbility ability){super(player,ability,false);payer=player;spell=ability;}
+ HumanCosts(Player player,SpellAbility ability){this(player,ability,false);}
+ HumanCosts(Player player,SpellAbility ability,boolean effect){super(player,ability,effect);payer=player;spell=ability;}
  static boolean canPay(SpellAbility sa,Player player){return ComputerUtilCost.canPayCost(sa,player,false)||FilterMana.canPay(sa,player);}
 
  // Choices of cards stay human. Tap/untap, life, and a named source are deterministic.
@@ -29,6 +30,15 @@ final class HumanCosts extends AiCostDecision {
   var answer=HumanDecisions.ask(BatusForge.seat(payer),"cost",title,spell.getHostCard().getName(),count,count,false,HumanDecisions.cardOptions(candidates));
   if(answer.has("answer")){cancelled=true;return null;} // No cost has been paid yet.
   return PaymentDecision.card(HumanDecisions.collect(candidates,HumanDecisions.ids(answer,"first")));
+ }
+ static boolean revealEffectSupported(Cost cost){return cost.getCostParts().size()==1&&cost.getCostParts().get(0) instanceof CostReveal r&&!r.payCostFromSource()&&r.getAmount().matches("\\d+")&&r.getRevealFrom().equals(java.util.List.of(ZoneType.Hand))&&!r.getType().equals("SameColor")&&!r.getType().equals("Hand");}
+ static boolean payRevealEffect(Cost cost,SpellAbility sa,Player payer){return new CostPayment(cost,sa).payComputerCosts(new HumanCosts(payer,sa,true));}
+ @Override public PaymentDecision visit(CostReveal cost){
+  var cards=CardLists.getValidCards(payer.getCardsIn(ZoneType.Hand),cost.getType().split(";"),payer,spell.getHostCard(),spell);int count=cost.getAbilityAmount(spell);
+  if(cards.size()<count)return null;
+  var answer=HumanDecisions.ask(BatusForge.seat(payer),"reveal","Handkarte aufdecken",spell.getHostCard().getName(),count,count,false,HumanDecisions.cardOptions(cards));
+  if(answer.has("answer")){cancelled=true;return null;}
+  return PaymentDecision.card(HumanDecisions.collect(cards,HumanDecisions.ids(answer,"first")));
  }
  @Override public PaymentDecision visit(CostDiscard cost){
   if(cost.payCostFromSource()){var cards=new CardCollection();cards.add(spell.getHostCard());return PaymentDecision.card(cards);}

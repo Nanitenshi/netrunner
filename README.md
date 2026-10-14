@@ -178,3 +178,9 @@ Bedienung, Prüfszenarien und Grenzen: [KI-Prüfbericht](deploy/FORGE-AI-2026-10
 Touch-Geräte bekommen eine wischbare Hand, große Aktionsknöpfe und eine gerade, scrollbar angeordnete Kartenübersicht. Karte antippen und die gewünschte Aktion wählen; Wischen und Doppeltippen spielen keine Karte aus. Im Forge-/KI-Modus öffnet der erste Tipp Bild und Kartentext, danach bestätigst du Spielen oder Wirken ausdrücklich. Stack, Kosten, Ziele und Kampf bleiben über Touch bedienbar, auch im Querformat.
 
 Bedienung, Browserprüfungen und Bereitstellung: [Mobile-Prüfbericht](deploy/MOBILE-PLAY-2026-10-13.md). Nach Zusammenführen und Aktualisieren des Servers über dessen vorhandene Adresse im Handy-Browser spielen. Die Touch-Prüfung erfolgte mit Browser-Emulation; echte Android-/iOS-Geräte sind noch nicht geprüft.
+
+## Bewusstes Aufdecken und private Kartenansichten
+
+Bei Ländern wie Port Town und Game Trail entscheidet jetzt der Mensch, welche passende Handkarte er aufdeckt oder ob er ablehnt. Forge setzt das Land entsprechend ungetappt oder getappt ins Spiel. Diese Mechanik gilt für das entsprechende Land in jedem der fünf vorbereiteten und in eigenen Decks.
+
+**Aufgedeckte Karten** zeigt die letzten acht Aufdeckungen, die du sehen darfst. Private Bibliotheksansichten bleiben privat; öffentlich aufgedeckte Suchergebnisse sind für den berechtigten Gegner sichtbar. Das Fenster lässt sich auch während einer laufenden Auswahl öffnen und schließen. Für diesen Stand müssen alle sieben Java-Bridge-Dateien zusammen neu kompiliert werden. Details und Grenzen: [Aufdeck-Prüfbericht](deploy/FORGE-REVEALS-2026-10-14.md).

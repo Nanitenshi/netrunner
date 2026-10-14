@@ -53,6 +53,29 @@ before payment. A spell cannot discard itself; source discard/sacrifice is
 deterministic. Countering a spell never refunds costs. Other cost families and X
 payments are rejected.
 
+Fixed hand-card reveals offered during an effect now use human selection and
+an explicit decline button. In particular Port Town, Choked Estuary, Foreboding
+Ruins, Game Trail and Fortified Village enter untapped only after the human
+chooses a legal card to reveal. Without a matching card or after declining,
+Forge applies the tapped-entry replacement. This does not enable reveal costs
+for ordinary spell casting or complex combined/variable reveal payments.
+
+Native reveal callbacks are delivered to their specific permitted viewer.
+The bridge retains the latest eight reveal records per viewer; server projection
+removes every other viewer's records. Revealed cards do not become public
+playable hand/library cards. Delayed look/search callbacks show all entitled
+cards before selection, while the remaining library and hand stay private.
+The read-only **Aufgedeckte Karten** dialog can be opened from the action bar
+or a pending effect decision, without answering that decision. Reload restores
+the same pending decision and in-memory reveal records. Commander startup now
+requires the bridge feature `human-reveals`; recompile all seven files together.
+
+`node scripts/test-forge-reveals.mjs` covers all five reveal lands, decline,
+missing eligible cards, privacy, illegal answers, Cultivate assignment/reveal
+and private Impulse looks. After building,
+`node scripts/test-forge-reveals-browser.mjs` checks two clients, reload,
+authorized/public reveals and touch landscape selection.
+
 Normal mana payment uses Forge's solver. A bounded fallback plans ordinary
 noncreature tap sources and fixed generic-cost filters such as Ferrous Lake or
 signets, including their activation mana and full output. It accepts a sequence

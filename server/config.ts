@@ -18,10 +18,11 @@ export function serverConfig(input:ServerConfig={},env:NodeJS.ProcessEnv=process
  const clientId=(input.clientId??env.DISCORD_CLIENT_ID??'').trim();
  const clientSecret=(input.clientSecret??env.DISCORD_CLIENT_SECRET??'').trim();
  for(const key of ['ENABLE_GUEST','TRUST_PROXY'])if(env[key]&&!['true','false'].includes(env[key]!))throw new Error(`${key} muss true oder false sein`);
- const guest=input.guest??(env.ENABLE_GUEST?env.ENABLE_GUEST==='true':!production);
+ const guest=input.guest??(env.ENABLE_GUEST?env.ENABLE_GUEST==='true':true);
  const proxy=input.proxy??env.TRUST_PROXY==='true';
  if(production&&!publicURL)throw new Error('PUBLIC_URL fehlt für den Produktivbetrieb');
- if(production&&(!clientId||!clientSecret))throw new Error('Discord Client ID und Client Secret fehlen für den Produktivbetrieb');
+ if(Boolean(clientId)!==Boolean(clientSecret))throw new Error('Discord Client ID und Client Secret müssen gemeinsam gesetzt werden');
+ if(production&&!guest&&(!clientId||!clientSecret))throw new Error('Ohne Gastzugang sind Discord Client ID und Client Secret erforderlich');
  if(clientId&&!/^\d+$/.test(clientId))throw new Error('DISCORD_CLIENT_ID muss die numerische Anwendungs-ID enthalten');
  return {production,publicURL,clientId,clientSecret,guest,proxy,discordReady:Boolean(clientId&&clientSecret&&publicURL)};
 }

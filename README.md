@@ -86,11 +86,11 @@ Counter werden manuell gesetzt. Bei Zonenwechseln werden sie entfernt; beim regu
 
 Der vorhandene Katalog enthält **20 Karten**. Decks lassen sich benennen, bauen, filtern, duplizieren, exportieren und lokal speichern. Ein 100-Karten-Testdeck kann als Ausgangspunkt hinzugefügt werden. Der Commander wird separat gewählt. Spieldecks werden auf 100 Karten einschließlich Commander, Singleton und passende Farbidentität geprüft; unvollständige Entwürfe können gespeichert werden.
 
-Nach der Anmeldung: **Im Konto speichern** überträgt lokale Decks zum Server, **Aus Konto laden** lädt gespeicherte Decks. Andere vorhandene Decks werden erhalten; bei derselben Deck-ID gilt die bewusst gewählte Richtung. Keine automatische Synchronisierung und kein vollständiger MTG-Katalog.
+Nach der Discord-Anmeldung: **Im Konto speichern** überträgt lokale Decks zum Server, **Aus Konto laden** lädt gespeicherte Decks. Andere vorhandene Decks werden erhalten; bei derselben Deck-ID gilt die bewusst gewählte Richtung. Keine automatische Synchronisierung und kein vollständiger MTG-Katalog.
 
-## Discord später aktivieren
+## Online ohne Discord · Discord optional aktivieren
 
-Die Anbindung ist implementiert, aber mangels Discord-Anwendung noch deaktiviert. Die lokale Testanmeldung funktioniert bereits.
+**Als Gast spielen** funktioniert ohne Discord in der Online-Lobby, im Konto-Bereich und direkt am Forge-Tisch. Ein Spielname genügt. Die Decksammlung wird lokal in diesem Browser gespeichert, bleibt bei Neuladen und Abmelden erhalten und kann exportiert/importiert werden. Gäste greifen nicht auf die Kontodeckablage zu. Discord bleibt optional für die zusätzliche, bewusst ausgelöste Kontospeicherung.
 
 1. Anwendung im [Discord Developer Portal](https://discord.com/developers/applications) erstellen.
 2. `.env.example` nach `.env` kopieren.
@@ -98,9 +98,9 @@ Die Anbindung ist implementiert, aber mangels Discord-Anwendung noch deaktiviert
 4. Exakte Redirect-Adresse im Discord-Portal hinterlegen: `PUBLIC_URL/auth/discord/callback`.
 5. Server neu starten. Im Bereich **Konto** wird **Mit Discord anmelden** verfügbar.
 
-Der OAuth-Codeaustausch läuft serverseitig, mit browsergebundenem Einmal-State und HttpOnly-Sitzungscookie. Discord-Access-Tokens gelangen nicht an den Browser. Der Sprachkanal-Button bleibt ein separat konfigurierbarer Link. Ein Testkonto wird nicht automatisch mit einem Discord-Konto zusammengeführt; lokale Decks können im neuen Konto gespeichert werden.
+Der OAuth-Codeaustausch läuft serverseitig, mit browsergebundenem Einmal-State und HttpOnly-Sitzungscookie. Discord-Access-Tokens gelangen nicht an den Browser. Der Sprachkanal-Button bleibt ein separat konfigurierbarer Link. Eine Gastsitzung wird nicht automatisch mit einem Discord-Konto zusammengeführt; lokale Decks können im neuen Konto gespeichert werden.
 
-Für öffentliche Bereitstellung: HTTPS-`PUBLIC_URL`, `NODE_ENV=production`, `ENABLE_GUEST=false` und einen Reverse Proxy mit WebSocket-Unterstützung verwenden. Der aktuelle Stand nutzt **einen Server mit SQLite**, keinen PostgreSQL-Cluster. Öffentliche Bereitstellung und Produktionshärtung sind noch offen.
+Für öffentliche Bereitstellung: HTTPS-`PUBLIC_URL`, `NODE_ENV=production`, `ENABLE_GUEST=true` (Standard) und einen Reverse Proxy mit WebSocket-Unterstützung verwenden. Der aktuelle Stand nutzt **einen Server mit SQLite**, keinen PostgreSQL-Cluster. Mit `ENABLE_GUEST=false` kann der Betreiber Discord wieder verpflichtend machen; dann müssen beide Discord-Zugangswerte gesetzt sein.
 
 Referenzen: [Discord OAuth2](https://docs.discord.com/developers/topics/oauth2), [Commander-Regelhinweise](https://magic.wizards.com/en/news/feature/commander-masters-release-notes), [Magic-Begriffe und Counter](https://magic.wizards.com/en/keyword-glossary).
 
@@ -147,7 +147,7 @@ Mit vier getrennten Clients und **90 gegnerischen Permanents** geprüft: individ
 
 ## Holo-Menü, Stack und neue Tischwerkzeuge
 
-Das neue Hauptmenü inszeniert einen zentralen Commander mit Holo-Ringen, einem projizierten Tisch und getrennten Menüschaltflächen links und rechts. Vier Menümotive sind wählbar. Multiplayer, Deckersteller, Konto, Einstellungen, Discord und Testtisch führen in ihre vorhandenen Bereiche. In einer laufenden Online-Partie ersetzt „Partie fortsetzen“ den Einstieg; „Deine Runde“ führt zur Lobby. Der Discord-Knopf öffnet den hinterlegten Kanal oder die Einstellungen. Anmeldung und öffentlicher Betrieb benötigen weiterhin die noch nicht eingerichteten Discord-/Hosting-Daten.
+Das neue Hauptmenü inszeniert einen zentralen Commander mit Holo-Ringen, einem projizierten Tisch und getrennten Menüschaltflächen links und rechts. Vier Menümotive sind wählbar. Multiplayer, Deckersteller, Konto, Einstellungen, Discord und Testtisch führen in ihre vorhandenen Bereiche. In einer laufenden Online-Partie ersetzt „Partie fortsetzen“ den Einstieg; „Deine Runde“ führt zur Lobby. Der Discord-Knopf öffnet den hinterlegten Kanal oder die Einstellungen. Gastspiel ist ohne Discord möglich; der öffentliche Betrieb benötigt eine HTTPS-Adresse.
 
 Der **Stack** zeigt zuerst das oberste Objekt, mit Kartenbild, Controller, Manawert, Ziel und Prioritätsfolge. Karten und vorhandene Ziele lassen sich vergrößern. **Mit Karte reagieren** öffnet die Auswahl eigener Spontanzauber und danach den bestehenden Wirken-/Zieldialog. **Fähigkeit ansagen** führt zu den manuellen Fähigkeiten. Weiterhin erforderlich: Kosten bestätigen und Priorität ausdrücklich abgeben. Ein leerer Stack zeigt eine Erklärung; die Ansicht ist jederzeit schließbar und verdeckt nicht die Spielerleiste.
 

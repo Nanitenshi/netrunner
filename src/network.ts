@@ -37,7 +37,7 @@ export function useNetwork(){
    try{const reply=await socket.current.timeout(event==='forge:start'?65000:event==='forge:action'?20000:8000).emitWithAck(event,input) as Reply;if(!reply.ok)throw new Error(reply.error);setError('');return true;}
    catch(error){setError(error instanceof Error?error.message:'Antwort fehlt. Prüfe den aktuellen Tischzustand.');return false;}
  }
- async function guest(name:string){try{const result=await api<{user:User}>('/api/guest',{name});setUser(result.user);setError('');}catch(error){setError((error as Error).message);}}
+ async function guest(name:string){try{const result=await api<{user:User}>('/api/guest',{name});try{localStorage.setItem('nexus.profileName',result.user.name);}catch{/* Guest play also works without browser storage. */}setUser(result.user);setError('');}catch(error){setError((error as Error).message);}}
  async function logout(){try{await api('/api/logout',{});setUser(null);setRoom(null);}catch(error){setError((error as Error).message);}}
  const action=(action:GameAction)=>{void send('game:action',{id:uuid(),action});};
  return {forgeReady,forgeRoom,user,available,discordReady,guestEnabled,publicServer,connected,room,error,setError,refresh,send,guest,logout,action};

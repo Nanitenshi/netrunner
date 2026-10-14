@@ -17,9 +17,16 @@ async function running(options:Parameters<typeof createNexusServer>[0]={database
  const server=createNexusServer(options);server.http.listen(0,'127.0.0.1');await once(server.http,'listening');
  const port=(server.http.address() as {port:number}).port;return {...server,url:`http://127.0.0.1:${port}`};
 }
-async function identity(url:string,name:string){const res=await fetch(`${url}/api/guest`,{method:'POST',headers:{Origin:url,'Content-Type':'application/json'},body:JSON.stringify({name})});assert.equal(res.status,200);return {cookie:res.headers.get('set-cookie')!.split(';')[0],user:(await res.json()).user};}
-async function client(url:string,cookie:string){
- const socket=io(url,{transports:['websocket'],extraHeaders:{Origin:url,Cookie:cookie},autoConnect:false,reconnection:false});
+async function identity(url:string,name:string,origin=url){const res=await fetch(`${url}/api/guest`,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({name})});assert.equal(res.status,200);return {cookie:res.headers.get('set-cookie')!.split(';')[0],user:(await res.json()).user};}
+let mockDiscordId=1000;
+const discordFetcher=(async(url:string|URL|Request)=>String(url).endsWith('/token')?Response.json({access_token:'test-token'}):Response.json({id:String(++mockDiscordId),username:'Account'})) as typeof fetch;
+async function discordIdentity(url:string){
+ const begin=await fetch(url+'/auth/discord',{redirect:'manual'});const auth=new URL(begin.headers.get('location')!);
+ const result=await fetch(url+'/auth/discord/callback?state='+auth.searchParams.get('state')+'&code=test',{headers:{Cookie:begin.headers.get('set-cookie')!.split(';')[0]},redirect:'manual'});
+ assert.equal(result.status,302);const cookie=result.headers.getSetCookie().find(c=>c.startsWith('nexus_session='))!.split(';')[0];return {cookie,user:(await(await fetch(url+'/api/session',{headers:{Cookie:cookie}})).json()).user};
+}
+async function client(url:string,cookie:string,origin=url){
+ const socket=io(url,{transports:['websocket'],extraHeaders:{Origin:origin,Cookie:cookie},autoConnect:false,reconnection:false});
  const updates:(RoomView|null)[]=[];socket.on('room',room=>updates.push(room));socket.connect();await new Promise<void>((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
  return {socket,updates,get room(){return updates.at(-1)!;},send:async(event:string,input:unknown={})=>await socket.timeout(3000).emitWithAck(event,input) as Reply};
 }
@@ -52,9 +59,9 @@ test('online cast pays mana and hands over priority once despite duplicate deliv
 });
 
 test('account deck storage preserves user categories and notes',async()=>{
- const server=await running();try{
-  const person=await identity(server.url,'Deckgruppen');const deck={...starterDeck(),cardGroups:{[catalogue.find(c=>c.name==='Sol Ring')!.id]:'Artefakt-Synergie'},notes:'Mein Spielplan'};
-  const headers={Origin:server.url,Cookie:person.cookie,'Content-Type':'application/json'};
+ const server=await running({database:':memory:',guest:true,publicURL:'http://nexus.test',clientId:'123',clientSecret:'test-secret',fetcher:discordFetcher});try{
+  const person=await discordIdentity(server.url);const deck={...starterDeck(),cardGroups:{[catalogue.find(c=>c.name==='Sol Ring')!.id]:'Artefakt-Synergie'},notes:'Mein Spielplan'};
+  const headers={Origin:'http://nexus.test',Cookie:person.cookie,'Content-Type':'application/json'};
   const result=await fetch(`${server.url}/api/decks`,{method:'PUT',headers,body:JSON.stringify({decks:[deck]})});assert.equal(result.status,200);
   const saved=await fetch(`${server.url}/api/decks`,{headers});assert.equal(saved.status,200);const data=await saved.json();assert.deepEqual(data.decks[0].cardGroups,deck.cardGroups);assert.equal(data.decks[0].notes,deck.notes);
  }finally{await server.close();}
@@ -122,16 +129,19 @@ test('four independent sessions: lobby, privacy, authorization, actions, duplica
 });
 
 test('HTTP auth, CSRF, guest switch, account deck isolation and revoked socket session',async()=>{
- const server=await running();let socket:Socket|undefined;
+ const server=await running({database:':memory:',guest:true,publicURL:'http://nexus.test',clientId:'123',clientSecret:'test-secret',fetcher:discordFetcher});let socket:Socket|undefined;
  try{
   assert.equal((await fetch(`${server.url}/api/decks`)).status,401);
   assert.equal((await fetch(`${server.url}/api/guest`,{method:'POST',body:'{"name":"bad"}'})).status,403);
-  const a=await identity(server.url,'Ada'),b=await identity(server.url,'Bela');
-  const headers={Origin:server.url,Cookie:a.cookie,'Content-Type':'application/json'};
+  const a=await discordIdentity(server.url),b=await discordIdentity(server.url),g=await identity(server.url,'Gast','http://nexus.test');
+  assert.notEqual(a.user.id,b.user.id);
+  const headers={Origin:'http://nexus.test',Cookie:a.cookie,'Content-Type':'application/json'};
   assert.equal((await fetch(`${server.url}/api/decks`,{method:'PUT',headers,body:JSON.stringify({decks:[starterDeck()]})})).status,200);
   assert.equal((await (await fetch(`${server.url}/api/decks`,{headers:{Cookie:b.cookie}})).json()).decks.length,0);
+  assert.equal((await fetch(`${server.url}/api/decks`,{headers:{Cookie:g.cookie}})).status,403);
+  assert.equal((await fetch(`${server.url}/api/decks`,{method:'PUT',headers:{Origin:'http://nexus.test',Cookie:g.cookie,'Content-Type':'application/json'},body:JSON.stringify({decks:[starterDeck()]})})).status,403);
   assert.equal((await (await fetch(`${server.url}/api/decks`,{headers:{Cookie:a.cookie}})).json()).decks.length,1);
-  const c=await client(server.url,a.cookie);socket=c.socket;const disconnected=new Promise<void>(resolve=>socket!.once('disconnect',()=>resolve()));
+  const c=await client(server.url,a.cookie,'http://nexus.test');socket=c.socket;const disconnected=new Promise<void>(resolve=>socket!.once('disconnect',()=>resolve()));
   await fetch(`${server.url}/api/logout`,{method:'POST',headers,body:'{}'});await disconnected;
   assert.equal((await fetch(`${server.url}/api/decks`,{headers:{Cookie:a.cookie}})).status,401);
  }finally{socket?.disconnect();await server.close();}

@@ -9,15 +9,19 @@ import {spawnSync} from 'node:child_process';
 import {DatabaseSync} from 'node:sqlite';
 import {serverConfig,clientAddress} from '../server/config.ts';
 import {createNexusServer} from '../server/server.ts';
+import {io,type Socket} from 'socket.io-client';
 
 test('production rejects incomplete or insecure setup and normalizes Discord redirect origin',()=>{
  const configured={production:true,clientId:'123',clientSecret:'test-secret'};
  assert.throws(()=>serverConfig(configured,{}),/PUBLIC_URL/);
  assert.throws(()=>serverConfig({...configured,publicURL:'http://game.test'},{}),/HTTPS/);
- assert.throws(()=>serverConfig({production:true,publicURL:'https://game.test'},{}),/Discord/);
+ assert.throws(()=>serverConfig({production:true,guest:false,publicURL:'https://game.test'},{}),/Discord/);
+ assert.equal(serverConfig({production:true,publicURL:'https://game.test'},{}).discordReady,false);
+ assert.equal(serverConfig({production:true,publicURL:'https://game.test'},{}).guest,true);
+ assert.throws(()=>serverConfig({production:true,publicURL:'https://game.test',clientId:'123'},{}),/gemeinsam/);
  for(const url of ['https://game.test/path','https://user:pass@game.test','https://game.test/?x=1','ftp://game.test'])assert.throws(()=>serverConfig({...configured,publicURL:url},{}));
  const config=serverConfig({...configured,publicURL:'https://game.test/'},{});
- assert.equal(config.publicURL,'https://game.test');assert.equal(config.guest,false);
+ assert.equal(config.publicURL,'https://game.test');assert.equal(config.guest,true);
  assert.equal(serverConfig({},{}).guest,true);
  assert.equal(serverConfig({},{ENABLE_GUEST:'false'}).guest,false);
  assert.throws(()=>serverConfig({},{TRUST_PROXY:'yes'}));
@@ -29,13 +33,37 @@ test('proxy addresses are ignored by default and only valid overwritten IP addre
  req.headers['x-nexus-client-ip']='fake, 1.2.3.4';assert.equal(clientAddress(req,true),'127.0.0.1');
 });
 
+test('public guest play needs no Discord and cannot use account deck storage',async()=>{
+ const origin='https://game.test';const server=createNexusServer({database:':memory:',production:true,publicURL:origin,guest:true});
+ server.http.listen(0,'127.0.0.1');await once(server.http,'listening');const base=`http://127.0.0.1:${(server.http.address() as {port:number}).port}`;
+ const sockets:Socket[]=[];
+ try{
+  const info=await(await fetch(base+'/api/session')).json();assert.equal(info.guestEnabled,true);assert.equal(info.discordReady,false);
+  assert.equal((await fetch(base+'/auth/discord')).status,503);
+  const register=(input:unknown,from=origin)=>fetch(base+'/api/guest',{method:'POST',headers:{Origin:from,'Content-Type':'application/json'},body:JSON.stringify(input)});
+  assert.equal((await register({name:'Ada'},'https://foreign.test')).status,403);
+  assert.equal((await register({name:' '})).status,400);assert.equal((await register({name:'Ada',provider:'discord'})).status,400);
+  const people=[];
+  for(let n=0;n<2;n++){
+   const res=await register({name:'Same name'});assert.equal(res.status,200);const user=(await res.json()).user;assert.equal(user.provider,'guest');
+   const header=res.headers.get('set-cookie')!;assert.match(header,/HttpOnly/);assert.match(header,/Secure/);assert.match(header,/SameSite=Lax/);const cookie=header.split(';')[0];people.push(user);
+   for(const method of ['GET','PUT'])assert.equal((await fetch(base+'/api/decks',{method,headers:{Origin:origin,Cookie:cookie,'Content-Type':'application/json'},...(method==='PUT'?{body:'{"decks":[]}'}:{})})).status,403);
+   const socket=io(base,{transports:['websocket'],reconnection:false,extraHeaders:{Origin:origin,Cookie:cookie}});sockets.push(socket);await new Promise<void>((resolve,reject)=>{socket.once('connect',()=>resolve());socket.once('connect_error',reject);});
+  }
+  assert.notEqual(people[0].id,people[1].id);
+  const nextRoom=new Promise<{code:string}>(resolve=>{const receive=(room:{code:string}|null)=>{if(room){sockets[0].off('room',receive);resolve(room);}};sockets[0].on('room',receive);});assert.equal((await sockets[0].timeout(3000).emitWithAck('room:create',{})).ok,true);const room=await nextRoom;
+  assert.equal((await sockets[1].timeout(3000).emitWithAck('room:join',{code:room.code})).ok,true);
+  assert.equal((await sockets[1].timeout(3000).emitWithAck('room:start',{})).ok,false);
+ }finally{sockets.forEach(s=>s.disconnect());await server.close();}
+});
+
 test('production OAuth uses secure cookies, clears temporary binding and handles provider failure without secrets',async()=>{
  let fail=false;
  const fetcher=(async(url:string|URL|Request)=>{
   if(fail)throw new Error('sensitive-provider-detail');
   return String(url).endsWith('/token')?Response.json({access_token:'private-token'}):Response.json({id:'123',username:'Player'});
  }) as typeof fetch;
- const server=createNexusServer({database:':memory:',production:true,publicURL:'https://game.test/',clientId:'123',clientSecret:'private-secret',fetcher,proxy:true});
+ const server=createNexusServer({database:':memory:',production:true,publicURL:'https://game.test/',clientId:'123',clientSecret:'private-secret',fetcher,proxy:true,guest:false});
  server.http.listen(0,'127.0.0.1');await once(server.http,'listening');
  const base=`http://127.0.0.1:${(server.http.address() as {port:number}).port}`;
  try{

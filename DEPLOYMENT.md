@@ -7,7 +7,7 @@ Stand: 4. Oktober 2026. Ausschließlich Windows als installierbarer Client. Andr
 - Windows-x64-Installer in `releases/windows/`, eigener Launcher, lokaler Testmodus und Verbindung zu einem gemeinsamen Server.
 - HTTPS-Konfiguration über Caddy, persistente SQLite-Datenbank, Serverprüfung und geprüftes SQLite-Backup.
 - Discord-Anmeldung mit dem Scope `identify`, serverseitigem Secret, browsergebundener Zustandsprüfung und geschützter Sitzung.
-- Im öffentlichen Betrieb sind Testkonten in der Compose-Konfiguration abgeschaltet.
+- Gastspiel ist in der aktuellen Compose-Konfiguration standardmäßig aktiv. Discord ist optional; `ENABLE_GUEST=false` verlangt Discord.
 
 Der Hetzner-CX23 in Helsinki ist angelegt (2.29.40.106). Der Nutzer hat das Spiel gebaut und erfolgreich gestartet; der öffentliche HTTPS-Aufruf unter https://batusmtg.2-29-40-106.sslip.io wurde im Browser geprüft. Discord-Rückleitung und Server-Secret sind eingerichtet. Die vollständige echte Discord-Anmeldung und eine öffentliche Runde mit vier Konten bleiben zu prüfen. batusmtg.de ist noch nicht registriert; die Domainverwaltung ist noch nicht sichtbar freigeschaltet.
 
@@ -26,8 +26,8 @@ Das Import-Update ist lokal gebaut und geprüft; der öffentliche Server muss mi
 Voraussetzung: Docker Engine mit Compose, DNS für die Domain auf die öffentliche Serveradresse, eingehende Ports 80/TCP, 443/TCP und optional 443/UDP. SSH nur für die Administration. Port 5173 nicht öffentlich freigeben; die Anwendung vertraut im Compose-Netz auf den vom Caddy-Proxy überschriebenen Client-IP-Header.
 
 1. Projekt nach `/opt/batusmtg` übertragen, ohne lokale Datenbank, `.env`-Dateien, `node_modules`, Desktop-Laufzeit oder Windows-Installer.
-2. `.env.production.example` als `.env.production` kopieren, Rechte auf `600` setzen und Domain sowie Discord-Werte direkt auf dem Server eintragen.
-3. In der [Discord Developer Console](https://discord.com/developers/applications) die Anwendung anlegen. Unter OAuth2 exakt `https://batusmtg.de/auth/discord/callback` als Redirect eintragen, wenn diese Domain registriert wurde. Kein Bot ist erforderlich. Das Secret bleibt auf dem Server.
+2. `.env.production.example` als `.env.production` kopieren, Rechte auf `600` setzen und Domain und `ENABLE_GUEST=true` direkt auf dem Server eintragen. Discord-Werte nur für die optionale Kontospeicherung gemeinsam eintragen. Bestehende ausgefüllte Dateien erhalten.
+3. Optional: In der [Discord Developer Console](https://discord.com/developers/applications) die Anwendung anlegen. Unter OAuth2 exakt `https://batusmtg.de/auth/discord/callback` als Redirect eintragen, wenn diese Domain registriert wurde. Kein Bot ist erforderlich. Das Secret bleibt auf dem Server.
 4. Im Projektverzeichnis starten:
 
 ```sh

@@ -93,7 +93,7 @@ export function createNexusServer(config:Config={}){
     return;
    }
    if(path==='/api/guest'&&req.method==='POST'){
-    if(!guest){send(res,403,{error:'Testkonten sind deaktiviert'});return;}
+    if(!guest){send(res,403,{error:'Gastzugang ist deaktiviert'});return;}
     if(auth(req)){send(res,409,{error:'Bereits angemeldet'});return;}
     const {name}=z.object({name:z.string().trim().min(1).max(30)}).strict().parse(await json(req));
     const user:User={id:randomUUID(),name,provider:'guest'};login(res,user);send(res,200,{user});return;
@@ -124,6 +124,7 @@ export function createNexusServer(config:Config={}){
    }
    if(path==='/api/decks'){
     const user=auth(req);if(!user){send(res,401,{error:'Bitte zuerst anmelden'});return;}
+    if(user.provider!=='discord'){send(res,403,{error:'Gastdecks werden nur im Browser gespeichert. Kontospeicherung benötigt Discord.'});return;}
     if(req.method==='GET'){send(res,200,{decks:read<DeckData[]>(`decks:${user.id}`)??[]});return;}
     if(req.method==='PUT'){const data=z.object({decks:z.array(deckSchema).max(100)}).strict().parse(await json(req));const decks=data.decks.map(d=>checkDeck(d));save(`decks:${user.id}`,decks);send(res,200,{decks});return;}
    }

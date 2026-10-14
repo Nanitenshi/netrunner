@@ -7,9 +7,9 @@ services:
     environment:
       NODE_ENV: production
       PUBLIC_URL: https://${DOMAIN:?Domain in .env.production eintragen}
-      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?Discord Client ID fehlt}
-      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:?Discord Client Secret fehlt}
-      ENABLE_GUEST: "false"
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      ENABLE_GUEST: "${ENABLE_GUEST:-true}"
       TRUST_PROXY: "true"
       DATABASE_PATH: /app/data/nexus.sqlite
     volumes:

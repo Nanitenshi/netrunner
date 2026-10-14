@@ -1,4 +1,10 @@
 import {manaColors,type ManaPool} from './mana.ts';
+/** Printed mana alone cannot account for alternative play permissions or mandatory extra costs. */
+export function manualCastPaymentReason(card:{mana:string;text:string}):string|null{
+ if(!card.mana)return 'Diese Karte hat keine normalen Manakosten. Eine erlaubte alternative Spielweise manuell bestätigen.';
+ if(/as an additional cost to cast/i.test(card.text))return 'Dieser Spruch hat Zusatzkosten. Alle Kosten manuell bezahlen und ausdrücklich bestätigen.';
+ return null;
+}
 /** Only ordinary fixed printed costs; choices, discounts and extra costs remain manual. */
 export function poolPayment(cost:string,pool:ManaPool={},tax=0):ManaPool|null{
  if(!Number.isInteger(tax)||tax<0)return null;

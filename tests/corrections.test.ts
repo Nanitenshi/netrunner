@@ -10,7 +10,7 @@ const card=(state:GameState,name:string)=>state.cards.find(c=>c.ownerId==='you'&
 
 test('late spells bypass casual timing explicitly, reset passes and give every player a response window',()=>{
  let state=send(fixture(),{type:'pass'});state.phase=10;const spell=card(state,'Rhystic Study');
- assert.throws(()=>send(state,{type:'cast',cardId:spell.id,costsPaid:true}));
+ assert.throws(()=>send(state,{type:'cast',cardId:spell.id,costsPaid:true,manualCostsConfirmed:true}));
  assert.throws(()=>send(state,{type:'lateCast',cardId:spell.id,costsPaid:false,reason:'Vergessen'}));
  const original=structuredClone(state);state=send(state,{type:'lateCast',cardId:spell.id,costsPaid:true,reason:'Vorhin vergessen, mit Runde abgesprochen'});
  assert.equal(original.cards.find(c=>c.id===spell.id)!.zone,'hand');assert.equal(state.rules!.priority,'you');assert.deepEqual(state.rules!.passes,[]);assert.equal(state.phase,10);assert.equal(state.rules!.stack.length,1);assert.match(state.log.at(-1)!,/KORREKTUR/);

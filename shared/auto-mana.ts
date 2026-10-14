@@ -34,14 +34,15 @@ export function printedManaAbilities(card:Pick<CardDefinition,'type'|'text'>,ide
  * Activation costs are paid from the current pool BEFORE generating mana. Generic payments branch
  * by color, so paying for a filter cannot consume a color needed by the final spell by accident.
  */
-export function automaticManaPlan(state:Pick<GameState|GameView,'cards'|'players'>,actor:string,cost:string,tax=0):ManaPlan|null{
+export function automaticManaPlan(state:Pick<GameState|GameView,'cards'|'players'>,actor:string,cost:string,tax=0,sourceIds?:readonly string[]):ManaPlan|null{
  const player=state.players.find(p=>p.id===actor);if(!player)return null;
- if(poolPayment(cost,Object.fromEntries(manaColors.map(c=>[c,1000])),tax)===null||cost.length>120||tax>100)return null;
+ if(!cost||poolPayment(cost,Object.fromEntries(manaColors.map(c=>[c,1000])),tax)===null||cost.length>120||tax>100)return null;
  // Commander names are public even if a commander is shuffled into a private library.
  const commanderNames=player.commander.split(' + ');
  const identity=[...new Set(catalogue.filter(c=>commanderNames.includes(c.name)).flatMap(c=>c.colorIdentity))];
  const groups:{ids:string[];abilities:ManaAbility[]}[]=[],byAbilities=new Map<string,number>();
  for(const card of state.cards){
+  if(sourceIds&&!sourceIds.includes(card.id))continue;
   if(card.controllerId!==actor||card.zone!=='battlefield'||card.tapped||card.faceDown)continue;
   const abilities=printedManaAbilities(instanceDefinition(card),identity);if(!abilities.length)continue;
   const key=JSON.stringify(abilities),index=byAbilities.get(key);

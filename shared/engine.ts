@@ -5,7 +5,7 @@ import {landPlayAllowance} from './land-plays.ts';
 import {instanceDefinition} from './card-state.ts';
 import {markedStats} from './counters.ts';
 import {enterZone,freePosition,cleanAttachments} from './placement.ts';
-import {poolPayment} from './mana-payment.ts';
+import {poolPayment,manualCastPaymentReason} from './mana-payment.ts';
 import {automaticManaPlan} from './auto-mana.ts';
 import {catalogueById} from './catalogue.ts';
 import type {CardInstance,GameAction,GameState,Zone} from './game.ts';
@@ -263,6 +263,7 @@ export function applyRulesAction(state:GameState,actor:string,action:GameAction)
     const original=r.resolving!;r.resolving={...original,continuation:true};
     perform(s,actor,action.effect);return s;
   }
+  if(action.type==='move'&&action.zone==='battlefield')assert(r.priority===actor,'Land spielen benötigt deine Priorität');
   if(r.turnOnly&&!r.stack.length&&!r.pending&&!r.resolving&&!['pass','nextPhase'].includes(action.type))r.priority=actor;
   priority(s,actor);
   if(action.type==='pass'||action.type==='nextPhase'){
@@ -278,13 +279,27 @@ export function applyRulesAction(state:GameState,actor:string,action:GameAction)
     if(action.type==='cast')assert(action.costsPaid===true,'Kosten zuerst bestätigen');
     selectPlayFace(c,action.type==='cast'?action.faceIndex:0);
     const d=data(c);if(!d.type.includes('Instant')&&!/(^|\n)Flash\b/.test(d.text))sorceryTiming(s,actor);
+    const paymentRestriction=manualCastPaymentReason(d);
+    assert(action.type==='cast'&&action.manualCostsConfirmed===true||!paymentRestriction,paymentRestriction??'Zahlungsart prüfen');
     if(action.type==='cast'&&action.autoTapSources!==undefined){
-      const plan=automaticManaPlan(s,actor,d.mana,c.zone==='commander'&&c.isCommander?2*(c.commanderCasts??0):0);
+      assert(!action.manualCostsConfirmed&&!action.payFromPool,'Nur eine Zahlungsart wählen');
+      if(action.manaSourceIds)assert(new Set(action.manaSourceIds).size===action.manaSourceIds.length&&action.manaSourceIds.every(id=>s.cards.some(source=>source.id===id&&source.controllerId===actor&&source.zone==='battlefield'&&!source.tapped&&!source.faceDown)),'Gewählte Manaquellen sind nicht mehr verfügbar');
+      const plan=automaticManaPlan(s,actor,d.mana,c.zone==='commander'&&c.isCommander?2*(c.commanderCasts??0):0,action.manaSourceIds);
       assert(plan,'Keine automatische Bezahlung möglich; Sonderkosten manuell bezahlen');
       assert(plan.activations.length===action.autoTapSources.length&&plan.activations.every((a,i)=>a.sourceId===action.autoTapSources![i]),'Manaquellen haben sich geändert; Vorschau erneut prüfen');
       for(const activation of plan.activations){const source=s.cards.find(c=>c.id===activation.sourceId)!;source.tapped=true;log(s,`${name(s,actor)} tappt ${data(source).name} für Mana.`);}
       s.players.find(p=>p.id===actor)!.mana=plan.remaining;log(s,`${name(s,actor)} bezahlt automatisch.`);
-    }else if(action.type==='cast'&&action.payFromPool){const player=s.players.find(p=>p.id===actor)!;const payment=poolPayment(d.mana,player.mana,c.zone==='commander'&&c.isCommander?2*(c.commanderCasts??0):0);assert(payment,'Mana-Pool reicht für diese Kosten nicht aus; Sonderkosten manuell bezahlen');for(const [color,n] of Object.entries(payment))player.mana={...player.mana,[color]:(player.mana?.[color as keyof typeof player.mana]??0)-n!};log(s,`${name(s,actor)} bezahlt aus dem Mana-Pool.`);}
+    }else if(action.type==='cast'&&action.manualCostsConfirmed===true){
+      assert(!action.payFromPool&&action.manaSourceIds===undefined,'Manuelle Bezahlung nicht mit einer Mana-Abbuchung kombinieren');
+      log(s,`${name(s,actor)} bestätigt die manuelle Bezahlung von ${d.name} (Kosten und Sonderkosten am Tisch geprüft).`);
+    }else{
+      assert(action.type!=='cast'||action.manaSourceIds===undefined,'Manaquellen benötigen eine neue Bezahlungsvorschau');
+      const player=s.players.find(p=>p.id===actor)!;
+      const payment=poolPayment(d.mana,player.mana,c.zone==='commander'&&c.isCommander?2*(c.commanderCasts??0):0);
+      assert(payment,'Mana-Pool reicht für diese Kosten nicht aus. Manaquellen wählen oder die manuelle Bezahlung ausdrücklich bestätigen.');
+      for(const [color,n] of Object.entries(payment))player.mana={...player.mana,[color]:(player.mana?.[color as keyof typeof player.mana]??0)-n!};
+      log(s,`${name(s,actor)} bezahlt aus dem Mana-Pool.`);
+    }
     cast(s,actor,c,action.type==='cast'?action.targetId:undefined);
     if(action.type==='cast'&&action.passPriority){const players=alive(s);r.passes=[actor];r.priority=players[(players.findIndex(p=>p.id===actor)+1)%players.length].id;}
   }else if(action.type==='ability'){

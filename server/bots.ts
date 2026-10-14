@@ -1,3 +1,4 @@
+import {automaticManaPlan} from '../shared/auto-mana.ts';
 import {landPlayAllowance} from '../shared/land-plays.ts';
 import {catalogue,catalogueById} from '../shared/catalogue.ts';
 import {commanderTax,type GameAction,type GameState,type CardInstance} from '../shared/game.ts';
@@ -23,16 +24,14 @@ export function nextBotAction(state:GameState,id:string):GameAction|null{
  if(r.resolving||r.priority!==id)return null;
  if(state.activePlayer===id&&[3,9].includes(state.phase)&&!r.stack.length){
   const land=state.cards.find(c=>c.ownerId===id&&c.zone==='hand'&&definition(c).type.includes('Basic Land'));if(land&&landPlayAllowance(state,id).remaining>0)return {type:'move',cardId:land.id,zone:'battlefield'};
-  const sources=state.cards.filter(c=>c.controllerId===id&&c.zone==='battlefield'&&!c.tapped&&definition(c).name==='Plains');const mana=state.players.find(p=>p.id===id)?.mana?.W??0;
-  const creature=state.cards.filter(c=>c.ownerId===id&&c.controllerId===id&&['hand','commander'].includes(c.zone)&&definition(c).type.includes('Creature')&&!definition(c).text.trim()&&definition(c).manaValue+commanderTax(c)<=sources.length+mana).sort((a,b)=>(definition(a).manaValue+commanderTax(a))-(definition(b).manaValue+commanderTax(b)))[0];
-  if(creature){const cost=definition(creature).manaValue+commanderTax(creature);if(mana<cost)return {type:'mana',color:'W',amount:1,sourceCardId:sources[0].id};if(cost)return {type:'mana',color:'W',amount:-cost};return {type:'cast',cardId:creature.id,costsPaid:true};}
+  const creatures=state.cards.filter(c=>c.ownerId===id&&c.controllerId===id&&['hand','commander'].includes(c.zone)&&definition(c).type.includes('Creature')&&!definition(c).text.trim()).sort((a,b)=>(definition(a).manaValue+commanderTax(a))-(definition(b).manaValue+commanderTax(b)));
+  for(const creature of creatures){const plan=automaticManaPlan(state,id,definition(creature).mana,creature.zone==='commander'?commanderTax(creature):0);if(plan)return {type:'cast',cardId:creature.id,costsPaid:true,autoTapSources:plan.activations.map(a=>a.sourceId)};}
  }
  return r.turnOnly&&state.activePlayer===id&&!r.stack.length?{type:'endTurn'}:{type:'pass'};
 }
-// Casting has an explicit reservation, so spending mana cannot make the selected spell disappear.
-export function botCastStep(state:GameState,id:string,reserved?:string):{action:GameAction|null;reserve?:string}{
- if(reserved){const c=state.cards.find(c=>c.id===reserved);if(c&&['hand','commander'].includes(c.zone)&&state.rules?.priority===id&&!state.rules.pending&&!state.rules.stack.length&&state.activePlayer===id&&[3,9].includes(state.phase))return {action:{type:'cast',cardId:c.id,costsPaid:true}};}
- const action=nextBotAction(state,id);if(action?.type==='mana'&&action.amount<0){const c=state.cards.filter(c=>c.ownerId===id&&['hand','commander'].includes(c.zone)&&definition(c).type.includes('Creature')&&!definition(c).text.trim()&&definition(c).manaValue+commanderTax(c)===-action.amount).sort((a,b)=>a.id.localeCompare(b.id))[0];return {action,reserve:c?.id};}return {action};
+// Payment and casting are one authoritative action; no paid reservation can be lost.
+export function botCastStep(state:GameState,id:string,_reserved?:string):{action:GameAction|null;reserve?:string}{
+ return {action:nextBotAction(state,id)};
 }
 export function botAttack(state:GameState,id:string,memory:BotMemory):{attackerId:string;defenderId:string;cardIds:string[]}|null{
  const r=state.rules;if(!r||r.stage!=='playing'||r.pending||r.resolving||r.priority!==id||r.stack.length||state.activePlayer!==id||state.phase!==(r.turnOnly?3:5)||memory.attackTurn===state.turn)return null;

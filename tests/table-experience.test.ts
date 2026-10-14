@@ -22,7 +22,7 @@ test('created tokens have separate positions and are removed after leaving the b
 test('resolved permanents occupy free positions instead of sharing their hand positions',()=>{
  let s=fixture();const source=catalogue.find(c=>c.name==='Rhystic Study')!;
  for(let i=0;i<3;i++)s.cards.push({id:`study-${i}`,cardId:source.id,ownerId:'you',controllerId:'you',zone:'hand',tapped:false,counters:0,position:{x:.16,y:.34}});
- for(let i=0;i<3;i++)s=passAll(applyAction(s,'you',{type:'cast',cardId:`study-${i}`,costsPaid:true}));
+ for(let i=0;i<3;i++)s=passAll(applyAction(s,'you',{type:'cast',cardId:`study-${i}`,costsPaid:true,manualCostsConfirmed:true}));
  const cards=s.cards.filter(c=>c.id.startsWith('study-'));assert.ok(cards.every(c=>c.zone==='battlefield'));assert.equal(new Set(cards.map(c=>JSON.stringify(c.position))).size,3);
 });
 test('Hideaway privately selects one card, hides its identity online, and preserves the remaining library',()=>{

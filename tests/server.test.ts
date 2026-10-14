@@ -51,6 +51,8 @@ test('online cast pays mana and hands over priority once despite duplicate deliv
  const server=await running();const clients:Awaited<ReturnType<typeof client>>[]=[];
  try{for(const name of ['Cast-A','Cast-B']){const p=await identity(server.url,name);clients.push(await client(server.url,p.cookie));}
   await clients[0].send('room:create');await until(()=>Boolean(clients[0].room));await clients[1].send('room:join',{code:clients[0].room!.code});await clients[0].send('room:deck',starterDeck());for(const c of clients)await c.send('room:ready',{ready:true});await clients[0].send('room:start');for(const c of clients)await c.send('game:action',{id:randomUUID(),action:{type:'keep'}});await until(()=>clients[0].room?.game?.rules?.stage==='playing');
+  const unpaid=clients[0].room!.game!.cards.find(c=>c.ownerId===clients[0].room!.seat&&c.isCommander)!,beforeUnpaid=JSON.stringify(clients[0].room!.game),beforeRevision=clients[0].room!.revision;
+  for(const action of [{type:'cast',cardId:unpaid.id,costsPaid:true,payFromPool:false},{type:'castCommander',cardId:unpaid.id}]){const rejected=await clients[0].send('game:action',{id:randomUUID(),action});assert.equal(rejected.ok,false);assert.match(rejected.error!,/Mana-Pool/);assert.equal(clients[0].room!.revision,beforeRevision);assert.equal(JSON.stringify(clients[0].room!.game),beforeUnpaid);}
   for(const color of ['W','U','B','G'])assert.equal((await clients[0].send('game:action',{id:randomUUID(),action:{type:'mana',color,amount:1}})).ok,true);
   const card=clients[0].room!.game!.cards.find(c=>c.ownerId===clients[0].room!.seat&&c.isCommander)!;const input={id:randomUUID(),action:{type:'cast',cardId:card.id,costsPaid:true,payFromPool:true,passPriority:true}};assert.equal((await clients[0].send('game:action',input)).ok,true);assert.equal((await clients[0].send('game:action',input)).ok,true);
   await until(()=>clients[1].room!.game!.rules!.stack.length===1);const game=clients[1].room!.game!;assert.equal(game.rules!.priority,clients[1].room!.seat);assert.deepEqual(game.rules!.passes,[clients[0].room!.seat]);assert.equal(Object.values(game.players[0].mana!).reduce((a,b)=>a+b,0),0);assert.equal(game.cards.find(c=>c.id===card.id)!.commanderCasts,1);
@@ -103,10 +105,10 @@ test('four independent sessions: lobby, privacy, authorization, actions, duplica
   await until(()=>clients.slice(0,4).every(c=>c.room!.game!.players[0].mana?.G===3));
   assert.equal((await action(1,{type:'mana',color:'U',amount:1})).ok,true);
   const commander=clients[0].room!.game!.cards.find(c=>c.isCommander&&c.ownerId===people[0].user.id)!;
-  assert.equal((await action(0,{type:'cast',cardId:commander.id,costsPaid:true})).ok,true);
+  assert.equal((await action(0,{type:'cast',cardId:commander.id,costsPaid:true,manualCostsConfirmed:true})).ok,true);
   await passCycle();
   await action(0,{type:'move',cardId:commander.id,zone:'commander'});
-  await action(0,{type:'cast',cardId:commander.id,costsPaid:true});
+  await action(0,{type:'cast',cardId:commander.id,costsPaid:true,manualCostsConfirmed:true});
   await passCycle();
   await until(()=>clients[3].room!.game!.cards.find(c=>c.id===commander.id)?.commanderCasts===2);
   assert.equal((await action(0,{type:'cardCounter',cardId:commander.id,counter:'plusOne',amount:3})).ok,true);

@@ -36,7 +36,7 @@ test('custom counters obey card ownership, keep hidden cards private, clear on z
 test('scripted zone changes clear custom counters and grouping preserves distinct custom markers',()=>{
  let g=enableRules(initialGame());const commander=g.cards.find(c=>c.isCommander&&c.ownerId==='you')!;
  g=applyAction(g,'you',{type:'customCounter',cardId:commander.id,name:'Flut',amount:2});
- g=applyAction(g,'you',{type:'cast',cardId:commander.id,costsPaid:true});
+ g=applyAction(g,'you',{type:'cast',cardId:commander.id,costsPaid:true,manualCostsConfirmed:true});
  assert.deepEqual(g.cards.find(c=>c.id===commander.id)?.customCounters,[]);
  const land=initialGame().cards.find(c=>c.ownerId==='you'&&c.zone==='battlefield'&&c.isLand)!;
  const a={...land,id:'a',customCounters:[{name:'A',value:1},{name:'B',value:2}]};

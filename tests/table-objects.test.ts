@@ -70,7 +70,7 @@ test('Swords to Plowshares automatically labels the exiled target with its sourc
  // Select by printed identity so deck order is irrelevant.
  const source=s.cards.find(c=>c.ownerId==='you'&&c.zone==='hand'&&instanceDefinition(c).name==='Swords to Plowshares')!,target=s.cards.find(c=>c.ownerId==='east'&&c.zone==='battlefield')!;
  assert.ok(source);
- s=applyAction(s,'you',{type:'cast',cardId:source.id,targetId:target.id,costsPaid:true});for(const p of ['you','north','east','west'])s=applyAction(s,p,{type:'pass'});
+ s=applyAction(s,'you',{type:'cast',cardId:source.id,targetId:target.id,costsPaid:true,manualCostsConfirmed:true});for(const p of ['you','north','east','west'])s=applyAction(s,p,{type:'pass'});
  const exiled=s.cards.find(c=>c.id===target.id)!;assert.equal(exiled.zone,'exile');assert.equal(exiled.effectLinks![0].sourceName,'Swords to Plowshares');assert.equal(exiled.effectLinks![0].actorId,'you');
 });
 test('group counters apply atomically to every selected permanent and reject a mixed ownership group without partial changes',()=>{

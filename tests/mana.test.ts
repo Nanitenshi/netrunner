@@ -28,7 +28,7 @@ test('mana generation taps one owned source atomically and never uses the stack;
 test('floating mana survives priority and stack resolution, empties at step boundary without life loss',()=>{
  let state=send(fixture(),{type:'mana',color:'U',amount:4});const life=state.players[0].life;
  const spell=state.cards.find(c=>c.ownerId==='you'&&c.zone==='hand'&&cards.find(d=>d.id===c.cardId)?.name==='Rhystic Study')!;
- state=send(state,{type:'cast',cardId:spell.id,costsPaid:true});state=send(state,{type:'pass'});assert.equal(manaTotal(state.players[0].mana),4);
+ state=send(state,{type:'cast',cardId:spell.id,costsPaid:true,manualCostsConfirmed:true});state=send(state,{type:'pass'});assert.equal(manaTotal(state.players[0].mana),4);
  state=passAll(state);assert.equal(manaTotal(state.players[0].mana),4);assert.equal(state.phase,3);
  state=passAll(state);assert.equal(state.phase,4);assert.equal(manaTotal(state.players[0].mana),0);assert.equal(state.players[0].life,life);
 });

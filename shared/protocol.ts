@@ -41,7 +41,7 @@ export const actionSchema=z.discriminatedUnion('type',[
  z.object({type:z.literal('retainMana'),enabled:z.boolean()}).strict(),
  z.object({type:z.literal('rollDice'),sides:z.number().int().min(2).max(1000),count:z.number().int().min(1).max(20)}).strict(),
  z.object({type:z.literal('flipCoin'),count:z.number().int().min(1).max(20)}).strict(),
- z.object({type:z.literal('cast'),faceIndex:z.number().int().min(0).max(1).optional(),cardId,targetId:cardId.optional(),costsPaid:z.boolean(),passPriority:z.boolean().optional(),payFromPool:z.boolean().optional(),autoTapSources:z.array(cardId).max(64).optional()}).strict(),
+ z.object({type:z.literal('cast'),faceIndex:z.number().int().min(0).max(1).optional(),cardId,targetId:cardId.optional(),costsPaid:z.boolean(),manualCostsConfirmed:z.boolean().optional(),passPriority:z.boolean().optional(),payFromPool:z.boolean().optional(),autoTapSources:z.array(cardId).max(64).optional(),manaSourceIds:z.array(cardId).max(64).optional()}).strict(),
  ...(['endTurn','concede','mulligan','keep','pass','shuffle'] as const).map(type=>z.object({type:z.literal(type)}).strict()),
  z.object({type:z.literal('effect'),effect:effectSchema,sourceId:cardId.optional()}).strict(),
  z.object({type:z.literal('ability'),label:z.string().trim().min(1).max(100),sourceCardId:cardId.optional(),abilityType:z.enum(['activated','triggered']).optional()}).strict(),

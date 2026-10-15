@@ -12,6 +12,15 @@ function add(s:GameState,name:string,owner='you',zone:CardInstance['zone']='batt
  const d=catalogue.find(d=>d.name===name);assert.ok(d,name);
  const c:CardInstance={id:`extra-${s.cards.length}`,cardId:d.id,ownerId:owner,controllerId:owner,zone,counters:0,tapped:false,position:{x:.4,y:.4}};s.cards.push(c);return c;
 }
+
+test('land plays require a main phase, own turn and current priority even at the casual table',()=>{
+ for(const patch of [{phase:1},{activePlayer:'north'},{priority:'north'}]){
+  const s=fixture(),land=add(s,'Plains','you','hand');
+  if('phase' in patch)s.phase=patch.phase!;if('activePlayer' in patch)s.activePlayer=patch.activePlayer!;if('priority' in patch)s.rules!.priority=patch.priority!;
+  const before=structuredClone(s),hint=playWindow(projectGame(s,'you'),'you',land,catalogue.find(c=>c.id===land.cardId)!);
+  assert.equal(hint.allowed,false);assert.throws(()=>applyAction(s,'you',{type:'move',cardId:land.id,zone:'battlefield'}));assert.deepEqual(s,before);
+ }
+});
 test('manual extra land grants unlock client and server, persist through reload projection and expire on turn change',()=>{
  let s=fixture();const a=add(s,'Forest','you','hand'),b=add(s,'Forest','you','hand'),c=add(s,'Forest','you','hand');
  s=applyAction(s,'you',{type:'move',cardId:a.id,zone:'battlefield'});

@@ -18,7 +18,7 @@ page.on('pageerror',e=>errors.push(e.message));mkdirSync('.local/browser',{recur
 const enabled=async button=>{const end=Date.now()+10000;while(await button.isDisabled()){if(Date.now()>end)throw Error('Button stayed disabled');await page.waitForTimeout(20);}};
 let observer,view;
 const waitView=async check=>{const end=Date.now()+15000;while(!check()){if(Date.now()>end)throw Error('Room update timeout');await page.waitForTimeout(20);}};
-const click=async button=>{const revision=view.revision;await button.click();await waitView(()=>view.revision>revision);};
+const click=async button=>{const revision=view.revision;await button.click();if(await page.getByRole('dialog',{name:'Zug wirklich abgeben?'}).isVisible())await page.getByRole('button',{name:'Zug jetzt abgeben',exact:true}).click();await waitView(()=>view.revision>revision);};
 try{
  await page.goto(url);await page.evaluate(async deck=>{await fetch('/api/guest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Ada'})});localStorage.setItem('nexus.decks',JSON.stringify([deck]));},deck);
  await page.goto(url+'/#forge');await page.reload();observer=io(url,{reconnection:false,timeout:10000,extraHeaders:{Origin:url,Cookie:(await context.cookies()).map(c=>c.name+'='+c.value).join('; ')}});observer.on('forge:room',room=>view=room);await Promise.race([once(observer,'connect'),once(observer,'connect_error').then(([error])=>{throw error;})]);await page.getByRole('button',{name:'Testtisch erstellen',exact:true}).click();await waitView(()=>Boolean(view));
@@ -33,6 +33,8 @@ try{
  await page.getByRole('button',{name:'Mit diesem Deck bereit',exact:true}).click();await page.getByRole('button',{name:'Commander-Partie starten',exact:true}).click();await page.getByRole('heading',{name:'Deine Starthand',exact:true}).waitFor({timeout:65000});assert.match(await page.locator('.forge-opening').innerText(),/1\/2 behalten/);
  await page.getByRole('button',{name:'Starthand behalten',exact:true}).click();await page.locator('.forge-opening').waitFor({state:'hidden'});
  await waitView(()=>view.game?.stage==='playing');
+ const beforeEnd=view.revision;await page.getByRole('button',{name:'Zug beenden',exact:true}).click();await page.getByRole('dialog',{name:'Zug wirklich abgeben?',exact:true}).waitFor();assert.equal(view.revision,beforeEnd);assert.equal(view.game.ending,false);await page.getByRole('button',{name:'Weiterspielen',exact:true}).click();assert.equal(view.revision,beforeEnd);
+
  for(let n=0;!view.game.stack.some(s=>s.controller===1)&&n<100;n++){
   const game=view.game;assert(!game.cards.some(c=>c.owner===1&&['hand','library'].includes(c.zone)),'Wire snapshot must keep AI cards private');
   if(game.active===0&&!game.stack.length&&!game.ending&&!game.combatRunning){const land=game.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.landPlayable);await click(land?page.locator('.forge-hand').getByRole('button',{name:'Plains',exact:true}).first():page.getByRole('button',{name:'Zug beenden',exact:true}));}

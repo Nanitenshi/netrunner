@@ -62,7 +62,7 @@ test('server casts with filter lands atomically; stale or forged previews cannot
 });
 
 test('manual casts stay manual, and identical lands do not cause permutation growth',()=>{
- const {s,c}=setup(['Forest','Ferrous Lake']);const next=applyAction(s,'you',{type:'cast',cardId:c.id,costsPaid:true});assert(next.cards.filter(c=>c.zone==='battlefield').every(c=>!c.tapped));
+ const {s,c}=setup(['Forest','Ferrous Lake']);const next=applyAction(s,'you',{type:'cast',cardId:c.id,costsPaid:true,manualCostsConfirmed:true});assert(next.cards.filter(c=>c.zone==='battlefield').every(c=>!c.tapped));
  const large=setup(Array(40).fill('Forest'));assert.equal(automaticManaPlan(large.s,'you','{20}{G}{G}')!.activations.length,22);assert.equal(automaticManaPlan(large.s,'you','{W}'),null);
 });
 

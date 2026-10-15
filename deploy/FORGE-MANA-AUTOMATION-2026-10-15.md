@@ -1,5 +1,7 @@
 # Forge: automatische Mana-Zahlung · 15. Oktober 2026
 
+Ergänzung im selben PR: [P0-Prüfung und Interaktionen](FORGE-P0-2026-10-15.md), einschließlich nativer Zugendebestätigung, gehaltener Priorität und zusätzlicher Versionsprüfung `p0-actions`.
+
 Der Forge-Tisch ist der einzige Entwicklungsfokus. Diese Änderung baut unabhängig von PR #19 direkt auf dem gemergten Stand von PR #18 auf. Der normale Regelassistent, Mobile und der Deckersteller werden hier nicht weiterentwickelt.
 
 ## Standardablauf

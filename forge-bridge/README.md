@@ -69,7 +69,24 @@ cards before selection, while the remaining library and hand stay private.
 The read-only **Aufgedeckte Karten** dialog can be opened from the action bar
 or a pending effect decision, without answering that decision. Reload restores
 the same pending decision and in-memory reveal records. Commander startup now
-requires `human-reveals`, `optional-reveal-automation` and `payment-review`; recompile all eight files together.
+requires `human-reveals`, `optional-reveal-automation`, `payment-review` and `p0-actions`; recompile all eight files together.
+
+## P0 interaction safety
+
+Land actions use the native allowance/timing checks and publish actual per-turn
+land counts, including extra land plays. A primary land click never silently
+cycles the card; additional abilities remain available through right-click.
+Spell labels show the calculated native mana cost including commander tax.
+The client locks in-flight commands synchronously and ignores double-clicks;
+the room queue also guards action IDs and revisions. Rejected native snapshots
+are projected to both seats before reporting the error, preserving rollback state.
+
+Human end-turn commands pause for a native confirmation before any phase change.
+Cancellation preserves resources, and confirmation retains end-step response and
+cleanup windows. AI turns do not wait for human confirmation. Holding priority
+is an explicit boolean on casts/activations, persisted as a personal browser
+preference. One pass never skips all stack objects or silently ends a human turn.
+See `deploy/FORGE-P0-2026-10-15.md` for scope and native regression commands.
 
 `node scripts/test-forge-reveals.mjs` covers all five reveal lands, decline,
 missing eligible cards, privacy, illegal answers, Cultivate assignment/reveal

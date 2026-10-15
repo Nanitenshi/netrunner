@@ -7,7 +7,6 @@ import {catalogue} from '../shared/catalogue.ts';
 import {instanceDefinition,hasPhysicalFaces} from '../shared/card-state.ts';
 import {markedStats} from '../shared/counters.ts';
 import {actionSchema} from '../shared/protocol.ts';
-import {needsCastDialog} from '../src/direct-play.ts';
 import {groupBattlefield} from '../src/opponent-layout.ts';
 const def=(name:string)=>{const d=catalogue.find(c=>c.name===name);assert.ok(d,name);return d;};
 const fixture=()=>{const s=enableRules(initialGame());s.rules!.turnOnly=true;return s;};
@@ -46,7 +45,7 @@ test('transform preserves counters and incarnation but leaving the battlefield r
 });
 test('modal commander back casts on stack with its own mana value and commander tax',()=>{
  let s=fixture();const c=add(s,'Esika, God of the Tree // The Prismatic Bridge','commander');c.isCommander=true;c.commanderCasts=2;
- s=applyAction(s,'you',{type:'cast',cardId:c.id,faceIndex:1,costsPaid:true});
+ s=applyAction(s,'you',{type:'cast',cardId:c.id,faceIndex:1,costsPaid:true,manualCostsConfirmed:true});
  assert.equal(s.rules!.stack[0].label,'The Prismatic Bridge');assert.equal(s.rules!.stack[0].manaValue,5);assert.equal(s.cards.find(x=>x.id===c.id)!.commanderCasts,3);
  assert.equal(instanceDefinition(s.cards.find(x=>x.id===c.id)!).name,'The Prismatic Bridge');
  s=resolve(s);assert.equal(s.cards.find(x=>x.id===c.id)!.zone,'battlefield');assert.equal(s.cards.find(x=>x.id===c.id)!.faceIndex,1);
@@ -56,7 +55,7 @@ test('modal land back uses land allowance and no stack; transform back cannot be
  let s=fixture();const c=add(s,'Bala Ged Recovery // Bala Ged Sanctuary','hand');
  s=applyAction(s,'you',{type:'move',cardId:c.id,zone:'battlefield',faceIndex:1});
  assert.equal(s.rules!.stack.length,0);assert.equal(s.rules!.landPlays.you,1);assert.equal(instanceDefinition(s.cards.find(x=>x.id===c.id)!).name,'Bala Ged Sanctuary');assert.equal(s.cards.find(x=>x.id===c.id)!.isLand,true);assert.equal(s.cards.find(x=>x.id===c.id)!.tapped,true);assert.equal(s.cards.find(x=>x.id===c.id)!.position.y,.82);
- const delver=add(s,'Delver of Secrets // Insectile Aberration','hand');assert.throws(()=>applyAction(s,'you',{type:'cast',cardId:delver.id,faceIndex:1,costsPaid:true}));
+ const delver=add(s,'Delver of Secrets // Insectile Aberration','hand');assert.throws(()=>applyAction(s,'you',{type:'cast',cardId:delver.id,faceIndex:1,costsPaid:true,manualCostsConfirmed:true}));
  const land=add(s,'Bala Ged Recovery // Bala Ged Sanctuary','hand');assert.throws(()=>applyAction(s,'you',{type:'move',cardId:land.id,zone:'battlefield',faceIndex:1}));
 });
 test('attachments move with own host and equipment stays when host leaves; Auras go to owner graveyard',()=>{
@@ -90,10 +89,9 @@ test('attachment guards prevent invalid targets, stealing edits and cycles',()=>
 test('Swords uses edited power and counters once; split cards keep combined mana value in library',()=>{
  let s=fixture();const c=add(s,'Birds of Paradise','battlefield','north');c.counters=2;c.powerOverride='5';
  const swords=s.cards.find(c=>c.ownerId==='you'&&c.zone==='hand'&&instanceDefinition(c).name==='Swords to Plowshares')!;
- s=applyAction(s,'you',{type:'cast',cardId:swords.id,targetId:c.id,costsPaid:true});s=resolve(s);assert.equal(s.players.find(p=>p.id==='north')!.life,47);
+ s=applyAction(s,'you',{type:'cast',cardId:swords.id,targetId:c.id,costsPaid:true,manualCostsConfirmed:true});s=resolve(s);assert.equal(s.players.find(p=>p.id==='north')!.life,47);
  const split=add(s,'Fire // Ice','library');assert.equal(instanceDefinition(split).manaValue,4);
 });
-test('distinct manual state does not merge in overview and ETB target text no longer forces confirmation',()=>{
+test('distinct manual state does not merge in overview',()=>{
  const s=fixture(),a=add(s,'Forest'),b=add(s,'Forest');a.powerOverride='3';assert.equal(groupBattlefield([a,b]).length,2);
- assert.equal(needsCastDialog(def('Eternal Witness')),false);assert.equal(needsCastDialog(def('Counterspell')),true);assert.equal(needsCastDialog(def('Esika, God of the Tree // The Prismatic Bridge')),true);
 });

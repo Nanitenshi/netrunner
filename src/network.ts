@@ -39,7 +39,7 @@ export function useNetwork(){
  }
  async function guest(name:string){try{const result=await api<{user:User}>('/api/guest',{name});try{localStorage.setItem('nexus.profileName',result.user.name);}catch{/* Guest play also works without browser storage. */}setUser(result.user);setError('');}catch(error){setError((error as Error).message);}}
  async function logout(){try{await api('/api/logout',{});setUser(null);setRoom(null);}catch(error){setError((error as Error).message);}}
- const action=(action:GameAction)=>{void send('game:action',{id:uuid(),action});};
+ const action=(action:GameAction)=>send('game:action',{id:uuid(),action});
  return {forgeReady,forgeRoom,user,available,discordReady,guestEnabled,publicServer,connected,room,error,setError,refresh,send,guest,logout,action};
 }
 export type Network=ReturnType<typeof useNetwork>;

@@ -2,6 +2,8 @@
 
 Lokal vorbereiteter Vier-Spieler-Multiplayer mit einem autoritativen Node-/Socket.IO-Server und React/TypeScript-Oberfläche. **Spielen** öffnet die Multiplayer-Lobby. **Testtisch öffnen** bleibt eine separate lokale Beispielpartie.
 
+Am normalen Tisch: Handkarte auswählen → **Land spielen** oder **Wirken**. Sprüche zeigen vor der Bestätigung Kosten und Mana-Zahlung; manuelle Zahlung bleibt ausdrücklich wählbar. **Zug abgeben** verlangt eine Bestätigung. Details und weitere Desktop-Prioritäten: [Sicherer erster Zug](deploy/SAFE-PLAY-2026-10-15.md).
+
 ## Starten
 
 Node.js 22.18 oder neuer und pnpm werden benötigt. Auf diesem Rechner kann `Start-Nexus.ps1` den vorhandenen gebündelten Node-Runtime verwenden.

@@ -4,7 +4,7 @@ import CardEditor from './CardEditor';
 import {instanceDefinition} from '../shared/card-state';
 import ZoneBrowser from './ZoneBrowser';
 import HiddenCardPlay from './HiddenCardPlay';
-import {needsCastDialog,basicLandMana,quickCounter} from './direct-play';
+import {basicLandMana,quickCounter} from './direct-play';
 import PhaseControls from './PhaseControls';
 import {turnStage,type AutoPriorityPolicy} from '../shared/auto-priority';
 import {reconcileHand,moveHandCard} from './hand-order';
@@ -35,7 +35,7 @@ import './card-characteristics.css';
 const zoneNames: Record<Zone,string> = {library:'Bibliothek',hand:'Hand',battlefield:'Spielfeld',graveyard:'Friedhof',exile:'Exil',commander:'Kommandozone',stack:'Stack'};
 type Modal = 'settings' | 'help' | 'account' | 'zoom' | 'log' | 'counters' | 'playerCounters' | null;
 
-export default function App({active,settings,setSettings,onExit,online}:{online?:{view:GameView;seat:string;connected:boolean;code:string;dispatch:(action:GameAction)=>void;error:string;revision:number;combat:boolean;autoPass:(revision:number,policy:AutoPriorityPolicy)=>Promise<boolean>;isHost:boolean;leave:()=>Promise<boolean>;finish:()=>Promise<boolean>};active:boolean;settings:Settings;setSettings:React.Dispatch<React.SetStateAction<Settings>>;onExit:()=>void}) {
+export default function App({active,settings,setSettings,onExit,online}:{online?:{view:GameView;seat:string;connected:boolean;code:string;dispatch:(action:GameAction)=>Promise<boolean>;error:string;revision:number;combat:boolean;autoPass:(revision:number,policy:AutoPriorityPolicy)=>Promise<boolean>;isHost:boolean;leave:()=>Promise<boolean>;finish:()=>Promise<boolean>};active:boolean;settings:Settings;setSettings:React.Dispatch<React.SetStateAction<Settings>>;onExit:()=>void}) {
   const {touch,height:mobileHeight}=useTouchLayout();
   const lastPointerTouch=useRef(false),handSwipe=useRef<{x:number;y:number}|null>(null);
   const [localGame, setGame] = useState(()=>{const state=enableRules(initialGame());state.rules!.turnOnly=true;state.phase=3;return state;});
@@ -71,7 +71,8 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
   const [ghost, setGhost] = useState<{card:CardInstance;x:number;y:number;point?:{x:number;y:number}} | null>(null);
   const ownArea = useRef<HTMLDivElement>(null);
   const drag = useRef<{card:CardInstance; x:number;y:number; moved:boolean;offset:{x:number;y:number}} | null>(null);
-  const lastDrag = useRef(0);
+  const lastDrag = useRef(0),playInFlight=useRef(false);
+  const localState=useRef(localGame);localState.current=localGame;
   useEffect(()=>{const cancel=(e:KeyboardEvent)=>{if(e.key==='Escape'&&drag.current){lastDrag.current=performance.now();drag.current=null;setGhost(null);if(longPress.current)clearTimeout(longPress.current);}};window.addEventListener('keydown',cancel);return()=>window.removeEventListener('keydown',cancel);},[]);
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
   const view = online?.view??projectGame(game,seat);
@@ -103,16 +104,21 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
     document.addEventListener('keydown',trap);return()=>{document.removeEventListener('keydown',trap);previous?.focus({preventScroll:true});};
   },[modal,zone]);
   useEffect(()=>()=>{if(longPress.current)clearTimeout(longPress.current);},[]);
-  function dispatch(action:GameAction) {
-    if(online){online.dispatch(action);return;}
-    setGame(current=>{
-      try{return applyAction(current,seat,action);}catch(error){setToast(error instanceof Error?error.message:'Aktion fehlgeschlagen');return current;}
-    });
+  async function dispatch(action:GameAction):Promise<boolean> {
+    if(online)return online.dispatch(action);
+    try{const next=applyAction(localState.current,seat,action);localState.current=next;setGame(next);return true;}
+    catch(error){setToast(error instanceof Error?error.message:'Aktion fehlgeschlagen');return false;}
   }
-  function playCard(card:CardInstance,hold=false){
-    setHoldCast(hold);
-    if(card.zone==='hand'&&(!(definition(card.cardId).faces[0]?.type??definition(card.cardId).type).includes('Land')||definition(card.cardId).layout==='modal_dfc')||card.zone==='commander'){const data=definition(card.cardId);if(settings.simpleControls!==false&&!settings.autoTap&&!needsCastDialog(data)&&playWindow(view,seat,card,data).allowed){dispatch({type:'cast',cardId:card.id,costsPaid:true,passPriority:!hold&&settings.holdPriority!==true,payFromPool:false});setCastId(null);}else setCastId(card.id);setMenu(null);setModal(null);setZone(null);clearHover();}
-    else dispatch({type:'move',cardId:card.id,zone:'battlefield'});
+  async function playCard(card:CardInstance,hold=false){
+    if(playInFlight.current)return;
+    const current=view.cards.find(c=>c.id===card.id);if(!current)return;
+    const data=definition(current.cardId),window=playWindow(view,seat,current,data);
+    if(!window.allowed){setToast(window.reason);return;}
+    setHoldCast(hold);setMenu(null);setModal(null);setZone(null);clearHover();
+    if(current.zone==='commander'||!(data.faces[0]?.type??data.type).includes('Land')||data.layout==='modal_dfc'){setCastId(current.id);return;}
+    playInFlight.current=true;
+    try{if(await dispatch({type:'move',cardId:current.id,zone:'battlefield'}))setSelected([]);}
+    finally{playInFlight.current=false;}
   }
   function actOnSelection(type:'tap'|'copy') {
     selected.forEach(id=>{const c=game.cards.find(c=>c.id===id); if(c?.controllerId===seat && c.zone==='battlefield') dispatch(type==='copy'?{type,cardId:id,newId:uuid()}:{type,cardId:id});});
@@ -233,15 +239,15 @@ export default function App({active,settings,setSettings,onExit,online}:{online?
       <main className="game-client">
         <div className="table-heading"><div>{!settings.preview&&<button aria-label="Vorschau ausklappen" onClick={()=>update('preview',true)}><PanelLeftOpen size={18}/></button>}<span className="eyebrow">DEINE ARENA</span><h1>Commander <span>/</span> Regelassistent</h1></div><div className="table-meta"><span><Shield size={13}/> {game.players.length} Plätze</span>{!online&&<label>Sicht <select aria-label="Spielerperspektive" value={seat} onChange={e=>setSeat(e.target.value)}>{game.players.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}</div></div>
         <div className="turnbar"><div className="turn-label"><span>ZUG <b>{game.turn.toString().padStart(2,'0')}</b></span><i/>{game.players.find(p=>p.id===game.activePlayer)!.name} am Zug</div>{!view.rules?.turnOnly&&<div className="phases">{settings.simpleControls!==false?['Upkeep','Spielzug','Endstep'].map(p=><span key={p} className={p===turnStage(game.phase)?'current':''}>{p}</span>):phases.map((p,i)=><span key={p} className={i===game.phase?'current':''}>{p}</span>)}</div>}{!view.rules?.turnOnly&&settings.simpleControls===false&&<button className="phase-next" disabled={view.rules?.priority!==seat||Boolean(view.rules?.pending)||view.rules?.stage!=='playing'} title="Priorität abgeben" aria-label="Priorität abgeben" onClick={()=>dispatch({type:'nextPhase'})}><ChevronRight size={18}/></button>}</div>
-        <MechanicsPanel defaultAutoTap={settings.autoTap===true} onHover={showHover} onHoverEnd={clearHover} directTargets={settings.simpleControls!==false} passPriority={!holdCast&&settings.holdPriority!==true} phaseControls={<PhaseControls view={view} seat={seat} active={active} blocked={Boolean(modal||zone||castId||menu||matchOpen||ghost||editorId)} settings={settings} setSettings={setSettings} dispatch={dispatch} online={online}/>} active={active} autoStack={settings.autoStack===true} searchRequest={searchRequest} view={view} seat={seat} dispatch={dispatch} castId={castId} onCast={id=>{const card=view.cards.find(c=>c.id===id);if(card)playCard(card);}} closeCast={()=>setCastId(null)} onInspect={card=>{setPreview(card.cardId);setPreviewInstance(card.id);setModal('zoom');}}/>
+        <MechanicsPanel defaultAutoTap={settings.autoTap===true} onHover={showHover} onHoverEnd={clearHover} passPriority={!holdCast&&settings.holdPriority!==true} phaseControls={<PhaseControls view={view} seat={seat} active={active} blocked={Boolean(modal||zone||castId||menu||matchOpen||ghost||editorId)} settings={settings} setSettings={setSettings} dispatch={dispatch} online={online}/>} active={active} autoStack={settings.autoStack===true} searchRequest={searchRequest} view={view} seat={seat} dispatch={dispatch} castId={castId} onCast={id=>{const card=view.cards.find(c=>c.id===id);if(card)playCard(card);}} closeCast={()=>setCastId(null)} onInspect={card=>{setPreview(card.cardId);setPreviewInstance(card.id);setModal('zoom');}}/>
         <Tabletop view={view} seat={seat} active={active} settings={settings} setSettings={setSettings} ownArea={ownArea} renderCard={(card,positioned=false)=>Card({card,positioned})} dispatch={dispatch} playCard={playCard} onInspect={inspectOpponent} openZone={(player,zone)=>{setModal(null);setMenu(null);setZone({player,zone});}} openPlayerCounters={()=>{setDamageSource(undefined);setModal('playerCounters');}} onSeatChange={online?undefined:setSeat}/>
         <section className={`hand-dock ${selected.length?'with-selection':''}`} aria-label="Deine Hand">
-          <SelectionActions active={active&&!modal&&!zone&&!menu&&!castId&&!matchOpen&&!editorId} cards={view.cards.filter(c=>selected.includes(c.id)&&c.controllerId===seat&&c.zone!=='stack')} dispatch={dispatch} onInspect={inspectOpponent} onCounter={openCounters} onPlay={playCard} onClear={()=>setSelected([])}/>
+          <SelectionActions view={view} seat={seat} active={active&&!modal&&!zone&&!menu&&!castId&&!matchOpen&&!editorId} cards={view.cards.filter(c=>selected.includes(c.id)&&c.controllerId===seat&&c.zone!=='stack')} dispatch={dispatch} onInspect={inspectOpponent} onCounter={openCounters} onPlay={playCard} onClear={()=>setSelected([])}/>
           <div className="hand-label"><span className="eyebrow">DEINE HAND <b>{getCards(seat,'hand').length}</b></span><span><Eye size={12}/> Nur für dich sichtbar</span></div>
           <div className="hand-cards" style={{'--hand-overlap':`${handOverlap}px`} as CSSProperties} onWheel={e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)&&e.currentTarget.scrollWidth>e.currentTarget.clientWidth){e.currentTarget.scrollLeft+=e.deltaY;e.stopPropagation();}}}>{handIds.map((id,index)=>{const c=getCards(seat,'hand').find(c=>c.id===id)!;return <div className="hand-slot" style={{'--fan-angle':`${Math.max(-7,Math.min(7,(index-(handIds.length-1)/2)*1.5))}deg`,'--fan-rise':`${Math.min(18,Math.abs(index-(handIds.length-1)/2)*3)}px`,zIndex:index+1} as CSSProperties} data-hand-id={c.id} key={c.id} onKeyDown={e=>{if(e.altKey&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const ids=reconcileHand(handOrder,getCards(seat,'hand').map(c=>c.id)),index=ids.indexOf(c.id),target=ids[index+(e.key==='ArrowLeft'?-1:1)];if(target)saveHandOrder(moveHandCard(ids,c.id,target,e.key==='ArrowRight'));}}}>{Card({card:c})}<span title={definition(c.cardId).name}>{definition(c.cardId).name}</span></div>;})}{getCards(seat,'hand').length===0&&<p className="empty-field">Deine Hand ist leer.</p>}</div>
           <div className="hand-actions"><button title="Counter · M" aria-label="Counter öffnen" className="quick-counters" disabled={!selected.some(id=>game.cards.find(c=>c.id===id)?.controllerId===seat)} onClick={()=>selected[0]&&openCounters(selected[0])}><Layers size={24}/></button><button title={canDraw?'Eine Karte ziehen · D':drawReason} aria-label="Eine Karte ziehen" className="primary" onClick={()=>dispatch({type:'draw'})} disabled={!canDraw}><ArrowDownToLine size={24}/></button><button title="Alles enttappen" aria-label="Alles enttappen" onClick={()=>dispatch({type:'untapAll'})}><RotateCcw size={24}/></button><button title="Raster umschalten" aria-label="Raster umschalten" className="snap-toggle" aria-pressed={settings.snap} onClick={()=>update('snap',!settings.snap)}><Grid2X2 size={24}/></button></div>
         </section>
-        <footer className="statusbar"><span><i/> {online?'Multiplayer · Stack & Regelassistent':'Lokaler Testtisch · Regelassistent'}</span><button onClick={()=>setModal('log')}><BookOpen size={12}/>{game.log.at(-1)}<ChevronRight size={12}/></button><button onClick={()=>setModal('help')}><CircleHelp size={12}/> Steuerung</button></footer>
+        <footer className="statusbar"><span><i/> {online?'Multiplayer · Teilautomatik':'Lokaler Testtisch · Teilautomatik'}</span><button onClick={()=>setModal('log')}><BookOpen size={12}/>{game.log.at(-1)}<ChevronRight size={12}/></button><button onClick={()=>setModal('help')}><CircleHelp size={12}/> Steuerung</button></footer>
       </main>
     </div>
     {zone&&<ZoneBrowser key={`${zone.player}-${zone.zone}`} zone={zone.zone} player={zone.player} seat={seat} view={view} dispatch={dispatch} onClose={()=>{setZone(null);clearHover();}} onInspect={inspectOpponent} onHover={showHover} onHoverEnd={clearHover}/>}

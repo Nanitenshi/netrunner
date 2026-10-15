@@ -41,3 +41,5 @@ import './effect-links.css';
 
 import './dense-board.css';
 import './mobile-play.css';
+
+import './safe-play.css';

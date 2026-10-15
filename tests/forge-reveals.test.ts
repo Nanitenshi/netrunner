@@ -12,7 +12,7 @@ test('reveal callbacks expose cards only to their permitted viewer and do not ex
 });
 test('Commander startup rejects old controllers that still choose hand reveals for humans',()=>{
  assert.throws(()=>checkForgeStartup({mode:'commander',features:['ai']},'commander'),ForgeVersionError);
- assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation']},'commander'));
- assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation']},'commander',true),ForgeVersionError);
- assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['ai','human-reveals','optional-reveal-automation']},'commander',true));
+ assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review']},'commander'));
+ assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review']},'commander',true),ForgeVersionError);
+ assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['ai','human-reveals','optional-reveal-automation','payment-review']},'commander',true));
 });

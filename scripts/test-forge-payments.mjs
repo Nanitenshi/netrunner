@@ -1,0 +1,30 @@
+import {ForgeWorker} from '../server/forge-worker.ts';
+import {toForgeDeck} from '../shared/forge-decks.ts';
+import {catalogue} from '../shared/catalogue.ts';
+import {projectForge} from '../shared/forge-protocol.ts';
+import assert from 'node:assert/strict';
+const id=name=>{const c=catalogue.find(c=>c.name===name);assert(c,name);return c.id;};
+const deck={id:'payment',name:'Mana-Test',commanderId:id('Isamaru, Hound of Konda'),quantities:{[id('Plains')]:99}};
+const config={java:process.env.FORGE_JAVA,runtime:process.env.FORGE_RUNTIME,classes:process.env.FORGE_CLASSES,scenario:'commander',decks:[toForgeDeck(deck,'Ada').config,toForgeDeck(deck,'Bela').config]};
+if(!config.java||!config.runtime||!config.classes)throw Error('Set absolute FORGE_JAVA, FORGE_RUNTIME and FORGE_CLASSES paths.');
+let state;const worker=new ForgeWorker(config,()=>{},s=>state=s);
+const wait=async check=>{const end=Date.now()+15000;while(!check()){if(Date.now()>end)throw Error('Payment wait: '+JSON.stringify(state?.choice));await new Promise(r=>setTimeout(r,10));}};
+const act=async(seat,action,ok=true)=>{const r=await worker.action(seat,action);assert.equal(r.ok,ok,r.error);if(r.state)state=r.state;return r;};
+const answer=async(seat,input)=>{const choiceId=state.choice.id;await act(seat,{type:'choose',choiceId,...input});await wait(()=>state.choice?.id!==choiceId);};
+const stable=()=>({cards:state.cards.map(c=>[c.id,c.zone,c.tapped,c.commanderCasts]),stack:state.stack,life:state.life,priority:state.priority});
+try{
+ state=await worker.ready;await act(0,{type:'keep'});await act(1,{type:'keep'});
+ const commander=state.cards.find(c=>c.owner===0&&c.isCommander),land=state.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.name==='Plains');
+ await act(0,{type:'cast',cardId:commander.id,reviewPayment:true},false);assert.equal(state.choice,null);assert.equal(state.stack.length,0);
+ await act(0,{type:'land',cardId:land.id});const original=structuredClone(stable());
+ await act(0,{type:'cast',cardId:commander.id,reviewPayment:true});assert.equal(state.choice.kind,'payment');assert.equal(state.cards.find(c=>c.id===commander.id).zone,'command');assert.equal(state.cards.find(c=>c.id===commander.id).commanderCasts,0);assert.deepEqual(stable(),original);
+ console.log('Native payment preview:',JSON.stringify(state.choice.payment));
+ assert.equal(state.choice.payment.selectable,true);assert.deepEqual(state.choice.payment.selectedIds,[land.id]);
+ const pending=state.choice.id;
+ await act(1,{type:'choose',choiceId:pending,first:[land.id]},false);await act(0,{type:'choose',choiceId:pending,first:[land.id,land.id]},false);await act(0,{type:'choose',choiceId:pending,first:['not-a-source']},false);assert.deepEqual(stable(),original);
+ await answer(0,{answer:false});assert.deepEqual(stable(),original);await act(0,{type:'choose',choiceId:pending,answer:false},false);
+ await act(0,{type:'cast',cardId:commander.id,reviewPayment:true});await answer(0,{first:[]});assert.equal(state.choice.kind,'payment');assert.match(state.choice.payment.error,/reichen nicht/);assert.deepEqual(stable(),original);
+ await answer(0,{first:[land.id]});assert.equal(state.choice.kind,'payment');assert.deepEqual(stable(),original);
+ await answer(0,{first:[land.id]});assert.equal(state.choice,null);assert.equal(state.stack.length,1);assert.equal(state.cards.find(c=>c.id===commander.id).commanderCasts,1);assert(state.cards.find(c=>c.id===land.id).tapped);assert.equal(state.priority,1);
+ console.log('PASS native Commander payment: unchanged preview/cancel, invalid and foreign answers, insufficient selection, reviewed source change, real payment and one tax increment');
+}finally{worker.stop();}

@@ -24,8 +24,11 @@ public final class HumanDecisions {
   return ask(seat,kind,title,source,min,max,repeat,options,null);
  }
  static JsonObject ask(int seat,String kind,String title,String source,int min,int max,boolean repeat,List<Map<String,Object>> options,String automation){
+  return ask(seat,kind,title,source,min,max,repeat,options,automation,Map.of());
+ }
+ static JsonObject ask(int seat,String kind,String title,String source,int min,int max,boolean repeat,List<Map<String,Object>> options,String automation,Map<String,Object> details){
   var d=new LinkedHashMap<String,Object>();if(automation!=null)d.put("automation",automation);d.put("id",UUID.randomUUID().toString());d.put("seat",seat);d.put("kind",kind);d.put("title",title);d.put("source",source);d.put("min",min);d.put("max",max);d.put("repeat",repeat);d.put("count",min);d.put("options",options);
-  var p=new Pending(d,options);pending=p;BatusForge.choice=d;BatusForge.publishPause();
+  d.putAll(details);var p=new Pending(d,options);pending=p;BatusForge.choice=d;BatusForge.publishPause();
   try{return p.answer.get();}catch(Exception e){throw new IllegalStateException("Entscheidung wurde unterbrochen",e);}finally{pending=null;BatusForge.choice=null;}
  }
  static List<String> ids(JsonObject a,String key){var result=new ArrayList<String>();if(a.has(key))for(var v:a.getAsJsonArray(key))result.add(v.getAsString());return result;}
@@ -37,7 +40,7 @@ public final class HumanDecisions {
    BatusForge.require(p.allowed.containsAll(all),"Ungültige Auswahl");String kind=(String)d.get("kind");
    if(!kind.equals("number"))BatusForge.require(!a.has("value"),"Diese Auswahl benötigt keine Zahl");
    if(kind.equals("number")){BatusForge.require(all.isEmpty()&&!a.has("answer")&&a.has("value"),"Zahl fehlt");double value=a.get("value").getAsDouble();BatusForge.require(Double.isFinite(value)&&value==Math.rint(value)&&value>=(int)d.get("min")&&value<=(int)d.get("max"),"Zahl außerhalb des erlaubten Bereichs");}
-   else if((kind.equals("cost")||kind.equals("reveal"))&&a.has("answer")){BatusForge.require(!a.get("answer").getAsBoolean()&&all.isEmpty(),"Kostenabbruch ist ungültig");}
+   else if((kind.equals("cost")||kind.equals("reveal")||kind.equals("payment"))&&a.has("answer")){BatusForge.require(!a.get("answer").getAsBoolean()&&all.isEmpty(),"Kostenabbruch ist ungültig");}
    else if(kind.equals("confirm")){BatusForge.require(a.has("answer")&&all.isEmpty(),"Bestätigung fehlt");}
    else {BatusForge.require(!a.has("answer"),"Diese Entscheidung ist keine Bestätigung");
     if(!(boolean)d.get("repeat"))BatusForge.require(new HashSet<>(all).size()==all.size(),"Doppelte Auswahl");

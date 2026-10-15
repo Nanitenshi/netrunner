@@ -1,9 +1,10 @@
+import ForgePaymentPanel from './ForgePaymentPanel';
 import {automaticRevealLand,type ForgeAutomation} from '../shared/forge-automation';
 import {useEffect,useState} from 'react';
 import {catalogue} from '../shared/catalogue';
 import type {ForgeAction,ForgeChoice} from '../shared/forge-protocol';
 const images=new Map(catalogue.map(c=>[c.name,c.image]));
-export default function ForgeDecisionPanel({choice,automation,busy,onChoose,onReveals,onAutomation}:{choice:ForgeChoice;automation:ForgeAutomation;busy:boolean;onChoose:(action:ForgeAction)=>Promise<unknown>;onReveals?:()=>void;onAutomation?:()=>void}){
+function EffectDecisionPanel({choice,automation,busy,onChoose,onReveals,onAutomation}:{choice:ForgeChoice;automation:ForgeAutomation;busy:boolean;onChoose:(action:ForgeAction)=>Promise<unknown>;onReveals?:()=>void;onAutomation?:()=>void}){
  const [first,setFirst]=useState<string[]>([]),[second,setSecond]=useState<string[]>([]),[submitted,setSubmitted]=useState(false),[number,setNumber]=useState('0');
  const split=choice.kind==='scry'||choice.kind==='surveil';
  useEffect(()=>{setFirst(split?choice.options.map(o=>o.id):[]);setSecond([]);setSubmitted(false);setNumber(String(Math.max(choice.min??0,Math.min(choice.max??0,0))));},[choice.id]);
@@ -23,3 +24,5 @@ export default function ForgeDecisionPanel({choice,automation,busy,onChoose,onRe
  {choice.kind==='number'?<label className="forge-number-choice">{title}<input aria-label="Zahl wählen" type="number" step="1" min={choice.min} max={choice.max} value={number} disabled={disabled} onChange={e=>setNumber(e.target.value)}/></label>:choice.kind!=='confirm'&&(split?<div className="forge-decision-groups"><div><h3>Oben · nächste Karte zuerst</h3><div>{first.map((id,i)=>item(id,i,first,setFirst))}</div></div><div><h3>{choice.kind==='surveil'?'Friedhof':'Unten'}</h3><div>{second.map((id,i)=>item(id,i,second,setSecond))}</div></div></div>:<><p>{choice.min===choice.max?`${choice.max} auswählen`:`${choice.min??0}–${choice.max??choice.count} auswählen`} · {first.length} gewählt</p><div className="forge-decision-options">{choice.options.map(o=><button key={o.id} disabled={disabled} className={first.includes(o.id)?'chosen':''} onClick={()=>toggle(o.id)} aria-label={`${o.name} wählen`}>{o.kind==='card'&&images.get(o.name)?<img src={images.get(o.name)} alt={o.name}/>:<span>{o.name}</span>}{first.includes(o.id)&&<b>{choice.repeat?first.filter(id=>id===o.id).length:first.indexOf(o.id)+1}</b>}</button>)}</div>{(first.length>1||choice.repeat&&first.length>0)&&<div className="forge-decision-order">{first.map((id,i)=><div key={`${id}:${i}`}><span>{i+1}. {names.get(id)?.name}</span><button disabled={disabled||i===0} onClick={()=>reorder(first,setFirst,i,-1)}>←</button><button disabled={disabled||i===first.length-1} onClick={()=>reorder(first,setFirst,i,1)}>→</button>{choice.repeat&&<button disabled={disabled} onClick={()=>setFirst(ids=>ids.filter((_,j)=>j!==i))}>−</button>}</div>)}</div>}</>)}
  </section>;
 }
+
+export default function ForgeDecisionPanel(props:Parameters<typeof EffectDecisionPanel>[0]){return props.choice.kind==='payment'?<ForgePaymentPanel choice={props.choice} busy={props.busy} onChoose={props.onChoose}/>:<EffectDecisionPanel {...props}/>;}

@@ -34,10 +34,12 @@ test('new Forge inputs reject forged seats, ability indexes, and noninteger nume
 });
 test('an old bridge cannot silently substitute its fixture for the selected Commander decks',()=>{
  assert.throws(()=>checkForgeStartup({},'commander'),ForgeVersionError);assert.throws(()=>checkForgeStartup({mode:'fixture'},'commander'),ForgeVersionError);
- assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation']},'commander'));assert.doesNotThrow(()=>checkForgeStartup({issues:[{seat:0,cards:['Missing']} ]},'commander'));assert.doesNotThrow(()=>checkForgeStartup({},'combat'));
+ assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions']},'commander'));assert.doesNotThrow(()=>checkForgeStartup({issues:[{seat:0,cards:['Missing']} ]},'commander'));assert.doesNotThrow(()=>checkForgeStartup({},'combat'));
  assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation']},'commander'),ForgeVersionError);
 });
 
 test('Commander startup rejects payment-only adapters without safe P0 actions',()=>{assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review']},'commander'),ForgeVersionError);});
 
 test('Commander startup requires transactional preparation and activated payment support',()=>{assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions']},'commander'),ForgeVersionError);});
+
+test('Commander startup rejects adapters without native block capacity validation and damage proposals',()=>{assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation']},'commander'),ForgeVersionError);});

@@ -70,7 +70,7 @@ The read-only **Aufgedeckte Karten** dialog can be opened from the action bar
 or a pending effect decision, without answering that decision. Reload restores
 the same pending decision and in-memory reveal records. Commander startup now
 requires `human-reveals`, `optional-reveal-automation`, `payment-review`, `p0-actions`
-and `action-preparation`; recompile all eight files together.
+`action-preparation`, and `combat-decisions`; recompile all eight files together.
 
 ## P0 interaction safety
 

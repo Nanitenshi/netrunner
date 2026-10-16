@@ -34,3 +34,7 @@ await run(async t=>{
 await run(async t=>{
  const fresh=t.state.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.name==='Grizzly Bears');await t.act(0,{type:'cast',cardId:fresh.id});await t.act(1,{type:'pass'});await t.act(0,{type:'pass'});await t.act(0,{type:'combat'});await t.both();assert.equal(t.state.choice.kind,'attackers');assert(!t.state.choice.options.some(o=>o.id===fresh.id));await t.choose(0,{first:[]});for(let i=0;i<8&&t.state.phase!=='MAIN2';i++){assert(!t.state.choice);await t.both();}assert.equal(t.state.phase,'MAIN2');assert.deepEqual(t.state.life,[40,40]);console.log('PASS summoning sickness excludes newly cast creatures and empty attack completes safely');
 });
+await run(async t=>{
+ await t.begin(['Grizzly Bears']);await t.both();const source=t.card(0,'Grizzly Bears'),blocker=t.card(1,'Grizzly Bears');await t.choose(1,{first:[blocker.id+':'+source.id]});assert.equal(t.state.combat[0].blocked,true);
+ const swords=t.state.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.name==='Swords to Plowshares');await t.act(0,{type:'cast',cardId:swords.id,targetId:blocker.id});await t.both();assert.equal(t.state.life[1],42);assert.equal(t.state.combat[0].blocked,true);assert.deepEqual(t.state.combat[0].blockerIds,[]);await t.both();assert.equal(t.state.life[1],42);assert(t.card(0,'Grizzly Bears'));console.log('PASS removed blocker remains a blocked attack; public native status and no nontrample player damage');
+});

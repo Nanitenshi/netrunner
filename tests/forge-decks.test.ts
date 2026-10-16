@@ -34,7 +34,7 @@ test('new Forge inputs reject forged seats, ability indexes, and noninteger nume
 });
 test('an old bridge cannot silently substitute its fixture for the selected Commander decks',()=>{
  assert.throws(()=>checkForgeStartup({},'commander'),ForgeVersionError);assert.throws(()=>checkForgeStartup({mode:'fixture'},'commander'),ForgeVersionError);
- assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions']},'commander'));assert.doesNotThrow(()=>checkForgeStartup({issues:[{seat:0,cards:['Missing']} ]},'commander'));assert.doesNotThrow(()=>checkForgeStartup({},'combat'));
+ assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions','rule-effects']},'commander'));assert.doesNotThrow(()=>checkForgeStartup({issues:[{seat:0,cards:['Missing']} ]},'commander'));assert.doesNotThrow(()=>checkForgeStartup({},'combat'));
  assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation']},'commander'),ForgeVersionError);
 });
 

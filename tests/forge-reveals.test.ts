@@ -12,7 +12,7 @@ test('reveal callbacks expose cards only to their permitted viewer and do not ex
 });
 test('Commander startup rejects old controllers that still choose hand reveals for humans',()=>{
  assert.throws(()=>checkForgeStartup({mode:'commander',features:['ai']},'commander'),ForgeVersionError);
- assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions']},'commander'));
- assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions']},'commander',true),ForgeVersionError);
- assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['ai','human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions']},'commander',true));
+ assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions','rule-effects']},'commander'));
+ assert.throws(()=>checkForgeStartup({mode:'commander',features:['human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions','rule-effects']},'commander',true),ForgeVersionError);
+ assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['ai','human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation','combat-decisions','rule-effects']},'commander',true));
 });

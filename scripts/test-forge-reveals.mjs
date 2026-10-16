@@ -33,7 +33,9 @@ for(const [index,[land,basic]] of pairs.entries())for(const accept of [true,fals
  });
 }
 if(!process.env.FORGE_REVEAL_CASE||process.env.FORGE_REVEAL_CASE==='No eligible reveal')await run({id:'none',name:'No eligible reveal',commanderId:preparedDecks[0].commanderId,quantities:{[id('Wastes')]:98,[id('Port Town')]:1}},async t=>{await t.opening('Port Town');const c=t.state.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.name==='Port Town');await t.act(0,{type:'land',cardId:c.id});assert.equal(t.state.choice,null);assert.equal(t.state.cards.find(v=>v.id===c.id).tapped,true);assert(!t.state.reveals?.length);console.log('PASS no matching hand card: land enters tapped without an impossible prompt');});
-if(!process.env.FORGE_REVEAL_CASE||process.env.FORGE_REVEAL_CASE==='Cultivate')await run({id:'ramp',name:'Cultivate',commanderId:preparedDecks[3].commanderId,quantities:{[id('Forest')]:97,[id('Mountain')]:1,[id('Cultivate')]:1}},async t=>{
+// With no Mountain in the opening hand, three copies leave at least one in the
+// library after the two real draw steps before this turn-three search.
+if(!process.env.FORGE_REVEAL_CASE||process.env.FORGE_REVEAL_CASE==='Cultivate')await run({id:'ramp',name:'Cultivate',commanderId:preparedDecks[3].commanderId,quantities:{[id('Forest')]:95,[id('Mountain')]:3,[id('Cultivate')]:1}},async t=>{
  await t.opening('Cultivate',s=>s.cards.filter(c=>c.owner===0&&c.zone==='hand'&&c.name==='Forest').length>=3&&!s.cards.some(c=>c.owner===0&&c.zone==='hand'&&c.name==='Mountain'));
  for(let n=0;n<3;n++){const land=t.state.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.name==='Forest');await t.act(0,{type:'land',cardId:land.id});if(n<2){await t.end(0);await t.end(1);}}
  const spell=t.state.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.name==='Cultivate');await t.act(0,{type:'cast',cardId:spell.id});await t.resolve();assert.equal(t.state.choice.seat,0);const options=t.state.choice.options,forest=options.find(c=>c.name==='Forest'),mountain=options.find(c=>c.name==='Mountain');assert(forest&&mountain);

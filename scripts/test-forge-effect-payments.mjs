@@ -1,0 +1,13 @@
+import {spawnSync} from 'node:child_process';
+import {delimiter,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const {FORGE_JAVA:java,FORGE_RUNTIME:runtime,FORGE_CLASSES:classes,FORGE_TEST_CLASSES:testClasses}=process.env;
+if(!java||!runtime||!classes||!testClasses)throw Error('Configure absolute FORGE_JAVA, FORGE_RUNTIME, FORGE_CLASSES and FORGE_TEST_CLASSES. Compile ForgeEffectPaymentTest separately against the production adapter first.');
+const checked=spawnSync(process.execPath,[fileURLToPath(new URL('check-forge-runtime.mjs',import.meta.url))],{encoding:'utf8',windowsHide:true});
+if(checked.status!==0)throw Error(checked.stderr||'Runtime lock check failed');
+process.stdout.write(checked.stdout);
+const run=spawnSync(java,['-Xmx768m','-Dfile.encoding=UTF-8','-Djava.awt.headless=true','-cp',[resolve(runtime,'forge-gui-desktop-2.0.15-jar-with-dependencies.jar'),resolve(classes),resolve(testClasses)].join(delimiter),'ForgeEffectPaymentTest'],{cwd:runtime,encoding:'utf8',windowsHide:true,timeout:120000,maxBuffer:8*1024*1024});
+const output=run.stdout??'';
+if(run.status!==0)throw Error((run.stderr??'')+'\n'+output.slice(-6000));
+for(const line of output.split(/\r?\n/))if(line.startsWith('PASS '))console.log(line);
+if(!output.includes('PASS native Graveyard Trespasser: decline during card choice'))throw Error('Native regression suite did not complete.');

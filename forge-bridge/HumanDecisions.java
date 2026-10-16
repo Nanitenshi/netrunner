@@ -69,6 +69,7 @@ public final class HumanDecisions {
     if(kind.equals("scry")||kind.equals("surveil")){BatusForge.require(new HashSet<>(all).equals(p.allowed)&&all.size()==p.allowed.size(),"Alle angesehenen Karten zuordnen");}
     else{BatusForge.require(second.isEmpty(),"Keine zweite Liste zulässig");BatusForge.require(first.size()>=(int)d.get("min")&&first.size()<=(int)d.get("max"),"Falsche Anzahl gewählt");}
    }
+   if(d.get("effectPayment") instanceof Map<?,?> effect&&Boolean.FALSE.equals(effect.get("canPay")))BatusForge.require(a.has("answer")&&!a.get("answer").getAsBoolean(),"Diese Effektkosten können nicht bezahlt werden");
    p.answered=true;p.answer.complete(a.deepCopy());
   }
  }

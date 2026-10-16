@@ -211,6 +211,24 @@ Run `node scripts/test-forge-automation.mjs` with Forge configured and, after
 building, `node scripts/test-forge-automation-browser.mjs` with the browser
 prerequisites below. See [optional automation verification](../deploy/FORGE-AUTOMATION-2026-10-14.md).
 
+## Effective card state and rule regressions
+
+Battlefield cards publish native counters, regeneration protection, damage,
+current visible keywords/ability text, instance timestamps and attachment links.
+The desktop card-status view reads these values without changing the engine.
+Humans choose among competing replacements, static alternatives, counter types
+and offered abilities. Exceptions during resolution, state checks or phase
+transitions halt play rather than continue a partial effect.
+
+Worker startup verifies the engine JAR and card-script archive against
+`shared/forge-runtime-lock.ts`; changed files need a reviewed runtime update.
+Run `node scripts/check-forge-runtime.mjs`. Compile the native
+`tests/ForgeRuleEffectsTest.java` separately, set absolute `FORGE_TEST_CLASSES`,
+and run `node scripts/test-forge-rule-effects.mjs`. After building,
+`node scripts/test-forge-rule-status-browser.mjs` checks two desktop clients.
+See [rule contract and coverage](../deploy/FORGE-RULES-2026-10-16.md) for
+verified cards, release steps and remaining limitations.
+
 ## Remaining scope
 
 Experimental two-seat matches are kept in memory and lost on server restart.

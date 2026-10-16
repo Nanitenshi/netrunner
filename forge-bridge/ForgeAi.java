@@ -22,7 +22,7 @@ final class ForgeAi {
  static boolean ai(int seat){return seat>=0&&seat<seats.length&&seats[seat];}
  static int limit(){return difficulty.equals("easy")?1:difficulty.equals("normal")?3:Integer.MAX_VALUE;}
  static void advance(){
-  if(!seats[1]||CommanderDecks.opening())return;
+  if(!seats[1]||CommanderDecks.opening()||BatusForge.ruleError!=null)return;
   for(int step=0;step<64&&!BatusForge.game.isGameOver()&&BatusForge.choice==null&&ai(BatusForge.priority);step++){
    int who=BatusForge.priority;var p=BatusForge.player(who);var game=BatusForge.game;var phase=game.getPhaseHandler().getPhase();
    if(countedTurn!=BatusForge.turn){countedTurn=BatusForge.turn;actions=0;}

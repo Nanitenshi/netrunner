@@ -14,7 +14,7 @@ async function run(test){
 }
 await run(async t=>{
  const original=structuredClone(t.state);const spell=await t.cast('Tormenting Voice');const choice=t.state.choice;
- assert.equal(choice.kind,'cost');assert(!choice.options.some(o=>o.id===spell.id));
+ assert.equal(choice.kind,'cost');assert(!choice.options.some(o=>o.id===spell.id));assert.equal(t.state.cards.find(c=>c.id===spell.id).zone,'hand');assert.equal(t.state.stack.length,0);assert(!projectForge(t.state,1).cards.some(c=>c.id===spell.id));
  for(const seat of [0,1])assert.equal(t.state.cards.filter(c=>c.owner===seat&&c.tapped).length,0);
  assert.equal(projectForge(t.state,1).choice.options.length,0);
  assert(!JSON.stringify(projectForge(t.state,1)).includes(choice.options[0].id+'"'));
@@ -24,7 +24,7 @@ await run(async t=>{
  await t.act(0,{type:'choose',choiceId:choice.id,first:[choice.options[0].id,choice.options[0].id]},false);
  await t.act(0,{type:'choose',choiceId:choice.id,answer:true},false);
  await t.act(0,{type:'choose',choiceId:choice.id,answer:false,first:[choice.options[0].id]},false);
- await t.choose(0,{answer:false});assert.equal(t.state.stack.length,0);assert.equal(t.state.priority,0);
+ await t.choose(0,{answer:false});assert(!t.state.log.at(-1).includes('Tormenting Voice'));assert.equal(t.state.stack.length,0);assert.equal(t.state.priority,0);
  assert.deepEqual(t.state.cards.map(c=>[c.id,c.zone,c.tapped]),original.cards.map(c=>[c.id,c.zone,c.tapped]));
  await t.act(0,{type:'choose',choiceId:choice.id,answer:false},false);
  await t.cast('Tormenting Voice');const discard=t.state.choice.options.find(o=>o.name==='Forest');assert(discard);
@@ -45,6 +45,8 @@ await run(async t=>{
 });
 await run(async t=>{
  const fling=t.state.cards.find(c=>c.owner===0&&c.name==='Fling'&&c.zone==='hand');assert(fling.targets.some(o=>o.id==='player:1'));
+ const original=structuredClone(t.state.cards.map(c=>[c.id,c.zone,c.tapped]));await t.cast('Fling');assert.equal(t.state.choice.kind,'targets');assert.equal(t.state.choice.canCancel,true);const prompt=t.state.choice.id;await t.act(1,{type:'choose',choiceId:prompt,answer:false},false);await t.choose(0,{answer:false});assert.deepEqual(t.state.cards.map(c=>[c.id,c.zone,c.tapped]),original);assert.equal(t.state.stack.length,0);assert(!t.state.log.at(-1).includes('Fling'));await t.act(0,{type:'choose',choiceId:prompt,answer:false},false);
+
  await t.act(0,{type:'cast',cardId:fling.id,targetId:'player:2'},false);assert.equal(t.state.choice,null);
  await t.cast('Fling','player:1');const sacrifice=t.state.choice.options.find(o=>o.name==='Colossal Dreadmaw');
  await t.choose(0,{first:[sacrifice.id]});await t.resolve();assert.deepEqual(t.state.life,[40,34]);

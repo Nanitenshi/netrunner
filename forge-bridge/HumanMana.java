@@ -10,6 +10,7 @@ import java.util.*;
 final class HumanMana {
  record Approval(int cardId,List<FilterMana.Option> plan,Set<String> allowed,String cost){}
  private static Approval current;
+ static boolean managed(SpellAbility sa){return !sa.isManaAbility()&&sa.getPayCosts().getCostParts().stream().allMatch(part->part instanceof CostPartMana||!sa.isSpell()&&part instanceof CostTap);}
  static boolean approved(SpellAbility sa){return current!=null&&current.plan()!=null&&current.cardId()==sa.getHostCard().getId();}
  static String cost(SpellAbility sa,Player payer){return ComputerUtilMana.calculateManaCost(sa.getPayCosts(),sa,payer,true,0,false).toString();}
  static Map<String,Integer> pool(Player payer){var result=new LinkedHashMap<String,Integer>();for(var mana:payer.getManaPool()){int mask=mana.getColor(),index=mask==0||mask==32?5:Integer.numberOfTrailingZeros(mask);if(index<6)result.merge(FilterMana.COLORS.substring(index,index+1),1,Integer::sum);}return result;}
@@ -20,17 +21,17 @@ final class HumanMana {
  static Approval review(SpellAbility sa,Player payer){
   var plan=FilterMana.selectedPlan(sa,payer,null,null);boolean selectable=plan!=null;
   var options=new ArrayList<Map<String,Object>>();
-  if(selectable)for(var card:payer.getCardsIn(ZoneType.Battlefield))if(!card.isTapped()&&!card.isCreature()&&card.getManaAbilities().stream().anyMatch(a->a.getPayCosts()!=null&&a.getPayCosts().hasTapCost()))options.add(BatusForge.target(card));
-  List<String> selected=selectable?ids(plan):List.of();String message="";
+  if(selectable)for(var card:payer.getCardsIn(ZoneType.Battlefield))if(!(sa.getPayCosts().hasTapCost()&&card==sa.getHostCard())&&!card.isTapped()&&!card.isCreature()&&card.getManaAbilities().stream().anyMatch(a->a.getPayCosts()!=null&&a.getPayCosts().hasTapCost()))options.add(BatusForge.target(card));
+  List<String> selected=selectable?ids(plan):List.of();String message="";boolean valid=true;
   while(true){
-   var meta=new LinkedHashMap<String,Object>();meta.put("cost",cost(sa,payer));meta.put("commanderTax",sa.getHostCard().isCommander()&&sa.getHostCard().isInZone(ZoneType.Command)?2*payer.getCommanderCast(sa.getHostCard()):0);meta.put("selectable",selectable);meta.put("selectedIds",selected);meta.put("steps",selectable?steps(plan):List.of());meta.put("pool",pool(payer));meta.put("error",message);
+   var meta=new LinkedHashMap<String,Object>();meta.put("action",sa.isSpell()?"cast":"activate");meta.put("tapSource",sa.getPayCosts().hasTapCost());meta.put("cost",cost(sa,payer));meta.put("commanderTax",sa.isSpell()&&sa.getHostCard().isCommander()&&sa.getHostCard().isInZone(ZoneType.Command)?2*payer.getCommanderCast(sa.getHostCard()):0);meta.put("selectable",selectable);meta.put("selectedIds",selected);meta.put("valid",valid);meta.put("steps",selectable&&valid?steps(plan):List.of());meta.put("pool",pool(payer));meta.put("error",message);
    var answer=HumanDecisions.ask(BatusForge.seat(payer),"payment","Mana-Zahlung prüfen",sa.getHostCard().getName(),0,Math.min(64,options.size()),false,options,null,Map.of("payment",meta));
    if(answer.has("answer"))return null;
    var chosen=HumanDecisions.ids(answer,"first");
    if(!selectable)return new Approval(sa.getHostCard().getId(),null,null,meta.get("cost").toString());
    var next=FilterMana.selectedPlan(sa,payer,new LinkedHashSet<>(chosen),null);
-   if(next==null){selected=chosen;message="Diese Quellen reichen nicht aus. Wähle andere Quellen oder brich ab.";continue;}
-   if(!chosen.equals(selected)||!signature(next).equals(signature(plan))){selected=chosen;plan=next;message="Geänderten Vorschlag prüfen und anschließend bezahlen.";continue;}
+   if(next==null){selected=chosen;valid=false;message="Diese Quellen reichen nicht aus. Wähle andere Quellen oder brich ab.";continue;}
+   if(!valid||!chosen.equals(selected)||!signature(next).equals(signature(plan))){selected=chosen;plan=next;valid=true;message="Geänderten Vorschlag prüfen und anschließend bezahlen.";continue;}
    return new Approval(sa.getHostCard().getId(),next,new LinkedHashSet<>(chosen),meta.get("cost").toString());
   }
  }

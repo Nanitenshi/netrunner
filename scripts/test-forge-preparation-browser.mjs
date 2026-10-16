@@ -1,0 +1,28 @@
+import {createNexusServer} from '../server/server.ts';
+import {once} from 'node:events';
+import {mkdirSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
+const forge={java:process.env.FORGE_JAVA,runtime:process.env.FORGE_RUNTIME,classes:process.env.FORGE_CLASSES};
+if(!Object.values(forge).every(Boolean))throw Error('Configure absolute Forge paths');
+const server=createNexusServer({database:':memory:',guest:true,forge});server.http.listen(0,'127.0.0.1');await once(server.http,'listening');
+const url='http://127.0.0.1:'+server.http.address().port,browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{}),args:['--no-proxy-server']});
+const pages=[],errors=[];mkdirSync('.local/browser',{recursive:true});
+try{
+ for(const name of ['Ada','Bela']){const context=await browser.newContext({viewport:{width:1366,height:900}}),page=await context.newPage();pages.push(page);page.on('pageerror',e=>errors.push(e.message));await page.goto(url);await page.evaluate(async name=>{const r=await fetch('/api/guest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});if(!r.ok)throw Error('Guest login failed');},name);await page.goto(url+'/#forge');await page.reload();}
+ const [a,b]=pages;
+ async function start(scenario){await a.getByRole('button',{name:'Testtisch erstellen',exact:true}).click();await a.getByText('Einladungscode:').waitFor();await b.getByRole('textbox',{name:'Testtisch-Code'}).fill(await a.locator('.forge-lobby p b').innerText());await b.getByRole('button',{name:'Beitreten',exact:true}).click();await a.getByRole('combobox',{name:'Testszenario'}).selectOption(scenario);await a.getByRole('button',{name:'Test starten',exact:true}).click();await a.locator('.forge-hand').waitFor({timeout:65000});await b.locator('.forge-hand').waitFor();}
+ async function leave(){await a.getByRole('button',{name:'Testtisch verlassen',exact:true}).click();await b.getByRole('button',{name:'Testtisch erstellen',exact:true}).waitFor();}
+ await start('decisions');
+ await a.locator('.forge-hand').getByRole('button',{name:'You Meet in a Tavern',exact:true}).click();await a.getByRole('heading',{name:'Modus wählen',exact:true}).waitFor();
+ assert.equal(await a.locator('.forge-hand').getByRole('button',{name:'You Meet in a Tavern',exact:true}).count(),1);assert.equal(await a.locator('.forge-stack').getByRole('button',{name:/You Meet/}).count(),0);assert.equal(await a.locator('.forge-lands .tapped').count(),0);assert.equal(await b.locator('.forge-decision').count(),0);assert.equal(await a.getByRole('button',{name:'Automatik einstellen',exact:true}).count(),0);
+ await a.reload();await a.getByRole('heading',{name:'Modus wählen',exact:true}).waitFor();await a.getByRole('button',{name:'Wirken abbrechen',exact:true}).click();await a.locator('.forge-decision').waitFor({state:'hidden'});assert.equal(await a.locator('.forge-hand').getByRole('button',{name:'You Meet in a Tavern',exact:true}).count(),1);assert.equal(await a.locator('.forge-lands .tapped').count(),0);
+ await a.locator('.forge-hand').getByRole('button',{name:'You Meet in a Tavern',exact:true}).click();await a.getByRole('heading',{name:'Modus wählen',exact:true}).waitFor();await a.locator('.forge-decision-options button').nth(1).click();await a.getByRole('button',{name:'Auswahl bestätigen',exact:true}).click();await b.locator('.forge-stack').getByRole('button',{name:/You Meet/}).waitFor();await leave();
+ await start('costs');const hand=await a.locator('.forge-hand .forge-card').count();
+ await a.locator('.forge-hand').getByRole('button',{name:'Tormenting Voice',exact:true}).click();await a.getByRole('heading',{name:'Zusatzkosten · Karte abwerfen',exact:true}).waitFor();
+ assert.equal(await a.locator('.forge-hand .forge-card').count(),hand);assert.equal(await a.locator('.forge-hand').getByRole('button',{name:'Tormenting Voice',exact:true}).count(),1);assert.equal(await a.locator('.forge-stack').getByRole('button',{name:/Tormenting/}).count(),0);assert.equal(await b.locator('.forge-decision').count(),0);assert.equal(await a.locator('.forge-lands .tapped').count(),0);
+ await a.reload();await a.getByRole('heading',{name:'Zusatzkosten · Karte abwerfen',exact:true}).waitFor();await a.getByRole('button',{name:'Wirken abbrechen',exact:true}).click();await a.locator('.forge-decision').waitFor({state:'hidden'});assert.equal(await a.locator('.forge-hand .forge-card').count(),hand);assert.equal(await a.locator('.forge-lands .tapped').count(),0);
+ await a.locator('.forge-hand').getByRole('button',{name:'Tormenting Voice',exact:true}).click();await a.locator('.forge-decision-options').getByRole('button',{name:'Forest wählen',exact:true}).click();await a.screenshot({path:'.local/browser/forge-preparation-desktop.png'});await a.getByRole('button',{name:'Kosten bezahlen und wirken',exact:true}).click();await b.locator('.forge-stack').getByRole('button',{name:/Tormenting/}).waitFor();assert.equal(await a.locator('.forge-hand .forge-card').count(),hand-2);assert.equal(await a.locator('.forge-lands .tapped').count(),2);await leave();assert.deepEqual(errors,[]);
+ console.log('PASS two desktop browsers: private cancellable modes and additional costs, hand/stack/taps stable before commit, reload/cancel/retry, real payment and opponent response');
+}catch(error){if(pages[0]){console.log(await pages[0].locator('body').innerText());await pages[0].screenshot({path:'.local/browser/forge-preparation-failure.png',fullPage:true});}throw error;}
+finally{await browser.close();await server.close();}

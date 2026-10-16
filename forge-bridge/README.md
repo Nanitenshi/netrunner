@@ -69,7 +69,8 @@ cards before selection, while the remaining library and hand stay private.
 The read-only **Aufgedeckte Karten** dialog can be opened from the action bar
 or a pending effect decision, without answering that decision. Reload restores
 the same pending decision and in-memory reveal records. Commander startup now
-requires `human-reveals`, `optional-reveal-automation`, `payment-review` and `p0-actions`; recompile all eight files together.
+requires `human-reveals`, `optional-reveal-automation`, `payment-review`, `p0-actions`
+and `action-preparation`; recompile all eight files together.
 
 ## P0 interaction safety
 
@@ -87,6 +88,17 @@ cleanup windows. AI turns do not wait for human confirmation. Holding priority
 is an explicit boolean on casts/activations, persisted as a personal browser
 preference. One pass never skips all stack objects or silently ends a human turn.
 See `deploy/FORGE-P0-2026-10-15.md` for scope and native regression commands.
+
+Announcement modes/targets can now be cancelled privately before payment;
+resolution choices never inherit that permission. Discard/sacrifice selections
+are collected before a spell leaves the hand and are revalidated during native
+payment. Cancelled announcements never publish a private hand card's name.
+Simple fixed mana/self-tap activations share the spell payment review; the tap
+cost carrier cannot pay its own mana cost. Invalid source sets clear the old
+plan and block confirmation until a corrected plan is reviewed. Native simple
+one-mana tap abilities get a direct card action, while complex abilities stay
+explicit. End-turn confirmation includes a private native action/mana summary.
+See `deploy/FORGE-P0-TRANSACTIONS-2026-10-16.md` for detailed scope and checks.
 
 `node scripts/test-forge-reveals.mjs` covers all five reveal lands, decline,
 missing eligible cards, privacy, illegal answers, Cultivate assignment/reveal

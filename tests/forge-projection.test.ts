@@ -25,3 +25,10 @@ test('native payment details and source preferences stay private until the spell
  assert.equal(projectForge(state,0).choice?.payment?.cost,'{W}');assert.equal(projectForge(state,1).choice?.payment,undefined);assert(!JSON.stringify(projectForge(state,1)).includes('Secret spell'));assert.deepEqual(projectForge(state,1).choice?.options,[]);assert(state.choice?.payment);
  for(const extra of [{mana:{W:99}},{cost:'{0}'},{sourceIds:['foreign']}])assert(!forgeActionSchema.safeParse({type:'choose',choiceId:'00000000-0000-4000-8000-000000000000',first:[],...extra}).success);
 });
+
+test('preparation cancellation and end-turn private details are exposed only to the deciding seat',()=>{
+ const state:ForgeState={cards:[],stack:[],life:[40,40],active:0,priority:0,passes:0,turn:1,log:[],choice:{id:'pending',seat:0,kind:'targets',action:'cast',canCancel:true,count:1,title:'Private action',source:'Secret spell',options:[],endTurn:{landRemaining:1,unlimited:false,spells:4,pool:{W:2}}}};
+ const owner=projectForge(state,0).choice!,peer=projectForge(state,1).choice!;
+ assert.equal(owner.action,'cast');assert.equal(peer.action,undefined);assert.equal(owner.canCancel,true);assert.equal(owner.endTurn?.spells,4);assert.equal(peer.canCancel,undefined);assert.equal(peer.endTurn,undefined);assert(!JSON.stringify(peer).includes('Secret spell'));
+ assert(!forgeActionSchema.safeParse({type:'choose',choiceId:'00000000-0000-4000-8000-000000000000',answer:false,canCancel:true}).success);
+});

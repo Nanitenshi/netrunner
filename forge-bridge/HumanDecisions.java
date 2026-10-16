@@ -6,6 +6,26 @@ import java.util.concurrent.CompletableFuture;
 
 public final class HumanDecisions {
  private static volatile Pending pending;
+ private static Preparation preparing;
+ static final class Cancelled extends RuntimeException {private static final long serialVersionUID=1L;}
+ // Only announcement choices may be cancelled. Resolution choices never inherit
+ // this permission, even when a cost or a cast produces a new trigger.
+ static final class Preparation implements AutoCloseable {
+  final forge.game.spellability.SpellAbility ability;
+  final forge.game.spellability.AbilitySub sub;
+  final List<forge.game.spellability.AbilitySub> modes;
+  final forge.game.cost.Cost cost;
+  final Map<forge.game.spellability.SpellAbility,forge.game.spellability.TargetChoices> targets=new LinkedHashMap<>();
+  final int seat;boolean committed;
+  Preparation(forge.game.spellability.SpellAbility sa,int who){
+   BatusForge.require(preparing==null,"Eine Aktion wird bereits vorbereitet");ability=sa;seat=who;sub=sa.getSubAbility();modes=sa.getChosenList()==null?null:new ArrayList<>(sa.getChosenList());cost=sa.getPayCosts().copy();
+   for(var current=sa;current!=null;current=current.getSubAbility())targets.put(current,current.getTargets().clone());preparing=this;
+  }
+  void seal(){if(preparing==this)preparing=null;}
+  void commit(){committed=true;seal();}
+  public void close(){seal();if(!committed){ability.setSubAbility(sub);ability.setChosenList(modes);ability.setPayCosts(cost);targets.forEach((sa,value)->sa.setTargets(value));}}
+ }
+ static Preparation prepare(forge.game.spellability.SpellAbility sa,int seat){return new Preparation(sa,seat);}
  private static final List<Map<String,Object>> reveals=new ArrayList<>();
  // Each callback is delivered by Forge to a specific permitted viewer.
  // Keep a bounded journal per viewer; never infer publicity from the card's zone.
@@ -28,8 +48,10 @@ public final class HumanDecisions {
  }
  static JsonObject ask(int seat,String kind,String title,String source,int min,int max,boolean repeat,List<Map<String,Object>> options,String automation,Map<String,Object> details){
   var d=new LinkedHashMap<String,Object>();if(automation!=null)d.put("automation",automation);d.put("id",UUID.randomUUID().toString());d.put("seat",seat);d.put("kind",kind);d.put("title",title);d.put("source",source);d.put("min",min);d.put("max",max);d.put("repeat",repeat);d.put("count",min);d.put("options",options);
+  boolean cancellable=preparing!=null&&preparing.seat==seat&&(kind.equals("targets")||kind.equals("modes"));if(cancellable){d.put("canCancel",true);d.put("action",preparing.ability.isSpell()?"cast":"activate");}
   d.putAll(details);var p=new Pending(d,options);pending=p;BatusForge.choice=d;BatusForge.publishPause();
-  try{return p.answer.get();}catch(Exception e){throw new IllegalStateException("Entscheidung wurde unterbrochen",e);}finally{pending=null;BatusForge.choice=null;}
+  JsonObject result;try{result=p.answer.get();}catch(Exception e){throw new IllegalStateException("Entscheidung wurde unterbrochen",e);}finally{pending=null;BatusForge.choice=null;}
+  if(cancellable&&result.has("answer")&&!result.get("answer").getAsBoolean())throw new Cancelled();return result;
  }
  static List<String> ids(JsonObject a,String key){var result=new ArrayList<String>();if(a.has(key))for(var v:a.getAsJsonArray(key))result.add(v.getAsString());return result;}
  static void answer(int who,JsonObject a){
@@ -40,7 +62,7 @@ public final class HumanDecisions {
    BatusForge.require(p.allowed.containsAll(all),"Ungültige Auswahl");String kind=(String)d.get("kind");
    if(!kind.equals("number"))BatusForge.require(!a.has("value"),"Diese Auswahl benötigt keine Zahl");
    if(kind.equals("number")){BatusForge.require(all.isEmpty()&&!a.has("answer")&&a.has("value"),"Zahl fehlt");double value=a.get("value").getAsDouble();BatusForge.require(Double.isFinite(value)&&value==Math.rint(value)&&value>=(int)d.get("min")&&value<=(int)d.get("max"),"Zahl außerhalb des erlaubten Bereichs");}
-   else if((kind.equals("cost")||kind.equals("reveal")||kind.equals("payment"))&&a.has("answer")){BatusForge.require(!a.get("answer").getAsBoolean()&&all.isEmpty(),"Kostenabbruch ist ungültig");}
+   else if((Boolean.TRUE.equals(d.get("canCancel"))||kind.equals("cost")||kind.equals("reveal")||kind.equals("payment"))&&a.has("answer")){BatusForge.require(!a.get("answer").getAsBoolean()&&all.isEmpty(),"Abbruch ist ungültig");}
    else if(kind.equals("confirm")){BatusForge.require(a.has("answer")&&all.isEmpty(),"Bestätigung fehlt");}
    else {BatusForge.require(!a.has("answer"),"Diese Entscheidung ist keine Bestätigung");
     if(!(boolean)d.get("repeat"))BatusForge.require(new HashSet<>(all).size()==all.size(),"Doppelte Auswahl");

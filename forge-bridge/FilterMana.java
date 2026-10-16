@@ -21,7 +21,7 @@ final class FilterMana {
  static List<Option> selectedPlan(SpellAbility spell,Player payer,Set<String> allowed,forge.game.mana.ManaCostBeingPaid actual){return plan(spell,payer,allowed,actual,false);}
  static List<Option> plan(SpellAbility spell,Player payer,Set<String> allowed,forge.game.mana.ManaCostBeingPaid actual,boolean requireFilter){
   // Extra payments and variable/restricted mana keep their existing explicit path.
-  if(!spell.getPayCosts().getCostParts().stream().allMatch(c->c instanceof CostPartMana)||spell.isOffering()||spell.isEmerge()||spell.hasParam("ManaConversion"))return null;
+  if(!HumanMana.managed(spell)||spell.isOffering()||spell.isEmerge()||spell.hasParam("ManaConversion"))return null;
   var cost=actual==null?ComputerUtilMana.calculateManaCost(spell.getPayCosts(),spell,payer,true,0,false):actual;
   if(cost.getXcounter()!=0)return null;int[] required=new int[6];int generic=cost.getGenericManaAmount();
   for(var shard:cost.getUnpaidShards()){if(shard==ManaCostShard.GENERIC)continue;String text=shard.toString().replace("{","").replace("}","");if(text.length()!=1||COLORS.indexOf(text)<0)return null;required[COLORS.indexOf(text)]++;}
@@ -33,6 +33,7 @@ final class FilterMana {
   }
   var groups=new ArrayList<List<List<Option>>>();var ranks=new ArrayList<Integer>();var byKey=new HashMap<String,Integer>();boolean filter=false;
   for(var card:payer.getCardsIn(ZoneType.Battlefield)){
+   if(spell.getPayCosts().hasTapCost()&&card==spell.getHostCard())continue;
    if(allowed!=null&&!allowed.contains(BatusForge.id(card)))continue;
    if(card.isTapped()||card.isCreature())continue;var options=new ArrayList<Option>();
    for(var ability:card.getManaAbilities()){

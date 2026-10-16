@@ -22,3 +22,12 @@ test('priority hold is a boolean preference on native casts and activations only
  assert(!forgeActionSchema.safeParse({type:'endTurn',confirmed:true}).success);
  assert(!forgeActionSchema.safeParse({type:'land',cardId:'card',holdPriority:true}).success);
 });
+
+test('only a native simple mana ability gets a direct battlefield action',()=>{
+ const source:ForgeCard={...land,zone:'battlefield',landPlayable:undefined,abilities:[{index:0,name:'Add W',cost:'Tap',spell:false,simpleMana:true,playable:true}]};
+ assert.deepEqual(primaryForgeAction(source),{type:'activate',cardId:'land',abilityIndex:0});assert.equal(forgeActionLabel(source),'Für Mana tappen');
+ assert.equal(primaryForgeAction({...source,abilities:[{...source.abilities![0],simpleMana:false}]}),null);
+ assert.equal(primaryForgeAction({...source,abilities:[...source.abilities!,{...source.abilities![0],index:1}]}),null);
+ assert(forgeActionSchema.safeParse({type:'activate',cardId:'source',abilityIndex:0,reviewPayment:true}).success);
+ assert(!forgeActionSchema.safeParse({type:'activate',cardId:'source',abilityIndex:0,reviewPayment:'true'}).success);
+});

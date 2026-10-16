@@ -38,5 +38,5 @@ test('automation starts manual, belongs to the authenticated player and survives
 
 test('Commander startup requires the adapter that marks reviewed optional choices',()=>{
  assert.throws(()=>checkForgeStartup({mode:'commander',features:['ai','human-reveals']},'commander'),ForgeVersionError);
- assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['ai','human-reveals','optional-reveal-automation','payment-review','p0-actions']},'commander'));
+ assert.doesNotThrow(()=>checkForgeStartup({mode:'commander',features:['ai','human-reveals','optional-reveal-automation','payment-review','p0-actions','action-preparation']},'commander'));
 });

@@ -254,6 +254,12 @@ The next automation increments should cover mechanics shared across decks:
 
 ## Setup and verification
 
+Human effect payments (Rhystic Study, Smothering Tithe, Ward and similar bounded
+costs) now require `human-effect-payments`. The payer reviews or declines the
+native cost; resolution never inherits a cast-cancellation permission. See the
+[effect payment report](../deploy/FORGE-EFFECT-PAYMENTS-2026-10-16.md) for supported
+costs, explicit limits, native/browser regression commands and release requirements.
+
 Requires Java 17, the unpacked official Forge desktop release including `res`,
 and all **eight** bridge files compiled with UTF-8:
 

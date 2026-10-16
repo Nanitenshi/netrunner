@@ -31,13 +31,13 @@ import forge.util.collect.FCollectionView;
 
 public class BatusForge {
  static final Gson JSON=new GsonBuilder().serializeNulls().create();static Game game;static Player[] seatedPlayers;static boolean commanderMode=false;static int active=0,priority=0,passes=0,turn=1;static final List<String> log=new ArrayList<>();
- static boolean ending=false,endWindow=false,combatMode=false,combatRunning=false,costMode=false,effectsMode=false;static String resolvingSource="",ruleError=null;static volatile Map<String,Object> choice=null;static CardCollection discardSelection=null;
- static boolean fullActions(){return commanderMode||effectsMode;}
+ static boolean ending=false,endWindow=false,combatMode=false,combatRunning=false,costMode=false,effectsMode=false,taxMode=false;static String resolvingSource="",ruleError=null;static volatile Map<String,Object> choice=null;static CardCollection discardSelection=null;
+ static boolean fullActions(){return commanderMode||effectsMode||taxMode;}
  static class HumanFixtureController extends PlayerControllerAi {
   HumanFixtureController(Player p,LobbyPlayer lobby){super(p.getGame(),p,lobby);}
   @Override public boolean payManaCost(forge.card.mana.ManaCost cost,forge.game.cost.CostPartMana part,SpellAbility sa,String prompt,forge.game.mana.ManaConversionMatrix matrix,boolean effect){var paid=HumanMana.pay(cost,sa,getPlayer(),effect);return paid==null?super.payManaCost(cost,part,sa,prompt,matrix,effect):paid;}
   int who(){return seat(getPlayer());}String source(SpellAbility sa){return sa==null?"":sa.getHostCard().getName();}
-  @Override public boolean payCostToPreventEffect(forge.game.cost.Cost cost,SpellAbility sa,boolean alreadyPaid,FCollectionView<Player> payers){if(HumanCosts.revealEffectSupported(cost))return HumanCosts.payRevealEffect(cost,sa,getPlayer());return super.payCostToPreventEffect(cost,sa,alreadyPaid,payers);}
+  @Override public boolean payCostToPreventEffect(forge.game.cost.Cost cost,SpellAbility sa,boolean alreadyPaid,FCollectionView<Player> payers){try{if(HumanCosts.revealEffectSupported(cost))return HumanCosts.payRevealEffect(cost,sa,getPlayer());return HumanCosts.payOptionalEffect(cost,sa,getPlayer(),alreadyPaid);}catch(RuntimeException failure){ruleError="Eine Effektzahlung konnte nicht regelkonform ausgeführt werden. Die Partie wurde angehalten.";throw new IllegalStateException(ruleError,failure);}}
   @Override public CardCollectionView chooseCardsToRevealFromHand(int min,int max,CardCollectionView valid){return HumanDecisions.select(who(),"Handkarten aufdecken",resolvingSource,valid,min,max);}
   @Override public void reveal(CardCollectionView cards,ZoneType zone,Player owner,String message,boolean suffix){HumanDecisions.reveal(who(),message,resolvingSource,HumanDecisions.cardOptions(cards));}
   @Override public void reveal(List<CardView> cards,ZoneType zone,PlayerView owner,String message,boolean suffix){var options=new ArrayList<Map<String,Object>>();for(var c:cards)options.add(Map.of("id",Integer.toString(c.getId()),"name",c.getOracleName()==null?c.getName():c.getOracleName(),"kind","card"));HumanDecisions.reveal(who(),message,resolvingSource,options);}
@@ -119,6 +119,12 @@ public class BatusForge {
    for(var n:List.of("Forest","Forest","Forest","Forest","Swamp","Swamp","Mountain","Mountain"))add(p,n,ZoneType.Battlefield);
    for(var n:List.of("Rancor","Battlegrowth","Cloudshift","Regenerate","Doom Blade","Badgermole","Reanimate"))add(p,n,ZoneType.Hand);
   }add(player(1),"Air Elemental",ZoneType.Graveyard);game.getAction().checkStaticAbilities(false);game.copyLastState();}
+  if(taxMode){for(var p:game.getPlayers()){
+   for(var c:new CardCollection(p.getCreaturesInPlay()))c.getZone().remove(c);
+   for(var c:new CardCollection(p.getCardsIn(ZoneType.Hand)))c.getZone().remove(c);
+   for(var n:List.of("Plains","Island","Mountain"))for(int i=0;i<3;i++)add(p,n,ZoneType.Battlefield);
+   for(var n:List.of("Lightning Bolt","Lightning Bolt","Think Twice","Swords to Plowshares","Swords to Plowshares","Forest","Mana Leak"))add(p,n,ZoneType.Hand);
+  }add(player(0),"Rhystic Study",ZoneType.Battlefield);add(player(0),"Smothering Tithe",ZoneType.Battlefield);add(player(1),"Sedgemoor Witch",ZoneType.Battlefield);add(player(1),"Graveyard Trespasser",ZoneType.Battlefield);game.getAction().checkStaticAbilities(false);game.copyLastState();}
  }
 
  static boolean canPay(SpellAbility sa,Player p){return HumanCosts.supported(sa)&&sa.canPlay()&&HumanCosts.canPay(sa,p)&&(!sa.usesTargeting()||targets(sa).size()>=sa.getMinTargets());}
@@ -201,8 +207,8 @@ public class BatusForge {
  static synchronized void emit(Map<String,Object> data){protocol.println("@@BATUSFORGE@@"+JSON.toJson(data));protocol.flush();}
  static void publishPause(){var frame=new LinkedHashMap<String,Object>();frame.put("state",state());if(!responded){frame.put("id",requestId);frame.put("ok",true);frame.put("paused",true);responded=true;}else frame.put("update",true);emit(frame);}
  public static void main(String[] args)throws Exception{
-  protocol=new PrintStream(new FileOutputStream(FileDescriptor.out),true,StandardCharsets.UTF_8);System.setOut(System.err);GuiBase.setInterface(new GuiDesktop());FModel.initialize(null,null);combatMode=Arrays.asList(args).contains("--combat");costMode=Arrays.asList(args).contains("--costs");effectsMode=Arrays.asList(args).contains("--effects");commanderMode=Arrays.asList(args).contains("--commander");var input=new BufferedReader(new InputStreamReader(System.in,StandardCharsets.UTF_8));if(commanderMode){combatMode=true;try{var specs=JsonParser.parseString(input.readLine()).getAsJsonObject().getAsJsonArray("decks");var issues=CommanderDecks.missing(specs);if(!issues.isEmpty()){emit(Map.of("ready",true,"issues",issues));return;}CommanderDecks.init(specs);}catch(Exception e){emit(Map.of("ready",true,"error","Decks konnten nicht geladen werden"));return;}}else init(Arrays.asList(args).contains("--decisions"));
-  emit(Map.of("ready",true,"mode",commanderMode?"commander":"fixture","features",List.of("ai","human-reveals","optional-reveal-automation","payment-review","p0-actions","action-preparation","combat-decisions","rule-effects"),"state",state()));var executor=Executors.newSingleThreadExecutor();
+  protocol=new PrintStream(new FileOutputStream(FileDescriptor.out),true,StandardCharsets.UTF_8);System.setOut(System.err);GuiBase.setInterface(new GuiDesktop());FModel.initialize(null,null);combatMode=Arrays.asList(args).contains("--combat");costMode=Arrays.asList(args).contains("--costs");effectsMode=Arrays.asList(args).contains("--effects");taxMode=Arrays.asList(args).contains("--taxes");commanderMode=Arrays.asList(args).contains("--commander");var input=new BufferedReader(new InputStreamReader(System.in,StandardCharsets.UTF_8));if(commanderMode){combatMode=true;try{var specs=JsonParser.parseString(input.readLine()).getAsJsonObject().getAsJsonArray("decks");var issues=CommanderDecks.missing(specs);if(!issues.isEmpty()){emit(Map.of("ready",true,"issues",issues));return;}CommanderDecks.init(specs);}catch(Exception e){emit(Map.of("ready",true,"error","Decks konnten nicht geladen werden"));return;}}else init(Arrays.asList(args).contains("--decisions"));
+  emit(Map.of("ready",true,"mode",commanderMode?"commander":"fixture","features",List.of("ai","human-reveals","optional-reveal-automation","payment-review","p0-actions","action-preparation","combat-decisions","rule-effects","human-effect-payments"),"state",state()));var executor=Executors.newSingleThreadExecutor();
   try(input){String line;while((line=input.readLine())!=null){JsonObject r;try{r=JsonParser.parseString(line).getAsJsonObject();}catch(Exception e){continue;}var id=r.get("id").getAsString();var a=r.getAsJsonObject("action");
    if(a.get("type").getAsString().equals("choose")){try{HumanDecisions.answer(r.get("seat").getAsInt(),a);emit(Map.of("id",id,"ok",true,"accepted",true));}catch(Exception e){emit(Map.of("id",id,"ok",false,"error",e.getMessage()));}continue;}
    if(!busy.compareAndSet(false,true)){emit(Map.of("id",id,"ok",false,"error","Bitte zuerst die laufende Entscheidung beantworten"));continue;}

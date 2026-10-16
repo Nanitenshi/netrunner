@@ -7,6 +7,9 @@ test('Forge projections never disclose opponent hands or either library',()=>{
 });
 test('Forge actions reject client-supplied seats, state and arbitrary commands',()=>{
  assert(forgeActionSchema.safeParse({type:'cast',cardId:'1',targetId:'stack:2'}).success);
+ assert(forgeActionSchema.safeParse({type:'cast',cardId:'1',reviewPayment:true}).success);
+ assert(forgeActionSchema.safeParse({type:'cast',cardId:'1',reviewPayment:false}).success);
+ assert(!forgeActionSchema.safeParse({type:'cast',cardId:'1',reviewPayment:'false'}).success);
  for(const action of [{type:'cast',cardId:'1',seat:1},{type:'pass',state:{}},{type:'eval',command:'anything'}])assert(!forgeActionSchema.safeParse(action).success);
 });
 test('discard options remain private while the public decision count is shared',()=>{
@@ -15,4 +18,10 @@ test('discard options remain private while the public decision count is shared',
  assert.equal(projectForge(state,0).choice?.count,1);
  assert.equal(projectForge(state,1).choice?.options[0].name,'Secret card');
  assert.equal(state.choice?.options.length,1);
+});
+
+test('native payment details and source preferences stay private until the spell is committed',()=>{
+ const state:ForgeState={cards:[],stack:[],life:[40,40],active:0,priority:0,passes:0,turn:1,log:[],choice:{id:'payment',seat:0,kind:'payment',source:'Secret spell',title:'Mana-Zahlung prüfen',count:0,min:0,max:1,options:[{id:'source',name:'Plains',kind:'card'}],payment:{cost:'{W}',commanderTax:0,selectable:true,selectedIds:['source'],steps:[{sourceId:'source',name:'Plains',cost:0,produces:{W:1}}],pool:{},error:''}}};
+ assert.equal(projectForge(state,0).choice?.payment?.cost,'{W}');assert.equal(projectForge(state,1).choice?.payment,undefined);assert(!JSON.stringify(projectForge(state,1)).includes('Secret spell'));assert.deepEqual(projectForge(state,1).choice?.options,[]);assert(state.choice?.payment);
+ for(const extra of [{mana:{W:99}},{cost:'{0}'},{sourceIds:['foreign']}])assert(!forgeActionSchema.safeParse({type:'choose',choiceId:'00000000-0000-4000-8000-000000000000',first:[],...extra}).success);
 });

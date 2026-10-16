@@ -13,7 +13,7 @@ const act=async(seat,action,ok=true)=>{const r=await worker.action(seat,action);
 const choose=async(seat,input)=>{const id=state.choice.id;await act(seat,{type:'choose',choiceId:id,...input});await wait(()=>state.choice?.id!==id);};
 const resolve=async()=>{await act(state.priority,{type:'pass'});await act(state.priority,{type:'pass'});};
 const land=async seat=>{const c=state.cards.find(c=>c.owner===seat&&c.zone==='hand'&&c.type.includes('Land'));assert(c);await act(seat,{type:'land',cardId:c.id});};
-const end=async seat=>{await act(seat,{type:'endTurn'});for(let i=0;state.active===seat&&i<10;i++){if(state.choice){if(state.choice.kind==='discard'){await act(seat,{type:'discard',choiceId:state.choice.id,cardIds:state.choice.options.slice(0,state.choice.count).map(o=>o.id)});}else throw Error('Unexpected choice '+JSON.stringify(state.choice));}else await resolve();}assert.equal(state.active,1-seat);};
+const end=async seat=>{await act(seat,{type:'endTurn'});assert.equal(state.choice?.purpose,'end-turn');await choose(seat,{answer:true});for(let i=0;state.active===seat&&i<10;i++){if(state.choice){if(state.choice.kind==='discard'){await act(seat,{type:'discard',choiceId:state.choice.id,cardIds:state.choice.options.slice(0,state.choice.count).map(o=>o.id)});}else throw Error('Unexpected choice '+JSON.stringify(state.choice));}else await resolve();}assert.equal(state.active,1-seat);};
 try{
  state=await worker.ready;
  assert.equal(state.stage,'mulligan');assert.deepEqual(projectForge(state,0).handCounts,[7,7]);assert.deepEqual(projectForge(state,0).libraryCounts,[92,92]);assert.equal(state.cards.filter(c=>c.isCommander&&c.zone==='command').length,2);assert.deepEqual(state.life,[40,40]);

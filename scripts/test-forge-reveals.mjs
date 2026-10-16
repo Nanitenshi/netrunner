@@ -15,7 +15,7 @@ async function run(deck,test){let state;const worker=new ForgeWorker({...config,
  const choose=async(input,seat=state.choice.seat)=>{const choiceId=state.choice.id;await act(seat,{type:'choose',choiceId,...input});await wait(()=>state.choice?.id!==choiceId);};
  const opening=async(name,extra=()=>true)=>{const found=()=>state.cards.some(c=>c.owner===0&&c.zone==='hand'&&c.name===name)&&extra(state);for(let n=0;!found()&&n<1000;n++)await act(0,{type:'mulligan'});assert(found());await act(0,{type:'keep'});await act(1,{type:'keep'});};
  const resolve=async()=>{await act(state.priority,{type:'pass'});await act(state.priority,{type:'pass'});};
- const end=async seat=>{await act(seat,{type:'endTurn'});for(let n=0;state.active===seat&&n<40;n++){if(state.choice){assert.equal(state.choice.kind,'discard');await act(state.choice.seat,{type:'discard',choiceId:state.choice.id,cardIds:state.choice.options.slice(0,state.choice.count).map(c=>c.id)});}else await resolve();}assert.equal(state.active,1-seat);};
+ const end=async seat=>{await act(seat,{type:'endTurn'});assert.equal(state.choice?.purpose,'end-turn');await choose({answer:true},seat);for(let n=0;state.active===seat&&n<40;n++){if(state.choice){assert.equal(state.choice.kind,'discard');await act(state.choice.seat,{type:'discard',choiceId:state.choice.id,cardIds:state.choice.options.slice(0,state.choice.count).map(c=>c.id)});}else await resolve();}assert.equal(state.active,1-seat);};
  try{state=await worker.ready;await test({act,choose,opening,wait,resolve,end,get state(){return state;}});}finally{worker.stop();}
 }
 for(const [index,[land,basic]] of pairs.entries())for(const accept of [true,false]){

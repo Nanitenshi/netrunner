@@ -18,7 +18,7 @@ async function run(decks,test){
  const resolve=async()=>{await act(state.priority,{type:'pass'});await act(state.priority,{type:'pass'});};
  const opening=async(...names)=>{const contains=()=>names.every(name=>state.cards.some(c=>c.owner===0&&c.zone==='hand'&&c.name===name));for(let i=0;!contains()&&i<5000;i++)await act(0,{type:'mulligan'});assert(contains(),names.join(', '));await act(0,{type:'keep'});await act(1,{type:'keep'});};
  const land=async(seat,name)=>{const c=state.cards.find(c=>c.owner===seat&&c.zone==='hand'&&c.name===name);assert(c,name);await act(seat,{type:'land',cardId:c.id});};
- const end=async seat=>{await act(seat,{type:'endTurn'});for(let i=0;state.active===seat&&i<20;i++){if(state.choice){assert.equal(state.choice.kind,'discard');await act(state.choice.seat,{type:'discard',choiceId:state.choice.id,cardIds:state.choice.options.slice(0,state.choice.count).map(o=>o.id)});}else await resolve();}assert.equal(state.active,1-seat);};
+ const end=async seat=>{await act(seat,{type:'endTurn'});assert.equal(state.choice?.purpose,'end-turn');await choose(seat,{answer:true});for(let i=0;state.active===seat&&i<20;i++){if(state.choice){assert.equal(state.choice.kind,'discard');await act(state.choice.seat,{type:'discard',choiceId:state.choice.id,cardIds:state.choice.options.slice(0,state.choice.count).map(o=>o.id)});}else await resolve();}assert.equal(state.active,1-seat);};
  try{state=await worker.ready;await test({act,choose,resolve,opening,land,end,get state(){return state;}});}finally{worker.stop();}
 }
 await run([deck('Fetch','Ruxa, Patient Professor',{Forest:97,'Windswept Heath':1,Regrowth:1}),other],async t=>{
@@ -31,7 +31,7 @@ await run([deck('Fetch','Ruxa, Patient Professor',{Forest:97,'Windswept Heath':1
 });
 await run([deck('Cycling','Isamaru, Hound of Konda',{Plains:98,'Secluded Steppe':1}),other],async t=>{
  await t.opening('Secluded Steppe');await t.land(0,'Plains');const source=t.state.cards.find(c=>c.owner===0&&c.zone==='hand'&&c.name==='Secluded Steppe');const ability=source.abilities.find(a=>!a.spell&&a.playable);assert(ability,'Cycling activation');const hand=projectForge(t.state,0).handCounts[0];
- await t.act(0,{type:'activate',cardId:source.id,abilityIndex:ability.index});assert.equal(t.state.cards.find(c=>c.id===source.id).zone,'graveyard');assert.equal(projectForge(t.state,0).handCounts[0],hand-1);await t.resolve();assert.equal(projectForge(t.state,0).handCounts[0],hand);
+ await t.act(0,{type:'activate',cardId:source.id,abilityIndex:ability.index,holdPriority:true});assert.equal(t.state.priority,0);assert.equal(t.state.passes,0);assert.equal(t.state.cards.find(c=>c.id===source.id).zone,'graveyard');assert.equal(projectForge(t.state,0).handCounts[0],hand-1);await t.resolve();assert.equal(projectForge(t.state,0).handCounts[0],hand);
  await t.end(0);await t.land(1,'Plains');await t.end(1);const mana=t.state.cards.find(c=>c.owner===0&&c.zone==='battlefield'&&c.name==='Plains');const tap=mana.abilities.find(a=>a.playable&&!a.spell);assert(tap);
  await t.act(0,{type:'activate',cardId:mana.id,abilityIndex:tap.index});assert.equal(t.state.priority,0);assert.equal(t.state.stack.length,0);assert.equal(t.state.cards.find(c=>c.id===mana.id).tapped,true);
  const commander=t.state.cards.find(c=>c.owner===0&&c.isCommander);assert(commander.playable);await t.act(0,{type:'cast',cardId:commander.id});await t.resolve();assert.equal(t.state.cards.find(c=>c.owner===0&&c.isCommander).zone,'battlefield');

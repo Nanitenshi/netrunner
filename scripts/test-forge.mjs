@@ -3,9 +3,9 @@ import {projectForge} from '../shared/forge-protocol.ts';
 import assert from 'node:assert/strict';
 const config={java:process.env.FORGE_JAVA,runtime:process.env.FORGE_RUNTIME,classes:process.env.FORGE_CLASSES};
 if(!Object.values(config).every(Boolean))throw Error('Set FORGE_JAVA, FORGE_RUNTIME and FORGE_CLASSES before running this integration test.');
-const worker=new ForgeWorker(config,()=>{});
-let state;const act=async(seat,action,ok=true)=>{const r=await worker.action(seat,action);assert.equal(r.ok,ok,r.error);state=r.state;return r;};
-const end=async()=>{const who=state.active;await act(who,{type:'endTurn'});assert.equal(state.phase,'END_OF_TURN');await act(who,{type:'pass'});await act(1-who,{type:'pass'});};
+let state;const worker=new ForgeWorker(config,()=>{},s=>state=s);
+const act=async(seat,action,ok=true)=>{const r=await worker.action(seat,action);assert.equal(r.ok,ok,r.error);if(r.state)state=r.state;return r;};
+const end=async()=>{const who=state.active;await act(who,{type:'endTurn'});const choiceId=state.choice.id;assert.equal(state.choice.purpose,'end-turn');await act(who,{type:'choose',choiceId,answer:true});for(let n=0;state.choice?.id===choiceId&&n<1000;n++)await new Promise(r=>setTimeout(r,10));assert.equal(state.phase,'END_OF_TURN');await act(who,{type:'pass'});await act(1-who,{type:'pass'});};
 try{
  state=await worker.ready;await act(1,{type:'endTurn'},false);
  await end();assert.equal(state.turn,2);assert.equal(state.active,1);assert.equal(state.cards.filter(c=>c.owner===1&&c.zone==='hand').length,7);

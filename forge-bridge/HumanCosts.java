@@ -55,8 +55,8 @@ final class HumanCosts extends AiCostDecision {
  }
  static boolean play(SpellAbility sa,Player player){
   BatusForge.require(supported(sa),"Diese Zusatzkosten sind noch nicht im Testumfang");
-  if(sa.getPayCosts().getCostParts().stream().allMatch(c->c instanceof CostPartMana)){if(!ComputerUtilCost.canPayCost(sa,player,false))FilterMana.prepare(sa,player);BatusForge.require(ComputerUtil.playStack(sa,player,BatusForge.game),"Kosten konnten nicht bezahlt werden");return true;}
-  if(!ComputerUtilCost.canPayCost(sa,player,false))return false;
+  if(!HumanMana.approved(sa)&&sa.getPayCosts().getCostParts().stream().allMatch(c->c instanceof CostPartMana)){if(!ComputerUtilCost.canPayCost(sa,player,false))FilterMana.prepare(sa,player);BatusForge.require(ComputerUtil.playStack(sa,player,BatusForge.game),"Kosten konnten nicht bezahlt werden");return true;}
+  if(!HumanMana.approved(sa)&&!ComputerUtilCost.canPayCost(sa,player,false))return false;
   var source=sa.getHostCard();var zone=source.getZone();int position=zone.getCards().indexOf(source);
   if(sa.isSpell())sa.setHostCard(BatusForge.game.getAction().moveToStack(source,sa));
   var payment=new CostPayment(sa.getPayCosts(),sa);

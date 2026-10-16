@@ -5,7 +5,7 @@ import type {ForgeAction,ForgeState,ForgeScenario} from '../shared/forge-protoco
 import type {ForgeDeckConfig} from '../shared/forge-decks.ts';
 export class ForgeDeckError extends Error {readonly issues:{seat:number;cards:string[]}[];constructor(issues:{seat:number;cards:string[]}[]){super('Ein Deck enthält Karten, die diese Forge-Version nicht kennt.');this.issues=issues;}}
 export class ForgeVersionError extends Error {constructor(){super('Der Forge-Server muss für die aktuellen Commander-Funktionen aktualisiert werden.');}}
-export function checkForgeStartup(reply:{mode?:string;features?:string[];issues?:unknown;error?:unknown},scenario?:ForgeScenario,ai=false){if(!reply.issues&&!reply.error&&(scenario==='commander'&&(reply.mode!=='commander'||(!reply.features?.includes('human-reveals')||!reply.features?.includes('optional-reveal-automation')))||ai&&!reply.features?.includes('ai')))throw new ForgeVersionError();}
+export function checkForgeStartup(reply:{mode?:string;features?:string[];issues?:unknown;error?:unknown},scenario?:ForgeScenario,ai=false){if(!reply.issues&&!reply.error&&(scenario==='commander'&&(reply.mode!=='commander'||(!reply.features?.includes('human-reveals')||!reply.features?.includes('optional-reveal-automation')||!reply.features?.includes('payment-review')||!reply.features?.includes('p0-actions')))||ai&&!reply.features?.includes('ai')))throw new ForgeVersionError();}
 export interface ForgeConfig {java:string;runtime:string;classes:string;scenario?:ForgeScenario;decks?:ForgeDeckConfig[]}
 export class ForgeWorker {
  private process:ChildProcessWithoutNullStreams;

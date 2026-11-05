@@ -43,7 +43,11 @@ test('bridge separates diagnostics, updates and correlated action replies', asyn
  f.reply({id: '1', ok: true, state});
  assert.equal((await first).ok, true);
  assert.equal((await second).error, 'Keine Priorität');
- assert.deepEqual(f.updates, [{state: {...state, turn: 2}, error: 'Entscheidung nötig'}]);
+ assert.deepEqual(f.updates, [
+  {state, error: undefined},
+  {state: {...state, turn: 2}, error: 'Entscheidung nötig'},
+  {state, error: undefined},
+ ]);
  assert.equal(f.failures(), 0);
 });
 

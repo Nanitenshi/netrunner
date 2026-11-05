@@ -11,7 +11,7 @@ This document tracks the path to a single product supporting manual Commander, a
 
 ## Phase 0: establish a reproducible baseline (P0)
 - [ ] Record the current branch SHA, Node/pnpm/Java versions and Forge 2.0.15 runtime hashes.
-- [ ] Run `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm build`.
+- [x] Run `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm build`: GitHub Actions, 2026-11-05, 303 tests and build passed on `71289e80cf51371a0d86b7a35519d875de49ebf1` (see report below).
 - [ ] Configure the pinned external Forge runtime and compile all eight bridge Java sources together.
 - [ ] Run `node scripts/check-forge-runtime.mjs` and the documented Forge commander, decision, combat, cost, payment, AI and rule-effect suites.
 - [ ] Record commands, pass/fail, environment and reproducible failure traces in a dated report.
@@ -52,6 +52,12 @@ This document tracks the path to a single product supporting manual Commander, a
 - Four-seat multiplayer is currently a separate Casual engine.
 - Some human-controller callbacks and cost/casting families are not fully validated.
 - The external Forge runtime is not bundled with the normal Docker image.
+
+## Verified progress · 2026-11-05
+- PR #27 merged: process and stream failure handling; 291 tests and production build passed on GitHub.
+- Snapshot ordering/lifecycle follow-up: five races reproduced before the fix; 12 room integration tests added; 303 tests and build passed on the implementation commit.
+- Evidence, exact commits, limitations and next steps: [snapshot/lifecycle report](FORGE-SNAPSHOT-ORDERING-2026-11-05.md), [process report](FORGE-PROCESS-STABILITY-2026-11-05.md).
+- Native Java/Forge scenarios, browser runs and ten complete matches remain NOT RUN in this environment. Phase 0 is not complete.
 
 ## Next implementation ticket
 **P0-01: baseline verification and failure inventory.** Run the checks above, capture concrete failures, then fix the highest-severity reproducible failure on a dedicated branch. Avoid speculative engine rewrites.

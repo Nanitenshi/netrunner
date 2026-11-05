@@ -95,6 +95,9 @@ export class ForgeTransport {
      return;
     }
    }
+   // Apply every snapshot in wire order, before resolving an action promise.
+   // Promise continuations may run after later lines in the same stdout chunk.
+   if (reply.state) this.callbacks.onUpdate(reply.state, reply.error);
    clearTimeout(pending.timer);
    this.pending.delete(key!);
    pending.resolve(reply);

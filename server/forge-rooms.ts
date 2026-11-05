@@ -7,6 +7,7 @@ import {toForgeDeck} from '../shared/forge-decks.ts';
 import {forgeActionSchema,projectForge,type ForgeState,type ForgeRoom,type ForgeScenario} from '../shared/forge-protocol.ts';
 import type {User,DeckData} from '../shared/protocol.ts';
 type RoomWorker = Pick<ForgeWorker,'ready'|'action'|'stop'>;
+// Workers deliver every snapshot through onUpdate in receive order; action promises only acknowledge it.
 type WorkerFactory = (config:ForgeConfig,onFailure:()=>void,onUpdate:(state:ForgeState,error?:string)=>void)=>RoomWorker;
 interface Room {automation:Map<string,ForgeAutomation>;automaticDecisions:Map<string,ForgeAutomaticDecision[]>;automationErrors:Map<string,string>;autoScheduled:boolean;autoAttempted:Set<string>;autoFailed:Map<string,string>;ai?:{id:string;difficulty:'easy'|'normal'|'hard'};scenario:ForgeScenario;code:string;players:User[];decks:Map<string,DeckData>;ready:Set<string>;deckErrors:Map<string,string[]>;revision:number;starting:boolean;state:ForgeState|null;worker?:RoomWorker;error?:string;queue:Promise<void>;seen:Set<string>}
 export function createForgeRooms(config:ForgeConfig|undefined,emit:(id:string,view:ForgeRoom|null)=>void,createWorker:WorkerFactory=(config,onFailure,onUpdate)=>new ForgeWorker(config,onFailure,onUpdate)){
@@ -25,11 +26,10 @@ export function createForgeRooms(config:ForgeConfig|undefined,emit:(id:string,vi
    r.autoAttempted.add(current.id);if(r.autoAttempted.size>256)r.autoAttempted.delete(r.autoAttempted.values().next().value!);
    try{
     const result=await r.worker.action(current.seat,action);if(!result.ok)throw Error('Automatic choice rejected');
-    if(rooms.get(r.code)!==r)return;
+    if(rooms.get(r.code)!==r||!r.state)return;
     const history=r.automaticDecisions.get(player.id)??[];
     history.push({id:current.id,source:current.source??'Aufdeck-Land',cardName:current.options[0].name});
     r.automaticDecisions.set(player.id,history.slice(-8));r.automationErrors.delete(player.id);
-    if(result.state)r.state=result.state;
    }catch{
     if(rooms.get(r.code)!==r)return;
     // A rejected choice remains available for the human. Never retry it blindly.
@@ -63,11 +63,11 @@ export function createForgeRooms(config:ForgeConfig|undefined,emit:(id:string,vi
    if(r.players[0].id!==user.id||r.players.length!==2)throw Error('Nur der Gastgeber kann mit zwei Spielern starten');if(r.ai&&scenario!=='commander')throw Error('KI-Gegner benötigen den Commander-Modus');if(!config)throw Error('Forge nicht eingerichtet');
    const decks=scenario==='commander'?r.players.map(p=>{if(!r.ready.has(p.id)||!r.decks.has(p.id))throw Error('Beide Spieler müssen ein Deck wählen und bereit sein');const deck=toForgeDeck(r.decks.get(p.id),p.name).config;return p.id===r.ai?.id?{...deck,ai:{difficulty:r.ai.difficulty}}:deck;}):undefined;
    r.starting=true;r.scenario=scenario;r.error=undefined;r.deckErrors.clear();broadcast(r);
-   let worker:RoomWorker|undefined;try{worker=createWorker({...config,scenario,decks},()=>{if(rooms.get(r.code)!==r||r.worker!==worker)return;r.error='Forge-Verbindung beendet. Verlasse den Tisch und erstelle einen neuen.';r.state=null;r.starting=false;r.revision++;broadcast(r);},(state,error)=>{if(rooms.get(r.code)!==r||r.worker!==worker)return;r.state=state;r.error=error;r.revision++;broadcast(r);scheduleAutomatic(r);});r.worker=worker;
-   const state=await worker.ready;if(rooms.get(r.code)!==r){worker.stop();throw Error('Tisch wurde verlassen');}r.state=state;r.starting=false;r.revision++;broadcast(r);scheduleAutomatic(r);}
+   let failed=false;let worker:RoomWorker|undefined;try{worker=createWorker({...config,scenario,decks},()=>{if(rooms.get(r.code)!==r||r.worker!==worker)return;failed=true;r.error='Forge-Verbindung beendet. Verlasse den Tisch und erstelle einen neuen.';r.state=null;r.starting=false;r.revision++;broadcast(r);},(state,error)=>{if(rooms.get(r.code)!==r||r.worker!==worker||failed)return;r.state=state;r.error=error;r.revision++;broadcast(r);scheduleAutomatic(r);});r.worker=worker;
+   const state=await worker.ready;if(rooms.get(r.code)!==r||failed){worker.stop();throw Error('Tisch wurde verlassen oder Forge-Verbindung beendet');}r.state??=state;r.starting=false;r.revision++;broadcast(r);scheduleAutomatic(r);}
    catch(e){worker?.stop();if(rooms.get(r.code)!==r)throw e;r.worker=undefined;r.state=null;r.starting=false;r.error=e instanceof ForgeVersionError?e.message:'Die Partie konnte nicht gestartet werden. Decks prüfen und erneut versuchen.';if(e instanceof ForgeDeckError){for(const issue of e.issues){const p=r.players[issue.seat];if(p){r.deckErrors.set(p.id,issue.cards);r.ready.delete(p.id);}}}r.revision++;broadcast(r);throw Error(e instanceof ForgeDeckError||e instanceof ForgeVersionError?e.message:'Forge konnte nicht gestartet werden');}
   },
-  async action(user:User,input:unknown){const data=z.object({id:z.string().min(1).max(80),revision:z.number().int().nonnegative(),action:forgeActionSchema}).strict().parse(input);const r=must(user.id);const perform=async()=>{if(rooms.get(r.code)!==r||!r.state||!r.worker)throw new Error('Forge-Tisch nicht aktiv');const key=user.id+':'+data.id;if(r.seen.has(key))return;if(data.revision!==r.revision)throw new Error('Der Spielstand hat sich geändert. Bitte erneut versuchen.');const result=await r.worker.action(r.players.findIndex(p=>p.id===user.id),data.action);if(rooms.get(r.code)!==r)return;if(result.state){r.state=result.state;r.revision++;}if(!result.ok){broadcast(r);scheduleAutomatic(r);throw new Error(result.error||'Aktion nicht möglich');}r.seen.add(key);if(r.seen.size>256)r.seen.delete(r.seen.values().next().value!);broadcast(r);scheduleAutomatic(r);};const next=r.queue.then(perform);r.queue=next.catch(()=>{});await next;},
+  async action(user:User,input:unknown){const data=z.object({id:z.string().min(1).max(80),revision:z.number().int().nonnegative(),action:forgeActionSchema}).strict().parse(input);const r=must(user.id);const perform=async()=>{if(rooms.get(r.code)!==r||!r.state||!r.worker)throw new Error('Forge-Tisch nicht aktiv');const key=user.id+':'+data.id;if(r.seen.has(key))return;if(data.revision!==r.revision)throw new Error('Der Spielstand hat sich geändert. Bitte erneut versuchen.');const result=await r.worker.action(r.players.findIndex(p=>p.id===user.id),data.action);if(rooms.get(r.code)!==r)return;if(!r.state)throw Error('Forge-Tisch nicht aktiv');if(!result.ok){broadcast(r);scheduleAutomatic(r);throw new Error(result.error||'Aktion nicht möglich');}r.seen.add(key);if(r.seen.size>256)r.seen.delete(r.seen.values().next().value!);broadcast(r);scheduleAutomatic(r);};const next=r.queue.then(perform);r.queue=next.catch(()=>{});await next;},
   leave(user:User){const r=find(user.id);if(!r)return;rooms.delete(r.code);r.worker?.stop();r.players.filter(p=>p.id!==r.ai?.id).forEach(p=>emit(p.id,null));},
   close(){for(const r of rooms.values())r.worker?.stop();rooms.clear();}
  };

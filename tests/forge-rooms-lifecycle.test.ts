@@ -1,7 +1,11 @@
 import {test, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {setImmediate} from 'node:timers/promises';
+import {EventEmitter} from 'node:events';
+import {PassThrough} from 'node:stream';
+import type {ChildProcessWithoutNullStreams} from 'node:child_process';
 import {createForgeRooms} from '../server/forge-rooms.ts';
+import {ForgeTransport} from '../server/forge-transport.ts';
 import type {ForgeWorker} from '../server/forge-worker.ts';
 import type {ForgeAction, ForgeRoom, ForgeState} from '../shared/forge-protocol.ts';
 
@@ -12,41 +16,37 @@ const state = (turn = 1): ForgeState => ({
  cards: [], stack: [], life: [40, 40], active: 0, priority: 0,
  passes: 0, turn, log: [], choice: null,
 });
-function deferred<T>() {
- let resolve!: (value: T) => void;
- let reject!: (error: Error) => void;
- const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
- return {promise, resolve, reject};
-}
 function setup(t: TestContext) {
- const ready = deferred<ForgeState>();
- const requests: {seat: number; action: ForgeAction; reply: ReturnType<typeof deferred<ActionReply>>}[] = [];
+ const requests: {seat: number; action: ForgeAction; reply: {resolve: (reply: ActionReply) => void}}[] = [];
  const views = new Map<string, ForgeRoom | null>();
- let failure = () => {};
- let update = (_state: ForgeState, _error?: string) => {};
  let stops = 0;
- const worker = {
-  ready: ready.promise,
-  action(seat: number, action: ForgeAction) {
-   const reply = deferred<ActionReply>();
-   requests.push({seat, action, reply});
-   return reply.promise;
-  },
-  stop() {
-   stops++;
-   ready.reject(new Error('worker stopped'));
-   for (const request of requests) request.reply.reject(new Error('worker stopped'));
-  },
- };
+ const child = Object.assign(new EventEmitter(), {
+  stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(),
+  kill() { stops++; return true; },
+ });
+ const send = (reply: unknown) => child.stdout.write('@@BATUSFORGE@@' + JSON.stringify(reply) + '\n');
+ child.stdin.on('data', chunk => {
+  const request = JSON.parse(chunk.toString());
+  requests.push({seat: request.seat, action: request.action,
+   reply: {resolve: result => { send({id: request.id, ...result}); }}});
+ });
+ const ready = {resolve: (state: ForgeState) => { send({ready: true, state}); }};
  const rooms = createForgeRooms({java: 'unused', runtime: 'unused', classes: 'unused'},
   (id, view) => views.set(id, view), (_config, onFailure, onUpdate) => {
-   failure = onFailure; update = onUpdate; return worker;
+   const transport = new ForgeTransport(child as unknown as ChildProcessWithoutNullStreams,
+    {onReady: () => {}, onFailure, onUpdate});
+   return {
+    ready: transport.ready,
+    async action(seat, action) { const reply = await transport.request(seat, action); return {...reply, ok: reply.ok === true}; },
+    stop() { transport.stop(); },
+   };
   });
  rooms.create(host); rooms.join(peer, {code: rooms.snapshot(host.id)!.code});
  t.after(() => rooms.close());
  return {
   rooms, views, ready, requests, stops: () => stops,
-  fail: () => failure(), update: (state: ForgeState, error?: string) => update(state, error),
+  fail: () => child.emit('error', new Error('private engine error')),
+  update: (state: ForgeState, error?: string) => { send({update: true, state, error}); },
   input: (id = 'action') => ({id, revision: rooms.snapshot(host.id)!.revision, action: {type: 'pass' as const}}),
   async start() { const starting = rooms.start(host); ready.resolve(state()); await starting; },
  };
@@ -77,6 +77,25 @@ test('an action reply cannot resurrect a table after a worker failure', async t 
  await rejected;
  assert.equal(f.rooms.snapshot(host.id)!.game, null);
  assert.match(f.views.get(peer.id)!.error!, /Verbindung beendet/);
+});
+
+test('a later action snapshot wins over an earlier unsolicited update', async t => {
+ const f = setup(t); await f.start();
+ const action = f.rooms.action(host, f.input()); await setImmediate();
+ f.update(state(2));
+ f.requests[0].reply.resolve({ok: true, state: state(3)});
+ await action;
+ assert.equal(f.rooms.snapshot(host.id)!.game!.turn, 3);
+});
+
+test('state on a rejected action is still applied before a later native update', async t => {
+ const f = setup(t); await f.start();
+ const action = f.rooms.action(host, f.input());
+ const rejected = assert.rejects(action, /Keine Priorität/);
+ await setImmediate();
+ f.requests[0].reply.resolve({ok: false, error: 'Keine Priorität', state: state(2)});
+ f.update(state(3)); await rejected;
+ assert.equal(f.rooms.snapshot(host.id)!.game!.turn, 3);
 });
 
 test('a settings revision during a pending action does not discard its legitimate state', async t => {
@@ -147,7 +166,7 @@ test('leaving during startup cancels the worker and ignores its late updates', a
 
 test('leaving during an action rejects it and never restores the deleted room', async t => {
  const f = setup(t); await f.start();
- const action = f.rooms.action(host, f.input()); const rejected = assert.rejects(action, /stopped/);
+ const action = f.rooms.action(host, f.input()); const rejected = assert.rejects(action, /beendet/);
  await setImmediate(); f.rooms.leave(peer); f.update(state(2)); await rejected;
  assert.equal(f.rooms.snapshot(host.id), null);
  assert.equal(f.views.get(host.id), null);
